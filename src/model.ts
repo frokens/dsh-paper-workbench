@@ -174,7 +174,8 @@ export function exportParagraphs(paper: Paper) {
   baseline.forEach((original, position) => {
     if (original.type.name !== 'paragraph') return;
     const current = findBlock(doc, original.attrs.id), start = position + 1, end = start + original.content.size;
-    if (findBlock(projected, original.attrs.id).node.eq(original)) return;
+    // The DOCX owner checks net equality using complete native run properties.
+    // Text and the editable view's marks alone cannot prove formatting unchanged.
     const points = [start, ...[...cuts].filter(p => p > start && p < end).sort((a, b) => a - b), end];
     let oldCursor = start, newCursor = current.position + 1;
     const segments: Segment[] = [];

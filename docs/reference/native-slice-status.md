@@ -25,6 +25,10 @@ acceptance. The implementation plan and product goals remain in force.
   projection records inserted runs' native style sources, verifies it reproduces
   the authoritative body, and is discarded. It is never a second editable or
   persisted document. Equal text elsewhere cannot take the selected text's place.
+- Net equality is checked in the OOXML owner using full native `RunProperties` and
+  text, independently of incidental run splits. Matching text, bold and italic in
+  the sidebar cannot suppress color/font/other native format changes. A genuinely
+  restored native baseline is left unchanged without net insertions/deletions.
 
 ## Current support boundary
 
@@ -52,13 +56,15 @@ selection; B owns mapping unaffected selections and semantic applicability.
 On macOS arm64 with Node 25.9.0 and DSH 0.2.2-rc.1:
 
 - Type checking and the Host/Client build pass.
-- Fourteen focused tests cover exact repeated-text selection, untouched context and
+- Fifteen focused tests cover exact repeated-text selection, untouched context and
   emphasis, idempotence, stale range refusal, rejection, SDK native tracked changes,
   clean export, mixed-format replacement and engine accept/reject round trips.
   Regression cases include deletion of the first formatted duplicate, repeated
   replacement and overlapping later edits, same text with changed surviving style,
   return to the baseline, insertion after clearing text, and unsupported paragraph
   mark revisions under default/accept/reject import requests.
+  A native color regression also verifies that accepted/clean output uses the
+  surviving default style and rejected revisions restore the original red style.
 - The first test run exposed ProseMirror required-node generation with required
   identity attributes. The document schema now allows an empty root while the import
   operation explicitly rejects a document without body blocks. The focused rerun passes.
@@ -114,6 +120,13 @@ insertions. SDK track-change element types now identify these as unsupported
 structural revisions and refuse processing before import under all three modes.
 Both original failing regressions were retained and reproduced before correction.
 These corrections require independent re-review; passing owner tests is not acceptance.
+
+The first correction's re-review found that an optimization compared only the
+editable view's text/bold/italic and skipped a real native color change. That
+shortcut is removed. The existing SDK owner now materializes the mapped native
+runs first, compares all run properties and text, and skips only a complete native
+match. The color failure and the actual DOCX baseline-restoration regression are
+both retained; no second editable format state or migration is introduced.
 
 Early real-host failures exposed an invalid storage domain name, stale modules
 until restart, missing Client injection dependencies and an incorrect canonical

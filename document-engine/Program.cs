@@ -77,11 +77,10 @@ static class Program
                     throw new Exception("Export diff does not cover the exact source.");
                 bool tracked = request.GetProperty("tracked").GetBoolean();
                 int offset = 0;
-                foreach (var child in p.ChildElements.Where(e => e is not W.ParagraphProperties).ToArray()) child.Remove();
-                int revisionId = 0;
+                var prepared = new List<(string Kind, W.Run[] Runs)>();
                 foreach (var segment in segments)
                 {
-                    var kind = segment.GetProperty("kind").GetString();
+                    var kind = segment.GetProperty("kind").GetString()!;
                     var text = segment.GetProperty("text").GetString()!;
                     if (kind == "insert")
                     {
@@ -94,17 +93,24 @@ static class Program
                             var style = StyleAt(original, styleFrom);
                             if (style != null) insertion.PrependChild(style);
                         }
-                        if (tracked) p.Append(new W.InsertedRun(insertion) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
-                        else p.Append(insertion);
+                        prepared.Add((kind, [insertion]));
                     }
                     else
                     {
                         var runs = Slice(original, offset, text.Length, kind == "delete" && tracked);
-                        if (kind == "equal") { foreach (var run in runs) p.Append(run); }
-                        else if (kind == "delete" && tracked) p.Append(new W.DeletedRun(runs) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
-                        else if (kind != "delete") throw new Exception("Unknown diff segment.");
+                        if (kind is not ("equal" or "delete")) throw new Exception("Unknown diff segment.");
+                        prepared.Add((kind, runs));
                         offset += text.Length;
                     }
+                }
+                if (EquivalentRuns(original, prepared.Where(e => e.Kind != "delete").SelectMany(e => e.Runs))) continue;
+                foreach (var child in p.ChildElements.Where(e => e is not W.ParagraphProperties).ToArray()) child.Remove();
+                int revisionId = 0;
+                foreach (var edit in prepared)
+                {
+                    if (edit.Kind == "insert" && tracked) p.Append(new W.InsertedRun(edit.Runs) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
+                    else if (edit.Kind == "delete" && tracked) p.Append(new W.DeletedRun(edit.Runs) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
+                    else if (edit.Kind != "delete") { foreach (var run in edit.Runs) p.Append(run); }
                 }
             }
             document.Save();
@@ -143,6 +149,24 @@ static class Program
         && !p.Descendants().Any(IsRevision);
 
     record SourceRun(W.Run Run, string Text);
+
+    static bool EquivalentRuns(SourceRun[] original, IEnumerable<W.Run> current)
+    {
+        // Run boundaries can split during revisions; compare text spans with the
+        // complete SDK RunProperties, including color, fonts, language and size.
+        var left = original.Where(r => r.Text.Length > 0).Select(r => (r.Text, Properties: r.Run.RunProperties?.OuterXml ?? "")).ToArray();
+        var right = current.Select(r => (Text: r.InnerText, Properties: r.RunProperties?.OuterXml ?? "")).Where(r => r.Text.Length > 0).ToArray();
+        int a = 0, b = 0, aOffset = 0, bOffset = 0;
+        while (a < left.Length && b < right.Length)
+        {
+            int length = Math.Min(left[a].Text.Length - aOffset, right[b].Text.Length - bOffset);
+            if (left[a].Properties != right[b].Properties || !left[a].Text.AsSpan(aOffset, length).SequenceEqual(right[b].Text.AsSpan(bOffset, length))) return false;
+            aOffset += length; bOffset += length;
+            if (aOffset == left[a].Text.Length) { a++; aOffset = 0; }
+            if (bOffset == right[b].Text.Length) { b++; bOffset = 0; }
+        }
+        return a == left.Length && b == right.Length;
+    }
 
     static W.RunProperties? StyleAt(SourceRun[] source, int position)
     {
@@ -230,10 +254,15 @@ static class Program
                 new W.Paragraph(new W.Run(new W.RunProperties(new W.Bold()), new W.Text("The result remains unverified."))),
                 new W.Paragraph(new W.Run(new W.Text("The ") { Space = SpaceProcessingModeValues.Preserve }), new W.Run(new W.RunProperties(new W.Bold()), new W.Text("model")), new W.Run(new W.Text(" proposes a change.") { Space = SpaceProcessingModeValues.Preserve })),
                 new W.SectionProperties(new W.PageSize { Width = 11906, Height = 16838 }, new W.PageMargin { Top = 1440, Bottom = 1440, Left = 1440, Right = 1440 })));
-            if (variant == "repeated-format")
+            if (variant is "repeated-format" or "repeated-color")
+            {
+                var properties = new W.RunProperties();
+                if (variant == "repeated-color") properties.Color = new W.Color { Val = "FF0000" };
+                else properties.Bold = new W.Bold();
                 main.Document.Body!.ReplaceChild(new W.Paragraph(
-                    new W.Run(new W.RunProperties(new W.Bold()), new W.Text("X ") { Space = SpaceProcessingModeValues.Preserve }),
+                    new W.Run(properties, new W.Text("X ") { Space = SpaceProcessingModeValues.Preserve }),
                     new W.Run(new W.Text("X"))), main.Document.Body.Elements<W.Paragraph>().First());
+            }
             if (variant == "paragraph-mark")
                 main.Document.Body!.Elements<W.Paragraph>().First().ParagraphProperties!.Append(
                     new W.ParagraphMarkRunProperties(new W.Inserted { Id = "12", Author = "" }));

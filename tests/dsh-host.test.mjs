@@ -53,7 +53,16 @@ test('installed DSH Host shares durable actions without adding command messages 
     assert.equal(final.blocks[0].text, 'X');
     assert.equal(final.blocks[0].runs.some(r => r.bold), false);
   }
+  const colored = engine({ action: 'fixture', fixture: 'repeated-color' });
+  let color = await action({ action: 'import', name: 'Native color.docx', base64: colored.base64 });
+  for (const [from, to, replacement] of [[0, 2, ''], [0, 0, 'X ']]) {
+    const selection = color.paper.blocks[0].selection;
+    const candidate = await action({ action: 'propose', requestId: crypto.randomUUID(), selection: { ...selection, from, to, quote: selection.quote.slice(from, to) }, replacement, reason: 'Retain the actual native style source.' });
+    color = await action({ action: 'decide', candidateId: candidate.paper.candidates.at(-1).id, decision: 'accepted' });
+  }
+  const colorExport = await action({ action: 'export', tracked: true });
+  assert.equal(engine({ action: 'inspect', base64: colorExport.base64 }).hasRevisions, true, 'Native color changes remain visible even when displayed text and marks match.');
   const after = await rpc('session/events', { request: { address: { kind: 'session', sessionId: agentId }, maxMessages: 20 } });
   assert.equal(after.cursor, before.cursor, 'Sidebar data operations must not write internal payloads into chat.');
-  console.log('Validated one ordinary session, exact proposals/decisions, both review regressions, native DOCX and unchanged chat cursor; no model call.');
+  console.log('Validated one ordinary session, exact proposals/decisions, all review regressions, native DOCX and unchanged chat cursor; no model call.');
 });

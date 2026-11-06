@@ -96,8 +96,8 @@ test('mixed-format replacements preserve unchanged emphasis and inherit the remo
   assert.equal(formatted.blocks[3].runs.filter((r: { bold: boolean }) => r.bold).map((r: { text: string }) => r.text).join(''), 'planner');
 });
 
-function formattedSource(): Paper {
-  const fixture = engine({ action: 'fixture', fixture: 'repeated-format' });
+function formattedSource(variant = 'repeated-format'): Paper {
+  const fixture = engine({ action: 'fixture', fixture: variant });
   const imported = engine({ action: 'inspect', base64: fixture.base64 });
   const document = importDocument(imported.blocks);
   return { id: 'repeated', name: 'repeated.docx', revision: 0, document, baseline: document,
@@ -167,8 +167,33 @@ test('restoring the exact baseline text and marks leaves the original paragraph 
   let paper = acceptRange(source, 0, 1, 'Z');
   paper = acceptRange(paper, 0, 1, 'X');
   assert.deepEqual(paper.document, source.document);
-  assert.deepEqual(exportParagraphs(paper), []);
+  const exported = engine({ action: 'export', base64: paper.sourceBase64, tracked: true, paragraphs: exportParagraphs(paper) });
+  const final = engine({ action: 'inspect', base64: exported.base64 });
+  assert.equal(final.hasRevisions, false);
+  assert.deepEqual(styledCharacters(final.blocks[0].runs), styledCharacters(importedRuns(source)));
   assert.equal(paper.decisions.length, 2);
+});
+
+test('native color changes are preserved when text and displayed marks match the baseline', () => {
+  const source = formattedSource('repeated-color');
+  let paper = acceptRange(source, 0, 2, '');
+  paper = acceptRange(paper, 0, 0, 'X ');
+  assert.deepEqual(paper.document, source.document, 'The editable view does not encode native color.');
+  const normalizeColor = [{ sourceIndex: 0, before: 'X X', segments: [
+    { kind: 'delete', text: 'X ' }, { kind: 'insert', text: 'X ', styleFrom: 2 }, { kind: 'equal', text: 'X' },
+  ] }];
+  const tracked = engine({ action: 'export', base64: paper.sourceBase64, tracked: true, paragraphs: exportParagraphs(paper) });
+  assert.equal(engine({ action: 'inspect', base64: tracked.base64 }).hasRevisions, true, 'The native color change must not be skipped.');
+  for (const revisionMode of ['accept', 'reject']) {
+    const settled = engine({ action: 'inspect', base64: tracked.base64, revisionMode });
+    assert.equal(settled.blocks[0].text, 'X X');
+    const recolored = engine({ action: 'export', base64: settled.normalizedBase64, tracked: true, paragraphs: normalizeColor });
+    assert.equal(engine({ action: 'inspect', base64: recolored.base64 }).hasRevisions, revisionMode === 'reject',
+      'Accepted runs already use the default color; rejected runs retain the original red color.');
+  }
+  const clean = engine({ action: 'export', base64: paper.sourceBase64, tracked: false, paragraphs: exportParagraphs(paper) });
+  const unchanged = engine({ action: 'export', base64: clean.base64, tracked: true, paragraphs: normalizeColor });
+  assert.equal(engine({ action: 'inspect', base64: unchanged.base64 }).hasRevisions, false, 'The clean output already has the intended native color.');
 });
 
 test('typing after clearing a paragraph uses its default style rather than a deleted run style', () => {
