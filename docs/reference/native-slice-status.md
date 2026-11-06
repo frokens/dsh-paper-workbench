@@ -1,7 +1,9 @@
 # Native slice status
 
-This document describes the A candidate and its current evidence, not full product
-acceptance. The implementation plan and product goals remain in force.
+This document preserves the A candidate's responsibilities and evidence at PR #1
+and version 0.1.0-alpha.9. Its bounded code slice was merged; full A and product
+acceptance remain open. Current B implementation is described in
+[the bilingual lifecycle status](bilingual-lifecycle-status.md).
 
 ## Implemented responsibilities
 

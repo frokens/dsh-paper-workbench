@@ -1,6 +1,6 @@
 # Candidate installation
 
-The A candidate is undergoing independent review. A public Release has not yet
+The bounded A code slice was merged; B is under implementation and review. A public Release has not yet
 been published. This page records the formal installation path exercised so far;
 it does not claim full product, Desktop or cross-platform acceptance.
 
@@ -36,15 +36,27 @@ first installation.
 ## Boundaries
 
 The sidebar uses DSH Remote calls into the same Host operation as the native paper
-tool. Sidebar reads and decisions do not enter the agent inbox or write paper JSON
+tool. Sidebar data reads and decisions do not enter the agent inbox or write paper JSON
 as chat messages. The earlier command-based prototype exposed this problem and was
 removed; old test messages are retained as failure evidence.
 
+In B, saving a feedback batch or translation request is separate from **Send to
+current Agent (uses model)**. Only that explicit action queues work on the current
+ordinary Agent. No new paper Agent or provider configuration is needed. A failed
+send remains retryable with the same native request identity.
+
 Only ordinary text paragraphs are editable in this slice. Complex DOCX content is
 preserved in the source package and flagged read only; its full client round trip
-matrix belongs to later format validation. Read all import diagnostics. Bilingual
-views, independent reading, mentor three-way returns and PDF are not implemented
-in this candidate.
+matrix belongs to later format validation. Read all import diagnostics. B adds
+translation projections, feedback and revision lifecycle; its actual evidence and
+limits are tracked in [the B status](reference/bilingual-lifecycle-status.md).
+Independent reading, mentor three-way returns and PDF remain unimplemented.
+
+The B data format upgrades the existing A aggregate in place and retains original
+paper data and decisions. It is not a reversible package-only downgrade: the older
+A package does not understand version 2 storage. Retain a backup before test upgrades.
+Paragraph splits/merges are retained in the workbench but Word export currently
+refuses a changed paragraph layout; the structural Word adapter remains later work.
 
 Developer-only Word fixtures can be generated with
 `npm run fixture:word -- prepare <new-test-directory>`. The command refuses to

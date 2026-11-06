@@ -8,8 +8,9 @@
 
 ## 当前状态
 
-当前在实施 A 批候选：原生论文侧栏、准确片段候选、用户决定和 Word 原生修订导出。
-已构建安装包正在真实 DSH 与 Word 中验证，尚未发布完整产品。下列完整体验仍是实施
+A 批的有界代码切片已由 [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)
+合入；最终 Word 接受/拒绝、桌面接入及公开下载仍有未验项。当前实施 B 批的双语、反馈
+和修订生命周期，见[本批状态](docs/reference/bilingual-lifecycle-status.md)。尚未发布完整产品。下列完整体验仍是实施
 目标，不能视为已全部交付。当前职责、支持域和实际证据见
 [原生切片状态](docs/reference/native-slice-status.md)及实现 PR。
 
