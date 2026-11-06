@@ -265,6 +265,29 @@ test("failed durable reading admission cannot start a child", async () => {
   } finally { host.setFailure(false); await host.close(); await rm(root, { recursive: true }); }
 });
 
+test("a rejected DSH cleanup retains valid results and a diagnostic, clears owned handles, and retries without another child or native error", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
+  try {
+    await seed(host);
+    let starts = 0, disposals = 0;
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts++;
+      return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => { disposals++; throw new Error("ACTIVATION_TEARDOWN_FAILED: representative cleanup rejection"); } };
+    } });
+    for (let i = 0; i < 2; i++) {
+      const response = await host.service.handle(readingCommand, "task", false, new AbortController().signal, { id: "task" } as Agent);
+      assert.equal(isJsonValue(response), true);
+      assert.equal(storedPaper(host).readings[0].status, "completed");
+      assert.ok(storedPaper(host).readings[0].output);
+      assert.match(storedPaper(host).readings[0].diagnostic!, /ACTIVATION_TEARDOWN_FAILED/);
+      assert.equal((host.service as unknown as { readingRuns: Map<string, unknown> }).readingRuns.size, 0);
+    }
+    assert.equal(starts, 1);
+    assert.equal(disposals, 1, "The plugin does not introduce cleanup retries or reopen a chargeable reader.");
+    assert.equal((host.service as unknown as { requests: Set<unknown> }).requests.size, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
 test("actual DSH domain and JSON backend preserve aggregate and events on a failed Host decision, then reopen the same durable state", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-storage-"));
   let host = await open(root);

@@ -1,6 +1,6 @@
 # Research writing and independent reading status
 
-Status: C implementation candidate, not independently accepted. The bounded A/B
+Status: C implementation candidate 0.3.0-alpha.2, not independently accepted. The bounded A/B
 code and representative B native path are recorded separately. Word desktop
 round trips, Desktop frontend, public user installation, D/E and final sidebar
 usability remain open.
@@ -47,7 +47,24 @@ Position mapping alone does not establish semantic validity. An explicit recheck
 captures its current scope and retains the previous reading and evidence context;
 there is no automatic rewrite/review loop or artificial qualification hash.
 
-The candidate currently passes type checking, build and 53 owner/SDK checks,
+Independent review of the first C candidate reproduced three defects: unfinished
+states could claim a reviewed body; Chinese-only corrections were omitted from
+applicability; and a rejected DSH disposal retained a process handle and poisoned
+retries after a valid result. Those original reproductions are retained. The
+correction gates review claims on completed valid output, compares actual baseline
+and proposed bilingual input with its source/versions, and retains unaffected
+source evidence and located historical findings. Candidate Chinese projections
+come from the same acceptance implementation: turning a reviewed candidate into
+its real projection does not invalidate that combination merely because an ID or
+revision representation changes. Real corrections or replacement inputs do.
+Affected Chinese scopes are exposed separately in the shared view and sidebar.
+
+The Host records DSH cleanup rejection alongside the valid saved result and clears
+its process ownership in an unconditional final step. Reading the same completed
+request then returns that result and diagnostic without another child or cleanup
+retry framework. Cleanup warnings are distinct from scientific findings.
+
+The first candidate passed type checking, build and 53 owner/SDK checks,
 including blank-document native revision projection, actual candidate material,
 partial acceptance, request identity, located-result validation, durable admission,
 child failure, cancellation/late completion, native caller cancellation and same-data
@@ -56,6 +73,13 @@ Host and DSH storage backend; they are not real fresh-session/model acceptance.
 The first structured-output contract check caught DSH's unsupported `minItems`
 keyword before any model call. The actual application validator enforces located,
 non-empty findings after capture using DSH's supported schema subset.
+
+The correction passes type checking, build and 58 owner/SDK checks. Its direct
+regressions cover all unfinished/failed states, Chinese
+correction/version changes and replacement, unchanged English, actual partial/full
+acceptance of bilingual candidates, and disposal rejection followed by a native
+retry with no retained process handle. These remain owner/SDK checks; actual C
+model validation is paused for the correction's independent contract review.
 
 Installed C Host/Client, real material investigation, fresh child history/output,
 meaningful argument/evidence/bilingual findings, cancellation and resource exit are

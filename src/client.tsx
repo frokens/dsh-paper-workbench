@@ -123,6 +123,9 @@ const en = {
   readingSource: "Independent session source",
   readingScope: "Reviewed candidate groups",
   bodyOnlyReading: "This reading covers the accepted body without pending candidates.",
+  unfinishedReading: "This reading has no completed valid result yet.",
+  bilingualChanged: "The following Chinese input changed and needs a bilingual recheck; unchanged source evidence is retained.",
+  sourceEvidenceRetained: "The source-language body still matches the completed reading. This does not cover changed Chinese wording.",
   queued: "Queued",
   running: "Reading in progress",
   failed: "Failed",
@@ -238,6 +241,9 @@ const zh: typeof en = {
   readingSource: "独立会话来源",
   readingScope: "本次覆盖的候选组",
   bodyOnlyReading: "本次仅审读已接收正文，不含待处理候选。",
+  unfinishedReading: "本次审读尚无已完成的有效结果。",
+  bilingualChanged: "下列中文输入已变，需要复核双语含义；未受影响的原文证据仍保留。",
+  sourceEvidenceRetained: "主语言正文仍与已完成审读一致；此结论不覆盖改变后的中文措辞。",
   queued: "等待启动",
   running: "正在审读",
   failed: "审读失败",
@@ -1272,8 +1278,14 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                   <p>{reading.goal}</p>
                   {reading.candidateIds.length ? <details><summary>{t("readingScope")} · {reading.candidateIds.length}</summary>{reading.candidateIds.map(id => <p key={id}>{paper.candidates.find(candidate => candidate.id === id)?.reason}</p>)}</details> : <p className="pw-muted">{t("bodyOnlyReading")}</p>}
                   {reading.diagnostic && <p role="alert" className="pw-error">{reading.diagnostic}</p>}
-                  {!reading.combinationMatches && <p className="pw-muted">{t("combinationChanged")}</p>}
-                  {!reading.currentBodyReviewed && <p className="pw-muted">{t("partialReading")}</p>}
+                  {(reading.status !== "completed" || !reading.output) && <p className="pw-muted">{t("unfinishedReading")}</p>}
+                  {reading.status === "completed" && reading.output && !reading.sourceCombinationMatches && <p className="pw-muted">{t("combinationChanged")}</p>}
+                  {reading.status === "completed" && reading.output && !reading.currentSourceReviewed && <p className="pw-muted">{t("partialReading")}</p>}
+                  {reading.currentSourceReviewed && !reading.currentBodyReviewed && <p className="pw-muted">{t("sourceEvidenceRetained")}</p>}
+                  {!!reading.bilingualChanges.length && <section><p>{t("bilingualChanged")}</p>{reading.bilingualChanges.map(change => <div key={change.key}>
+                    <blockquote>{change.beforeText ?? ""} → {change.afterText ?? ""}</blockquote>
+                    {!!change.sourceBlockIds.length && <button onClick={() => locate(change.sourceBlockIds)}>{t("locate")}</button>}
+                  </div>)}</section>}
                   {reading.output && <>
                     <h3>{t("interpretation")}</h3>
                     <p>{reading.output.interpretation.problem}</p><p>{reading.output.interpretation.mechanism}</p><p>{reading.output.interpretation.feedbackRole}</p>

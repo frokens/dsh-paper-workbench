@@ -46,6 +46,19 @@ const deliverySchema = {
   delivery: z.enum(["ready", "sent"]),
   error: z.string().optional(),
 };
+export const translationSchema = z.object({
+  id: z.string(),
+  jobId: z.string(),
+  sources: z.array(selectionSchema),
+  text: z.string(),
+  version: z.number().int().positive(),
+  corrections: z.array(z.object({ version: z.number().int().positive(), before: z.string(), after: z.string() })),
+  replacedBy: z.string().optional(),
+});
+export const translationViewSchema = translationSchema.extend({
+  state: z.enum(["current", "stale", "superseded"]),
+  mappedSources: z.array(selectionSchema),
+});
 export const readingSchema = z.object({
   id: z.string(),
   requestId: z.string(),
@@ -67,7 +80,8 @@ export const readingSchema = z.object({
       target: feedbackTargetSchema,
       comment: z.string(),
     })),
-    translations: z.array(z.json()),
+    translations: z.array(translationViewSchema),
+    candidateTranslations: z.array(translationViewSchema),
     brief: z.string(),
     warnings: z.array(z.string()),
   }),
@@ -128,23 +142,7 @@ export const paperSchema = z.object({
       ...deliverySchema,
     }),
   ),
-  translations: z.array(
-    z.object({
-      id: z.string(),
-      jobId: z.string(),
-      sources: z.array(selectionSchema),
-      text: z.string(),
-      version: z.number().int().positive(),
-      corrections: z.array(
-        z.object({
-          version: z.number().int().positive(),
-          before: z.string(),
-          after: z.string(),
-        }),
-      ),
-      replacedBy: z.string().optional(),
-    }),
-  ),
+  translations: z.array(translationSchema),
 });
 export type Candidate = z.infer<typeof candidateSchema>;
 export type Paper = z.infer<typeof paperSchema>;

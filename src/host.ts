@@ -228,8 +228,17 @@ export class PaperWorkbench extends TypertRemoteService {
               : current;
           });
         } finally {
-          await owned.activation?.dispose();
-          this.readingRuns.delete(readingId);
+          try {
+            await owned.activation?.dispose();
+          } catch (error) {
+            const diagnostic = `DSH could not finish reader cleanup: ${error instanceof Error ? error.message : String(error)}`;
+            await this.papers.update(paperId, stored => {
+              const current = this.requireCurrent(stored), item = current.readings.find(r => r.id === readingId)!;
+              return updateReading(current, readingId, { diagnostic: item.diagnostic ? `${item.diagnostic}\n${diagnostic}` : diagnostic });
+            });
+          } finally {
+            this.readingRuns.delete(readingId);
+          }
         }
       })();
       run.done = done;

@@ -484,7 +484,8 @@ export function projectCandidates(paper: Paper, ids: string[] | "all") {
   const plan = planAcceptance(paper, ids);
   if (plan.conflicts.length)
     throw new Error(plan.conflicts.map((c) => c.message).join("\n"));
-  return { candidateIds: plan.candidateIds, document: plan.transform.doc.toJSON() };
+  const projected = applyAcceptance(paper, plan);
+  return { candidateIds: plan.candidateIds, document: projected.document, translations: translationViews(projected) };
 }
 function commit(
   paper: Paper,
@@ -532,6 +533,26 @@ function selectionsForRange(
     throw new Error("The candidate translation has no surviving source range.");
   return result;
 }
+function applyAcceptance(paper: Paper, plan: ReturnType<typeof planAcceptance>) {
+  let next = commit(paper, plan.transform, "accept", plan.candidateIds);
+  for (const id of plan.candidateIds) {
+    const candidate = paper.candidates.find((c) => c.id === id)!;
+    for (const translation of candidate.translations) {
+      const sources = translation.operationIndexes.flatMap((index) =>
+        plan.results.get(id)![index].flatMap((range) => {
+          const mapped = mapRange(range.from, range.to, plan.transform.mapping.slice(range.step), true);
+          return selectionsForRange(plan.transform.doc, mapped.from, mapped.to, next);
+        }),
+      );
+      next = { ...next, translations: [...next.translations, {
+        id: randomUUID(), jobId: `candidate:${id}`, sources,
+        text: translation.text, version: 1, corrections: [],
+      }] };
+    }
+  }
+  return next;
+}
+
 export function decideMany(
   paper: Paper,
   ids: string[],
@@ -557,42 +578,7 @@ export function decideMany(
     if (plan.conflicts.length)
       throw new Error(plan.conflicts.map((c) => c.message).join("\n"));
     decided = plan.candidateIds;
-    next = commit(paper, plan.transform, "accept", decided);
-    for (const id of decided) {
-      const candidate = paper.candidates.find((c) => c.id === id)!;
-      for (const translation of candidate.translations) {
-        const sources = translation.operationIndexes.flatMap((index) =>
-          plan.results.get(id)![index].flatMap((range) => {
-            const mapped = mapRange(
-              range.from,
-              range.to,
-              plan.transform.mapping.slice(range.step),
-              true,
-            );
-            return selectionsForRange(
-              plan.transform.doc,
-              mapped.from,
-              mapped.to,
-              next,
-            );
-          }),
-        );
-        next = {
-          ...next,
-          translations: [
-            ...next.translations,
-            {
-              id: randomUUID(),
-              jobId: `candidate:${id}`,
-              sources,
-              text: translation.text,
-              version: 1,
-              corrections: [],
-            },
-          ],
-        };
-      }
-    }
+    next = applyAcceptance(paper, plan);
   }
   return {
     ...next,
@@ -805,6 +791,9 @@ function translationState(
   } catch {
     return { state: "stale" as const, mappedSources: [] as Selection[] };
   }
+}
+export function translationViews(paper: Paper) {
+  return paper.translations.map(translation => ({ ...translation, ...translationState(paper, translation) }));
 }
 function translationReference(
   paper: Paper,
@@ -1256,10 +1245,7 @@ export function paperView(paper: Paper) {
         ? { ...job, status: "stale" as const }
         : job,
     ),
-    translations: paper.translations.map((translation) => ({
-      ...translation,
-      ...translationState(paper, translation),
-    })),
+    translations: translationViews(paper),
   };
 }
 

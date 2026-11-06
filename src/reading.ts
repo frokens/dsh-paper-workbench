@@ -3,7 +3,7 @@ import { Node as PMNode } from "prosemirror-model";
 import { z } from "zod";
 import type { Paper, Reading } from "./records.js";
 import { readingRequest, readingOutputSchema, type Selection } from "./contracts.js";
-import { schema, documentAt, projectCandidates, paperView, mapSelection } from "./model.js";
+import { schema, documentAt, projectCandidates, paperView, mapSelection, translationViews } from "./model.js";
 
 export function readingBlocks(document: z.infer<ReturnType<typeof z.json>>) {
   const blocks: { id: string; text: string; heading: string | null; editable: boolean }[] = [];
@@ -41,7 +41,8 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
       candidateDocument: projection.document,
       candidates,
       feedback: paper.feedback.filter(f => feedbackIds.has(f.id)),
-      translations: z.array(z.json()).parse(paperView(paper).translations),
+      translations: translationViews(paper),
+      candidateTranslations: projection.translations,
       brief: paper.brief,
       warnings: paper.warnings,
     },
@@ -61,7 +62,8 @@ Baseline blocks: ${JSON.stringify(readingBlocks(reading.material.baselineDocumen
 Proposed candidate blocks: ${JSON.stringify(readingBlocks(reading.material.candidateDocument))}
 Candidate operations, program diffs and short author explanations (claims to check, not conclusions): ${JSON.stringify(reading.material.candidates)}
 Linked feedback: ${JSON.stringify(reading.material.feedback)}
-Existing translation projections, including their stated applicability: ${JSON.stringify(reading.material.translations)}`;
+Existing translation projections, including their stated applicability: ${JSON.stringify(reading.material.translations)}
+Proposed combination translation projections from the same acceptance owner: ${JSON.stringify(reading.material.candidateTranslations)}`;
 }
 
 export function updateReading(paper: Paper, id: string, update: Partial<Reading>) {
@@ -98,15 +100,63 @@ function withoutBlockIds(document: z.infer<ReturnType<typeof z.json>>) {
   return JSON.stringify(node);
 }
 
+function translationUnits(document: Paper["document"], translations: ReturnType<typeof translationViews>) {
+  const blocks = readingBlocks(document);
+  return new Map(translations.filter(t => t.state === "current").map(translation => {
+    const candidate = translation.jobId.startsWith("candidate:");
+    // A candidate's Chinese group acquires a real projection id on acceptance.
+    // Its existing candidate identity/group remains the same reviewed input.
+    const group = translations.filter(t => t.jobId === translation.jobId).findIndex(t => t.id === translation.id);
+    const key = candidate ? `${translation.jobId}:${group}` : translation.id;
+    return [key, {
+      value: { version: translation.version, text: translation.text,
+        sources: translation.mappedSources.map(source => ({ block: blocks.findIndex(b => b.id === source.blockId), from: source.from, to: source.to, quote: source.quote })) },
+      selections: translation.mappedSources,
+      candidateIds: candidate ? [translation.jobId.slice("candidate:".length)] : [],
+    }];
+  }));
+}
+function translationChanges(before: ReturnType<typeof translationUnits>, after: ReturnType<typeof translationUnits>, paper: Paper) {
+  return [...new Set([...before.keys(), ...after.keys()])].flatMap(key => {
+    const prior = before.get(key), current = after.get(key);
+    if (JSON.stringify(prior?.value) === JSON.stringify(current?.value)) return [];
+    const sources: Selection[] = [];
+    for (const selection of [...(prior?.selections ?? []), ...(current?.selections ?? [])]) {
+      try {
+        const mapped = mapSelection(paper, selection);
+        if (!sources.some(source => source.blockId === mapped.blockId && source.from === mapped.from && source.to === mapped.to)) sources.push(mapped);
+      } catch { /* A historical/proposed anchor is not guessed into the current body. */ }
+    }
+    return [{ key, beforeText: prior?.value.text ?? null, afterText: current?.value.text ?? null,
+      beforeVersion: prior?.value.version ?? null, afterVersion: current?.value.version ?? null,
+      sources, sourceBlockIds: [...new Set(sources.map(source => source.blockId))],
+      candidateIds: [...new Set([...(prior?.candidateIds ?? []), ...(current?.candidateIds ?? [])])],
+    }];
+  });
+}
+
 export function readingViews(paper: Paper) {
   const current = withoutBlockIds(paper.document);
+  const currentTranslations = translationUnits(paper.document, translationViews(paper));
   return paper.readings.map(reading => {
+    const completed = reading.status === "completed" && !!reading.output;
     const remaining = reading.candidateIds.filter(id => paper.candidates.some(c => c.id === id && c.status === "pending"));
-    let combinationMatches = false;
+    const baselineTranslations = translationUnits(reading.material.baselineDocument, reading.material.translations);
+    const reviewedTranslations = translationUnits(reading.material.candidateDocument, reading.material.candidateTranslations);
+    let sourceCombinationMatches = false, candidateChanges: ReturnType<typeof translationChanges> = [];
     try {
-      combinationMatches = withoutBlockIds(projectCandidates(paper, remaining).document) === withoutBlockIds(reading.material.candidateDocument);
+      const projected = projectCandidates(paper, remaining);
+      sourceCombinationMatches = withoutBlockIds(projected.document) === withoutBlockIds(reading.material.candidateDocument);
+      candidateChanges = translationChanges(reviewedTranslations, translationUnits(projected.document, projected.translations), paper);
     } catch { /* The current scope has an explicit candidate conflict. */ }
-    const currentBodyReviewed = current === withoutBlockIds(reading.material.baselineDocument) || current === withoutBlockIds(reading.material.candidateDocument);
+    const baselineMatches = current === withoutBlockIds(reading.material.baselineDocument),
+      candidateMatches = current === withoutBlockIds(reading.material.candidateDocument);
+    const baselineChanges = baselineMatches ? translationChanges(baselineTranslations, currentTranslations, paper) : [];
+    const acceptedChanges = candidateMatches ? translationChanges(reviewedTranslations, currentTranslations, paper) : [];
+    const currentSourceReviewed = completed && (baselineMatches || candidateMatches);
+    const combinationMatches = completed && sourceCombinationMatches && !candidateChanges.length;
+    const currentBodyReviewed = completed && ((baselineMatches && !baselineChanges.length) || (candidateMatches && !acceptedChanges.length));
+    const bilingualChanges = [...new Map([...baselineChanges, ...acceptedChanges, ...candidateChanges].map(change => [change.key, change])).values()];
     const findings = reading.output?.findings.map(finding => {
       const sources: Selection[] = [];
       for (const location of finding.locations) {
@@ -121,9 +171,12 @@ export function readingViews(paper: Paper) {
         };
         try { sources.push(mapSelection(paper, selection)); } catch { /* Preserve the historical finding without guessing its current location. */ }
       }
-      return { ...finding, sources, currentCandidateIds: finding.candidateIds.filter(id => paper.candidates.some(c => c.id === id)), semanticRecheckNeeded: !combinationMatches || !currentBodyReviewed };
+      const bilingualRecheckNeeded = bilingualChanges.some(change =>
+        sources.some(source => change.sources.some(affected => affected.blockId === source.blockId && affected.from < source.to && affected.to > source.from)) || finding.candidateIds.some(id => change.candidateIds.includes(id)));
+      return { ...finding, sources, currentCandidateIds: finding.candidateIds.filter(id => paper.candidates.some(c => c.id === id)),
+        bilingualRecheckNeeded, semanticRecheckNeeded: !sourceCombinationMatches || !currentSourceReviewed || bilingualRecheckNeeded };
     }) ?? [];
     const { material: _material, terminal: _terminal, ...summary } = reading;
-    return { ...summary, findings, combinationMatches, currentBodyReviewed, remainingCandidateIds: remaining };
+    return { ...summary, findings, combinationMatches, currentBodyReviewed, sourceCombinationMatches, currentSourceReviewed, bilingualChanges, remainingCandidateIds: remaining };
   });
 }
