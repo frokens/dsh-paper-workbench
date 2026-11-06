@@ -641,3 +641,46 @@ test("explicit restoration recovers the selected edit relationship from older fu
     "Historical records are retained without inventing their original target.",
   );
 });
+
+test("alternating restores retain only one net edit per transition and append linear step history", () => {
+  let { paper } = initial(["A"]);
+  paper = acceptLast(replace(paper, selection(paper), "B"));
+  const primitiveSteps = paper.history[0].steps.length;
+  for (let i = 0; i < 100; i++) {
+    const target = i % 2 === 0 ? 0 : 1;
+    paper = restoreRevision(paper, target, paper.revision);
+    assert.ok(documentAt(paper, paper.revision).eq(documentAt(paper, target)));
+    assert.equal(paper.history.at(-1)!.steps.length, primitiveSteps);
+    assert.equal(
+      paper.history.reduce((count, entry) => count + entry.steps.length, 0),
+      primitiveSteps * (i + 2),
+    );
+  }
+});
+
+test("net restoration rebases active inverses across cancelled prefix edits and overlapping later edits", () => {
+  let { paper } = initial(["First.", "Second."]);
+  paper = acceptLast(
+    replace(paper, selection(paper), "Longer first paragraph."),
+  );
+  const first = paper.decisions[0].id;
+  paper = acceptLast(replace(paper, selection(paper, 1), "Later second."));
+  paper = undoDecision(paper, first, 2);
+  const expected = [0, 1, 2, 3].map((revision) => documentAt(paper, revision));
+  const edits = paper.history
+    .slice(0, 2)
+    .reduce((count, entry) => count + entry.steps.length, 0);
+  for (const target of [1, 0, 2, 3, 1, 3, 0]) {
+    paper = restoreRevision(paper, target, paper.revision);
+    assert.ok(documentAt(paper, paper.revision).eq(expected[target]));
+    assert.ok(paper.history.at(-1)!.steps.length <= edits);
+  }
+  ({ paper } = initial(["A"]));
+  paper = acceptLast(replace(paper, selection(paper), "BBBB"));
+  paper = acceptLast(replace(paper, selection(paper, 0, 0, 2), "CC"));
+  const overlap = [0, 1, 2].map((revision) => documentAt(paper, revision));
+  for (const target of [0, 2, 1, 0, 1, 2]) {
+    paper = restoreRevision(paper, target, paper.revision);
+    assert.ok(documentAt(paper, paper.revision).eq(overlap[target]));
+  }
+});

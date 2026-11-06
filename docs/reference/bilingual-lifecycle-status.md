@@ -1,7 +1,7 @@
 # Bilingual and revision lifecycle status
 
 Status: B implementation in progress, not independently accepted. Candidate
-version: 0.2.0-alpha.2. The original A package and synthetic Word files are retained;
+version: 0.2.0-alpha.3. The original A package and synthetic Word files are retained;
 the remaining real Word and Desktop checks are not replaced by these changes.
 
 ## Implemented ownership
@@ -36,7 +36,9 @@ append changes without erasing prior decisions.
 Inverse steps reference their actual source step positions in this same journal.
 Word projection uses ProseMirror mirror mappings to cancel net-zero undo/restore
 changes while retaining source run formatting; it does not rediff a plain-text
-paragraph. Restore consumes recorded inverse steps rather than replacing the full
+paragraph. Restore selects the still-active steps between current and target,
+rebases their inverses through the same actual mappings, and appends only those
+net steps. It neither recursively expands earlier restores nor replaces the full
 document. An older installed undo can recover its explicit source from the retained
 `undoOf` decision. An older full-document restore remains as recorded; explicitly
 restoring a selected historical revision appends the precise inverse relationship
@@ -73,10 +75,29 @@ unrelated and conflicting edits, Chinese correction/content intent, late/cancell
 translation, restart serialization and installed aggregate upgrade. These are owner
 and SDK checks, not installed-client or model acceptance.
 
-The correction passes type checking, 39 owner/SDK checks, Host/Client build and
+The alpha.2 correction passed type checking, 39 owner/SDK checks, Host/Client build and
 the developer Word fixture preparation command. The public installed-Host test
 now consumes the current operations/scope contracts through the official DSH
 Client and also checks stream updates, split targets and comparison after merge.
+
+A subsequent independent review and the first actual ordinary-Agent request exposed
+two further failures. Repeated restoration expanded previously generated inverse
+steps exponentially. Also, a successful send retained an optional `error: undefined`
+in the aggregate: Remote JSON serialization hid it, but the native tool correctly
+rejected the in-memory return as non-lossless JSON. Translation had durably completed
+while its tool receipt failed. The test Agent's additional diagnostic work was
+cancelled; that attempt is not model acceptance. Its raw evidence is retained
+privately, and the local bootstrap credential seen in one diagnostic result was
+rotated with old-link rejection and new-link authentication checked.
+
+The alpha.3 correction passes type checking, 42 owner/SDK checks and the Host/Client
+build. It omits the optional error at its existing delivery owner.
+Production Host native dispatch is checked with DSH's own lossless JSON predicate
+before serialization, including completion and clearing a previous failure. The
+restoration checks cover 100 alternating restores and active edits across cancelled
+prefixes and overlapping later edits. A one-character transition appends its two
+primitive steps each time, keeping all history with linear growth. Further model
+requests are paused pending this tool-contract review.
 
 Four checks also call the production Host handler and observation owner over the
 real DSH storageDomain and JSON backend with explicit fault injection. They cover

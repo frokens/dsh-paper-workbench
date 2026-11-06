@@ -78,7 +78,7 @@ export function documentAt(paper: Paper, revision: number) {
     );
   return transform.doc;
 }
-function mappingSince(paper: Paper, revision: number) {
+function historyRange(paper: Paper, revision: number) {
   assertRevision(paper, revision);
   const offsets = [0];
   for (const entry of paper.history)
@@ -120,30 +120,52 @@ function mappingSince(paper: Paper, revision: number) {
   }
   // An inverse may itself be inverted by a later restore. Pair from the newest
   // step backwards so one actual map participates in at most one mirror pair.
+  const start = offsets[revision];
   const paired = new Set<number>(),
     mirrors = new Map<number, number>();
-  for (let index = offsets.at(-1)! - 1; index >= 0; index--) {
+  for (let index = offsets.at(-1)! - 1; index >= start; index--) {
     const source = inverseOf.get(index);
-    if (source === undefined || paired.has(index) || paired.has(source))
+    if (
+      source === undefined ||
+      source < start ||
+      paired.has(index) ||
+      paired.has(source)
+    )
       continue;
     paired.add(index);
     paired.add(source);
     mirrors.set(index, source);
   }
+  return {
+    start,
+    paired,
+    mirrors,
+    steps: paper.history.flatMap((entry) =>
+      entry.steps.map((json) => Step.fromJSON(schema, json)),
+    ),
+    inverses: paper.history.flatMap((entry) =>
+      [...entry.inverseSteps]
+        .reverse()
+        .map((json) => Step.fromJSON(schema, json)),
+    ),
+  };
+}
+function rangeMapping(
+  range: ReturnType<typeof historyRange>,
+  start = range.start,
+) {
   const mapping = new Mapping();
-  let index = offsets[revision];
-  for (const entry of paper.history.slice(revision))
-    for (const step of entry.steps) {
-      const source = mirrors.get(index);
-      mapping.appendMap(
-        Step.fromJSON(schema, step).getMap(),
-        source !== undefined && source >= offsets[revision]
-          ? source - offsets[revision]
-          : undefined,
-      );
-      index++;
-    }
+  for (let index = start; index < range.steps.length; index++) {
+    const source = range.mirrors.get(index);
+    mapping.appendMap(
+      range.steps[index].getMap(),
+      source !== undefined && source >= start ? source - start : undefined,
+    );
+  }
   return mapping;
+}
+function mappingSince(paper: Paper, revision: number) {
+  return rangeMapping(historyRange(paper, revision));
 }
 function needsExplicitRestore(paper: Paper, mapping = mappingSince(paper, 0)) {
   let offset = 0;
@@ -706,16 +728,20 @@ export function restoreRevision(
     current = documentAt(paper, paper.revision);
   const transform = new Transform(current),
     inverseOf: number[] = [];
-  let offset = paper.history.reduce(
-    (count, entry) => count + entry.steps.length,
-    0,
-  );
-  for (const entry of paper.history.slice(revision).reverse()) {
-    offset -= entry.steps.length;
-    entry.inverseSteps.forEach((json, index) => {
-      transform.step(Step.fromJSON(schema, json));
-      inverseOf.push(offset + entry.steps.length - 1 - index);
-    });
+  const range = historyRange(paper, revision);
+  for (let index = range.steps.length - 1; index >= range.start; index--) {
+    if (range.paired.has(index)) continue;
+    const mapping = rangeMapping(range, index + 1);
+    transform.mapping.maps.forEach((map, applied) =>
+      mapping.appendMap(map, inverseOf[applied] - index - 1),
+    );
+    const inverse = range.inverses[index].map(mapping);
+    if (!inverse)
+      throw new Error(
+        "A net historical edit could not be restored through its actual mapping.",
+      );
+    transform.step(inverse);
+    inverseOf.push(index);
   }
   if (!transform.doc.eq(target))
     throw new Error(
@@ -1104,10 +1130,16 @@ export function markDelivery(
     T extends { id: string; delivery: "ready" | "sent"; error?: string },
   >(
     item: T,
-  ): T =>
-    item.id === id
-      ? { ...item, delivery: error ? "ready" : "sent", error }
-      : item;
+  ): T => {
+    if (item.id !== id) return item;
+    const next = {
+      ...item,
+      delivery: error === undefined ? ("sent" as const) : ("ready" as const),
+    };
+    if (error === undefined) delete next.error;
+    else next.error = error;
+    return next;
+  };
   return kind === "batch"
     ? { ...paper, batches: paper.batches.map(change) }
     : { ...paper, translationJobs: paper.translationJobs.map(change) };

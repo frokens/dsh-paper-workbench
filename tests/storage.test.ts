@@ -15,6 +15,7 @@ import { PaperWorkbench, paperDomainSpec } from "../src/host.js";
 import { createPaper, importDocument, type Paper } from "../src/model.js";
 import type { SessionId } from "@deepseek-ai/dsh-session/types";
 import type { Agent } from "@deepseek-ai/dsh-agent";
+import { isJsonValue } from "@deepseek-ai/dsh-util-values";
 
 function fixture() {
   return createPaper({
@@ -374,12 +375,80 @@ test("fault-injected prompt reply loss retains a retryable batch and uses the sa
       (await host.invoke({ action: "read" })).paper.batches[0].delivery,
       "ready",
     );
+    const failed = await host.invoke({ action: "read" });
+    assert.equal(isJsonValue(failed), true);
     host.setSendFailure(false);
     await host.invoke({ action: "send", kind: "batch", id });
+    const nativeRead = await host.service.handle(
+      { action: "read" },
+      "task",
+      false,
+      new AbortController().signal,
+    );
+    assert.equal(
+      isJsonValue(nativeRead),
+      true,
+      "The actual native tool return must be lossless before any Remote serialization.",
+    );
+    assert.equal(
+      Object.hasOwn(
+        (await host.invoke({ action: "read" })).paper.batches[0],
+        "error",
+      ),
+      false,
+    );
+    assert.match(
+      failed.paper.batches[0].error!,
+      /reply loss/,
+      "The previously returned failed state is not mutated.",
+    );
     assert.deepEqual(host.calls[0], host.calls[1]);
     assert.equal(host.calls.length, 2);
     await host.invoke({ action: "send", kind: "batch", id });
     assert.equal(host.calls.length, 2);
+  } finally {
+    await host.close();
+    await rm(root, { recursive: true });
+  }
+});
+
+test("translation send, native read and native completion return lossless JSON to the DSH tool consumer", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-storage-")),
+    host = await open(root);
+  try {
+    await seed(host);
+    const initial = await host.invoke({ action: "read" });
+    const prepared = await host.invoke({
+      action: "request_translation",
+      requestId: "translation",
+      sources: [initial.paper.blocks[0].selection],
+      replaces: [],
+    });
+    const id = prepared.paper.translationJobs[0].id;
+    const sent = await host.invoke({ action: "send", kind: "translation", id });
+    assert.equal(isJsonValue(sent), true);
+    assert.equal(Object.hasOwn(sent.paper.translationJobs[0], "error"), false);
+    const signal = new AbortController().signal;
+    assert.equal(
+      isJsonValue(
+        await host.service.handle({ action: "read" }, "task", false, signal),
+      ),
+      true,
+    );
+    const completed = await host.service.handle(
+      {
+        action: "complete_translation",
+        jobId: id,
+        groups: [{ sourceIndexes: [0], text: "保留已确认的句子。" }],
+      },
+      "task",
+      false,
+      signal,
+    );
+    assert.equal(isJsonValue(completed), true);
+    const current = await host.invoke({ action: "read" });
+    assert.equal(current.paper.translationJobs[0].status, "completed");
+    assert.deepEqual(current.paper.blocks, initial.paper.blocks);
   } finally {
     await host.close();
     await rm(root, { recursive: true });
