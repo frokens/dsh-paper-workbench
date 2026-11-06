@@ -3,6 +3,7 @@ import {
   feedbackTargetSchema,
   operationSchema,
   selectionSchema,
+  readingOutputSchema,
 } from "./contracts.js";
 
 const diffSchema = z.array(
@@ -45,9 +46,41 @@ const deliverySchema = {
   delivery: z.enum(["ready", "sent"]),
   error: z.string().optional(),
 };
+export const readingSchema = z.object({
+  id: z.string(),
+  requestId: z.string(),
+  sessionId: z.string(),
+  childId: z.string(),
+  sourceRevision: z.number().int().nonnegative(),
+  candidateIds: z.array(z.string()),
+  requestedCandidateIds: z.union([z.literal("all"), z.array(z.string())]),
+  goal: z.string(),
+  evidence: z.string(),
+  replaces: z.string().optional(),
+  material: z.object({
+    baselineDocument: z.json(),
+    candidateDocument: z.json(),
+    candidates: z.array(candidateSchema),
+    feedback: z.array(z.object({
+      id: z.string(),
+      requestId: z.string(),
+      target: feedbackTargetSchema,
+      comment: z.string(),
+    })),
+    translations: z.array(z.json()),
+    brief: z.string(),
+    warnings: z.array(z.string()),
+  }),
+  status: z.enum(["queued", "running", "completed", "failed", "cancelled", "interrupted"]),
+  output: readingOutputSchema.optional(),
+  diagnostic: z.string().optional(),
+  terminal: z.json().optional(),
+});
+export type Reading = z.infer<typeof readingSchema>;
 export const paperSchema = z.object({
   id: z.string(),
   name: z.string(),
+  brief: z.string().default(""),
   revision: z.number().int().nonnegative(),
   document: z.json(),
   baseline: z.json(),
@@ -57,6 +90,7 @@ export const paperSchema = z.object({
   candidates: z.array(candidateSchema),
   decisions: z.array(decisionSchema),
   history: z.array(historySchema),
+  readings: z.array(readingSchema).default([]),
   feedback: z.array(
     z.object({
       id: z.string(),

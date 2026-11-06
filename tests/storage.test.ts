@@ -16,6 +16,9 @@ import { createPaper, importDocument, type Paper } from "../src/model.js";
 import type { SessionId } from "@deepseek-ai/dsh-session/types";
 import type { Agent } from "@deepseek-ai/dsh-agent";
 import { isJsonValue } from "@deepseek-ai/dsh-util-values";
+import type { SubagentActivationSpec, SubagentResult } from "@deepseek-ai/dsh-subagent";
+import { prepareReading } from "../src/reading.js";
+import { readingRequest } from "../src/contracts.js";
 
 function fixture() {
   return createPaper({
@@ -131,6 +134,136 @@ async function seed(host: Awaited<ReturnType<typeof open>>) {
   await host.domain.table("bindings").put("task", { paperId: paper.id });
   return paper;
 }
+function storedPaper(host: Awaited<ReturnType<typeof open>>) {
+  const paper = host.domain.table("papers").get("paper");
+  assert.ok(paper && "history" in paper);
+  return paper;
+}
+const readingCommand = { action: "read_independently", requestId: "reading", candidateIds: [], goal: "Check the confirmed source.", evidence: "Synthetic facts only." };
+const readingResult: SubagentResult = {
+  stopReason: "completed", output: [],
+  structured: { interpretation: { problem: "A confirmed statement", mechanism: "Keep it intact", feedbackRole: "Clarification" }, findings: [], limits: ["Synthetic source only"] },
+};
+
+test("production native reading uses the DSH fresh/caller seam, validates structured capture and returns lossless JSON without changing the source", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
+  try {
+    await seed(host);
+    const before = JSON.stringify(storedPaper(host).document), calls: SubagentActivationSpec[] = [];
+    let disposed = false;
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      calls.push(spec);
+      return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => { disposed = true; } };
+    } });
+    const parent = { id: "task", hiddenParentReasoning: "PRIVATE_PARENT_REASONING" } as unknown as Agent;
+    const result = await host.service.handle(readingCommand, "task", false, new AbortController().signal, parent);
+    assert.equal(isJsonValue(result), true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].provider, "spawn");
+    assert.equal(calls[0].delivery, "caller");
+    assert.strictEqual(calls[0].request.parent, parent);
+    assert.equal(calls[0].request.agentPreset, undefined);
+    assert.ok(calls[0].request.outputSchema);
+    assert.ok(!JSON.stringify(calls[0].request.prompt).includes("PRIVATE_PARENT_REASONING"));
+    assert.equal(storedPaper(host).readings[0].status, "completed");
+    assert.equal(JSON.stringify(storedPaper(host).document), before);
+    assert.equal(disposed, true);
+    await host.service.handle(readingCommand, "task", false, new AbortController().signal, parent);
+    assert.equal(calls.length, 1, "An identical completed retry cannot start another chargeable child.");
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("reading cancellation targets its owned activation and retains a late completion as evidence without publishing a verdict", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
+  try {
+    await seed(host);
+    let finish!: (result: SubagentResult) => void, disposed = false;
+    const result = new Promise<SubagentResult>(resolve => { finish = resolve; });
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result, dispose: async () => { disposed = true; } }) });
+    await host.service.handle(readingCommand, "task", true, new AbortController().signal, { id: "task" } as Agent);
+    const id = storedPaper(host).readings[0].id;
+    assert.equal(storedPaper(host).readings[0].status, "running");
+    await host.invoke({ action: "cancel_reading", readingId: id });
+    assert.equal(disposed, true);
+    const terminal = new Promise<void>(resolve => {
+      const off = host.ctx.on("domain/changed", () => {
+        if (storedPaper(host).readings[0].terminal) { off(); resolve(); }
+      });
+    });
+    finish(readingResult);
+    await terminal;
+    assert.equal(storedPaper(host).readings[0].status, "cancelled");
+    assert.equal(storedPaper(host).readings[0].output, undefined);
+    assert.ok(storedPaper(host).readings[0].terminal);
+    assert.equal(isJsonValue(await host.invoke({ action: "read" })), true);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("a child failure is a durable reading failure, never a completed quality verdict", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
+  try {
+    await seed(host);
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve({ stopReason: "error", output: [], diagnostic: "Evidence could not be read." }), dispose: async () => {} }) });
+    await host.service.handle(readingCommand, "task", false, new AbortController().signal, { id: "task" } as Agent);
+    assert.equal(storedPaper(host).readings[0].status, "failed");
+    assert.equal(storedPaper(host).readings[0].output, undefined);
+    assert.match(storedPaper(host).readings[0].diagnostic!, /Evidence/);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("cancelling the native reading caller disposes only its owned child and records cancellation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
+  try {
+    await seed(host);
+    let finish!: (result: SubagentResult) => void, admitted!: () => void, disposed = false;
+    const result = new Promise<SubagentResult>(resolve => { finish = resolve; });
+    const started = new Promise<void>(resolve => { admitted = resolve; });
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      admitted();
+      return { childId: spec.childId, result, dispose: async () => { disposed = true; finish({ stopReason: "aborted", output: [] }); } };
+    } });
+    const signal = new AbortController();
+    const pending = host.service.handle(readingCommand, "task", false, signal.signal, { id: "task" } as Agent);
+    await started;
+    signal.abort();
+    await pending;
+    assert.equal(disposed, true);
+    assert.equal(storedPaper(host).readings[0].status, "cancelled");
+    assert.equal(storedPaper(host).readings[0].output, undefined);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("same-data restart marks an unfinished reading interrupted without starting another child or discarding its original material", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-"));
+  let host = await open(root);
+  try {
+    await seed(host);
+    const prepared = prepareReading(storedPaper(host), readingRequest.parse(readingCommand), "task");
+    await host.domain.table("papers").put("paper", prepared.paper);
+    const material = JSON.stringify(prepared.reading.material);
+    await host.close();
+    host = await open(root);
+    const restored = storedPaper(host).readings[0];
+    assert.equal(restored.status, "interrupted");
+    assert.equal(JSON.stringify(restored.material), material);
+    assert.equal(restored.childId, prepared.reading.childId);
+    assert.equal(restored.output, undefined);
+    assert.equal(isJsonValue(await host.invoke({ action: "read" })), true);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("failed durable reading admission cannot start a child", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
+  try {
+    await seed(host);
+    let starts = 0;
+    host.ctx.provide("subagents", { startActivation: async () => { starts++; throw new Error("Must not start"); } });
+    host.setFailure(true);
+    await assert.rejects(host.service.handle(readingCommand, "task", true, new AbortController().signal, { id: "task" } as Agent), /Injected durable write failure/);
+    assert.equal(starts, 0);
+    assert.equal(storedPaper(host).readings.length, 0);
+  } finally { host.setFailure(false); await host.close(); await rm(root, { recursive: true }); }
+});
 
 test("actual DSH domain and JSON backend preserve aggregate and events on a failed Host decision, then reopen the same durable state", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-storage-"));

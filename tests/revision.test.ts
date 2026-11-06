@@ -57,6 +57,19 @@ function engine(request: object) {
 
 const fixture = engine({ action: "fixture" });
 const imported = engine({ action: "inspect", base64: fixture.base64 });
+test("SDK-created blank drafts enter the same exact proposal, decision and native Word projection", () => {
+  const created = engine({ action: "create" });
+  const source = engine({ action: "inspect", base64: created.base64 });
+  assert.equal(source.blocks.length, 1);
+  assert.equal(source.blocks[0].text, "");
+  assert.equal(source.blocks[0].editable, true);
+  let paper = createPaper({ id: "draft", name: "Draft.docx", brief: "Use supplied evidence.", originalBase64: created.base64, sourceBase64: source.normalizedBase64, document: importDocument(source.blocks), warnings: source.warnings });
+  paper = propose(paper, { action: "propose", requestId: "draft", selection: paperView(paper).blocks[0].selection, replacement: "The result remains unverified.", reason: "Draft from the stated evidence." });
+  paper = decide(paper, paper.candidates[0].id, "accepted");
+  const exported = engine({ action: "export", base64: paper.sourceBase64, tracked: true, paragraphs: exportParagraphs(paper) });
+  assert.equal(engine({ action: "inspect", base64: exported.base64, revisionMode: "accept" }).blocks[0].text, "The result remains unverified.");
+  assert.equal(engine({ action: "inspect", base64: exported.base64, revisionMode: "reject" }).blocks[0].text, "");
+});
 function initial(): Paper {
   const document = importDocument(imported.blocks);
   return createPaper({

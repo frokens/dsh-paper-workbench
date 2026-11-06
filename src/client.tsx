@@ -14,8 +14,9 @@ import type {
 import type { z } from "zod";
 import type { paperView, previewAcceptance, compareRevision } from "./model.js";
 import { remoteInfo } from "./remote.js";
+import type { readingViews } from "./reading.js";
 
-type PaperView = ReturnType<typeof paperView>;
+type PaperView = ReturnType<typeof paperView> & { readings: ReturnType<typeof readingViews> };
 type View = {
   paper: PaperView | null;
   available: { id: string; name: string }[];
@@ -101,7 +102,31 @@ const en = {
   dependencies: "Required groups included",
   conflicts: "Needs new selection",
   noChanges: "No candidates yet.",
-  independent: "Independent reading is not implemented yet.",
+  independent: "Independent reading checks a supplied candidate combination; the user still decides.",
+  readings: "Independent reading",
+  createDraft: "Start from research materials",
+  draftName: "Draft name",
+  brief: "Writing goal and research material references",
+  saveDraft: "Create draft and save writing goal",
+  readingGoal: "Reading goal",
+  readingEvidence: "Evidence and context for the independent reader",
+  readAll: "Read all pending candidates (uses model)",
+  readSelected: "Read selected candidates (uses model)",
+  readCurrent: "Read current accepted body (uses model)",
+  recheck: "Recheck current body (uses model)",
+  noReadings: "No independent reading has been requested.",
+  readingLimit: "A fresh session isolates conversation history; it does not guarantee factual correctness.",
+  partialReading: "The current accepted combination differs from this reading. Its historical findings remain available; the new combination needs a recheck.",
+  combinationChanged: "The pending combination no longer matches the reviewed material.",
+  interpretation: "Reader interpretation",
+  evidenceLimits: "Evidence limits",
+  readingSource: "Independent session source",
+  readingScope: "Reviewed candidate groups",
+  bodyOnlyReading: "This reading covers the accepted body without pending candidates.",
+  queued: "Queued",
+  running: "Reading in progress",
+  failed: "Failed",
+  interrupted: "Interrupted; explicit restart required",
   undo: "Undo decision",
   revision: "Revision",
   baseline:
@@ -192,7 +217,31 @@ const zh: typeof en = {
   dependencies: "同时包含必要依赖组",
   conflicts: "需要重新定位",
   noChanges: "尚无候选修改。",
-  independent: "独立审读尚未实现。",
+  independent: "独立审读针对准确候选组合；是否接受仍由用户决定。",
+  readings: "独立审读",
+  createDraft: "从研究材料开始",
+  draftName: "稿件名称",
+  brief: "写作目标与研究材料位置",
+  saveDraft: "创建稿件并保存写作目标",
+  readingGoal: "审读目标",
+  readingEvidence: "提供给独立读者的事实依据与上下文",
+  readAll: "审读全部待处理候选（调用模型）",
+  readSelected: "审读所选候选（调用模型）",
+  readCurrent: "审读当前已接收正文（调用模型）",
+  recheck: "复核当前正文组合（调用模型）",
+  noReadings: "尚未请求独立审读。",
+  readingLimit: "新会话隔离写作者对话；不保证事实一定正确。",
+  partialReading: "当前已接收组合与本次审读材料不同。原意见保留，新组合需要复核。",
+  combinationChanged: "待处理候选组合已不同于原审读材料。",
+  interpretation: "读者理解",
+  evidenceLimits: "证据限制",
+  readingSource: "独立会话来源",
+  readingScope: "本次覆盖的候选组",
+  bodyOnlyReading: "本次仅审读已接收正文，不含待处理候选。",
+  queued: "等待启动",
+  running: "正在审读",
+  failed: "审读失败",
+  interrupted: "已中断，需要明确重新启动",
   undo: "撤销决定",
   revision: "正文版本",
   baseline:
@@ -275,6 +324,10 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     [preview, setPreview] = React.useState<Reply["preview"]>(),
     [comparison, setComparison] = React.useState<Reply["comparison"]>(),
     [compareAt, setCompareAt] = React.useState(0);
+  const [newName, setNewName] = React.useState("New draft.docx"),
+    [newBrief, setNewBrief] = React.useState(""),
+    [readingGoal, setReadingGoal] = React.useState(""),
+    [readingEvidence, setReadingEvidence] = React.useState("");
   const controller = React.useRef<AbortController | undefined>(undefined),
     body = React.useRef<HTMLDivElement>(null);
   const paper = view?.paper;
@@ -305,6 +358,8 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     setSelected([]);
     setPreview(undefined);
     setComparison(undefined);
+    setReadingGoal("");
+    setReadingEvidence("");
     return () => controller.current?.abort();
   }, [sessionId]);
   const previous = React.useRef<string | undefined>(undefined);
@@ -337,6 +392,14 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     } finally {
       if (controller.current === active) setBusy(false);
     }
+  }
+  async function requestReading(candidateIds: string[] | "all", replaces?: string) {
+    if (!paper) return;
+    const earlier = paper.readings.find(reading => reading.id === replaces);
+    await run({ action: "read_independently", requestId: crypto.randomUUID(), candidateIds,
+      goal: readingGoal.trim() || earlier?.goal || paper.brief || "Assess the supplied paper's argument, feedback intent, evidence and bilingual meaning.",
+      evidence: readingEvidence.trim() ? readingEvidence : earlier?.evidence ?? "", ...(replaces ? { replaces } : {}) });
+    setTab("readings");
   }
   function capture(event: React.SyntheticEvent<HTMLDivElement>) {
     const selectedText = window.getSelection();
@@ -515,7 +578,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
         </div>
         {paper && (
           <nav className="pw-actions pw-tabs" aria-label={t("title")}>
-            {["reading", "proposals", "feedback", "history"].map((key) => (
+            {["reading", "proposals", "feedback", "readings", "history"].map((key) => (
               <button
                 key={key}
                 aria-selected={tab === key}
@@ -546,8 +609,13 @@ function Workbench({ sessionId, call, observe, t }: Props) {
         )}
         <details open={!paper}>
           <summary>
-            {t("upload")} / {t("link")}
+            {t("upload")} / {t("link")} / {t("createDraft")}
           </summary>
+          <label>{t("draftName")}<input aria-label={t("draftName")} value={newName} onChange={e => setNewName(e.target.value)} /></label>
+          <label>{t("brief")}<textarea value={newBrief} onChange={e => setNewBrief(e.target.value)} /></label>
+          <button disabled={busy || !newName.trim()} onClick={() => void (async () => {
+            if (await run({ action: "create", name: newName.trim(), brief: newBrief })) setTab("feedback");
+          })()}>{t("saveDraft")}</button>
           <label>
             {t("revisionMode")}
             <select value={mode} onChange={(e) => setMode(e.target.value)}>
@@ -917,6 +985,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
             {tab === "proposals" && (
               <>
                 <p className="pw-muted">{t("independent")}</p>
+                <button onClick={() => setTab("readings")}>{t("readings")}</button>
                 <div className="pw-actions">
                   <button
                     disabled={busy || !pending.length}
@@ -1185,6 +1254,47 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                     </button>
                   </article>
                 ))}
+              </>
+            )}
+            {tab === "readings" && (
+              <>
+                <p className="pw-muted">{t("readingLimit")}</p>
+                <label>{t("readingGoal")}<textarea value={readingGoal} onChange={e => setReadingGoal(e.target.value)} placeholder={paper.brief} /></label>
+                <label>{t("readingEvidence")}<textarea value={readingEvidence} onChange={e => setReadingEvidence(e.target.value)} /></label>
+                <div className="pw-actions">
+                  <button disabled={busy || !pending.length} onClick={() => void requestReading("all")}>{t("readAll")}</button>
+                  <button disabled={busy || !selected.length} onClick={() => void requestReading(selected)}>{t("readSelected")}</button>
+                  <button disabled={busy} onClick={() => void requestReading([])}>{t("readCurrent")}</button>
+                </div>
+                {!paper.readings.length && <p>{t("noReadings")}</p>}
+                {paper.readings.map(reading => <article key={reading.id}>
+                  <div className="pw-actions"><span className="pw-tag">{t(reading.status)}</span><span>{t("revision")} {reading.sourceRevision}</span></div>
+                  <p>{reading.goal}</p>
+                  {reading.candidateIds.length ? <details><summary>{t("readingScope")} · {reading.candidateIds.length}</summary>{reading.candidateIds.map(id => <p key={id}>{paper.candidates.find(candidate => candidate.id === id)?.reason}</p>)}</details> : <p className="pw-muted">{t("bodyOnlyReading")}</p>}
+                  {reading.diagnostic && <p role="alert" className="pw-error">{reading.diagnostic}</p>}
+                  {!reading.combinationMatches && <p className="pw-muted">{t("combinationChanged")}</p>}
+                  {!reading.currentBodyReviewed && <p className="pw-muted">{t("partialReading")}</p>}
+                  {reading.output && <>
+                    <h3>{t("interpretation")}</h3>
+                    <p>{reading.output.interpretation.problem}</p><p>{reading.output.interpretation.mechanism}</p><p>{reading.output.interpretation.feedbackRole}</p>
+                    {reading.findings.map((finding, index) => <section key={index}>
+                      <h3>{finding.issue}</h3>
+                      {finding.locations.map((location, i) => <blockquote key={i}>{location.quote}</blockquote>)}
+                      <p>{finding.impact}</p><p>{finding.evidence}</p><p>{finding.suggestion}</p>
+                      {finding.sources.length > 0 && <button onClick={() => locate(finding.sources.map(s => s.blockId))}>{t("locate")}</button>}
+                      {!finding.sources.length && !!finding.currentCandidateIds.length && <button onClick={() => {
+                        setTab("proposals");
+                        requestAnimationFrame(() => body.current?.querySelector(`[data-candidate="${CSS.escape(finding.currentCandidateIds[0])}"]`)?.scrollIntoView({ block: "center" }));
+                      }}>{t("proposals")}</button>}
+                    </section>)}
+                    {!!reading.output.limits.length && <><h3>{t("evidenceLimits")}</h3>{reading.output.limits.map((limit, i) => <p key={i}>{limit}</p>)}</>}
+                  </>}
+                  <details><summary>{t("readingSource")}</summary><code>{reading.childId}</code></details>
+                  <div className="pw-actions">
+                    {(reading.status === "queued" || reading.status === "running") && <button onClick={() => void run({ action: "cancel_reading", readingId: reading.id })}>{t("cancel")}</button>}
+                    {reading.status !== "queued" && reading.status !== "running" && <button disabled={busy} onClick={() => void requestReading([], reading.id)}>{t("recheck")}</button>}
+                  </div>
+                </article>)}
               </>
             )}
             {tab === "history" && (

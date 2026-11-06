@@ -300,6 +300,14 @@ test(
       compared.comparison.blocks.find((block) => block.id === rightId).removed,
       true,
     );
+    const draft = await action({ action: "create", name: "Material draft.docx", brief: "Use the synthetic evidence; preserve the unverified condition." });
+    assert.equal(draft.paper.blocks.length, 1);
+    assert.equal(draft.paper.blocks[0].text, "");
+    assert.equal(draft.paper.feedback.length, 1);
+    assert.equal(draft.paper.batches.length, 0, "Saving a writing goal must not submit a batch or call a model.");
+    const written = await accept(await proposeOperation({ kind: "replace", selection: draft.paper.blocks[0].selection, replacement: "The result remains unverified." }, "Use only the supplied facts."));
+    const draftedExport = await action({ action: "export", tracked: true });
+    assert.equal(engine({ action: "inspect", base64: draftedExport.base64, revisionMode: "accept" }).blocks[0].text, written.paper.blocks[0].text);
     const after = await rpc("session/events", {
       request: {
         address: { kind: "session", sessionId: agentId },
@@ -312,7 +320,7 @@ test(
       "Sidebar data operations must not write internal payloads into chat.",
     );
     console.log(
-      "Validated the installed Host and official Remote stream, exact proposals/decisions, native DOCX regressions, split target/merge comparison and unchanged chat cursor; no model call.",
+      "Validated the installed Host/Remote stream, exact proposals/decisions, native DOCX regressions, split target/merge comparison, a real blank draft using the same lifecycle, and unchanged chat cursor; no model call.",
     );
   },
 );

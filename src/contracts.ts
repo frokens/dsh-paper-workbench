@@ -37,6 +37,40 @@ export const operationSchema = z.discriminatedUnion("kind", [
 ]);
 export type Operation = z.infer<typeof operationSchema>;
 export const readRequest = z.object({ action: z.literal("read") });
+export const createRequest = z.object({
+  action: z.literal("create"),
+  name: z.string().min(1).max(250),
+  brief: z.string().max(20000),
+});
+export const readingRequest = z.object({
+  action: z.literal("read_independently"),
+  requestId: z.string().min(1).max(200),
+  candidateIds: z.union([z.literal("all"), z.array(z.string()).max(100)]),
+  goal: z.string().min(1).max(20000),
+  evidence: z.string().max(30000),
+  replaces: z.string().optional(),
+});
+export const readingOutputSchema = z.strictObject({
+  interpretation: z.strictObject({
+    problem: z.string(),
+    mechanism: z.string(),
+    feedbackRole: z.string(),
+  }),
+  findings: z.array(z.strictObject({
+    kind: z.enum(["concern", "question"]),
+    locations: z.array(z.strictObject({
+      version: z.enum(["baseline", "candidate"]),
+      blockId: z.string(),
+      quote: z.string(),
+    })),
+    candidateIds: z.array(z.string()),
+    issue: z.string(),
+    impact: z.string(),
+    evidence: z.string(),
+    suggestion: z.string(),
+  })),
+  limits: z.array(z.string()),
+});
 export const proposeRequest = z.object({
   action: z.literal("propose"),
   requestId: z.string().min(1).max(200),
@@ -89,11 +123,16 @@ export const completeTranslationRequest = z.object({
 });
 export const agentRequest = z.discriminatedUnion("action", [
   readRequest,
+  createRequest,
+  readingRequest,
   proposeRequest,
   completeTranslationRequest,
 ]);
 export const uiRequest = z.discriminatedUnion("action", [
   readRequest,
+  createRequest,
+  readingRequest,
+  z.object({ action: z.literal("cancel_reading"), readingId: z.string() }),
   proposeRequest,
   z.object({
     action: z.literal("import"),

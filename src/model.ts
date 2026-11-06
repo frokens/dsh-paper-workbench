@@ -33,15 +33,17 @@ export function createPaper(
   input: Pick<
     Paper,
     "id" | "name" | "document" | "originalBase64" | "sourceBase64" | "warnings"
-  >,
+  > & { brief?: string },
 ): Paper {
   return {
     ...input,
+    brief: input.brief ?? "",
     revision: 0,
     baseline: input.document,
     candidates: [],
     decisions: [],
     history: [],
+    readings: [],
     feedback: [],
     batches: [],
     translations: [],
@@ -477,6 +479,12 @@ export function previewAcceptance(paper: Paper, ids: string[] | "all") {
     includedDependencies,
     conflicts,
   };
+}
+export function projectCandidates(paper: Paper, ids: string[] | "all") {
+  const plan = planAcceptance(paper, ids);
+  if (plan.conflicts.length)
+    throw new Error(plan.conflicts.map((c) => c.message).join("\n"));
+  return { candidateIds: plan.candidateIds, document: plan.transform.doc.toJSON() };
 }
 function commit(
   paper: Paper,
@@ -1204,6 +1212,7 @@ export function paperView(paper: Paper) {
   return {
     id: paper.id,
     name: paper.name,
+    brief: paper.brief,
     revision: paper.revision,
     warnings: paper.warnings,
     wordExportNeedsRestore: needsExplicitRestore(paper),

@@ -25,7 +25,12 @@ static class Program
             using var request = JsonDocument.Parse(input.ToArray());
             var r = request.RootElement;
             var action = r.GetProperty("action").GetString();
-            object result = action == "fixture" ? Fixture(r.TryGetProperty("fixture", out var f) ? f.GetString() : null) : Process(r);
+            object result = action switch
+            {
+                "fixture" => Fixture(r.TryGetProperty("fixture", out var f) ? f.GetString() : null),
+                "create" => CreateDocument(r),
+                _ => Process(r)
+            };
             Console.WriteLine(JsonSerializer.Serialize(new { ok = true, result }, Json));
             return 0;
         }
@@ -240,6 +245,32 @@ static class Program
                 using var src = entry.Open(); using var dest = copy.Open(); src.CopyTo(dest);
             }
         return Convert.ToBase64String(output.ToArray());
+    }
+
+    static object CreateDocument(JsonElement request)
+    {
+        var paragraphs = request.TryGetProperty("paragraphs", out var supplied)
+            ? supplied.EnumerateArray().Select(p => p.GetString() ?? throw new Exception("A paragraph must be text.")).ToArray()
+            : [""];
+        if (paragraphs.Length is < 1 or > 5000 || paragraphs.Sum(p => (long)p.Length) > 4_000_000
+            || paragraphs.Any(p => p.Contains('\r') || p.Contains('\n')))
+            throw new Exception("Create requires 1–5000 paragraphs, at most four million characters, without embedded paragraph breaks.");
+        using var stream = new MemoryStream();
+        using (var doc = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true))
+        {
+            var main = doc.AddMainDocumentPart();
+            var body = new W.Body();
+            foreach (var text in paragraphs)
+                body.Append(new W.Paragraph(new W.Run(new W.Text(text) { Space = SpaceProcessingModeValues.Preserve })));
+            body.Append(new W.SectionProperties(new W.PageSize { Width = 11906, Height = 16838 },
+                new W.PageMargin { Top = 1440, Bottom = 1440, Left = 1440, Right = 1440 }));
+            main.Document = new W.Document(body);
+            main.Document.Save();
+            ClearMetadata(doc);
+            var errors = new OpenXmlValidator(FileFormatVersions.Microsoft365).Validate(doc).Take(10).Select(e => e.Description).ToArray();
+            if (errors.Length != 0) throw new Exception("Open XML validation failed: " + string.Join("; ", errors));
+        }
+        return new { base64 = NormalizeZip(stream.ToArray()) };
     }
 
     static object Fixture(string? variant)

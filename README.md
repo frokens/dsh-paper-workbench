@@ -9,8 +9,10 @@
 ## 当前状态
 
 A 批的有界代码切片已由 [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)
-合入；最终 Word 接受/拒绝、桌面接入及公开下载仍有未验项。当前实施 B 批的双语、反馈
-和修订生命周期，见[本批状态](docs/reference/bilingual-lifecycle-status.md)。尚未发布完整产品。下列完整体验仍是实施
+合入；B 批双语、反馈和修订生命周期的有界代码与代表性原生路径由
+[PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2) 合入，见[准确接收范围](docs/reference/bilingual-lifecycle-status.md)。
+当前实施 C 批的材料写作与独立审读。最终 Word 接受/拒绝、桌面接入、公开下载及界面收尾仍有未验项。
+尚未发布完整产品。下列完整体验仍是实施
 目标，不能视为已全部交付。当前职责、支持域和实际证据见
 [原生切片状态](docs/reference/native-slice-status.md)及实现 PR。
 
