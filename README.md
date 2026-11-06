@@ -8,8 +8,10 @@
 
 ## 当前状态
 
-当前仓库处于设计基线与实施启动阶段，尚未交付可安装插件。下列能力是已批准的实施
-目标，不代表已经实现或验证。实现和验收状态以实际代码、PR 和验证记录为准。
+当前在实施 A 批候选：原生论文侧栏、准确片段候选、用户决定和 Word 原生修订导出。
+已构建安装包正在真实 DSH 与 Word 中验证，尚未发布完整产品。下列完整体验仍是实施
+目标，不能视为已全部交付。当前职责、支持域和实际证据见
+[原生切片状态](docs/reference/native-slice-status.md)及实现 PR。
 
 ## 目标体验
 
@@ -40,12 +42,25 @@ DSH 对话区或主聊天输入框。
 
 ## 安装与开发
 
-安装包和精确安装步骤尚待实现与实测。目标是提供含已构建 Host/Client 的公开发布包，
-通过 DSH 的正式 bundle 安装入口启用，无须修改 DSH 核心或在使用者电脑上编译源码。
-当前不能将仓库克隆、构建通过或浏览器演示称为安装完成。
+候选包包含已构建 Host/Client、文档运行时、Skill 和许可，通过 DSH 正式插件入口安装。
+首个验证组合是 DSH `0.2.2-rc.1` Web、macOS Apple silicon；桌面插件安装与其余平台
+尚未验收。候选安装方式与限制见[安装说明](docs/install.md)。当前公开 Release 仍待
+独立审查；没有发布的包不能视为普通用户已可取得。
 
-计划采用 TypeScript 与 DSH 原生插件体系，复用结构化编辑器、文档库及 DSH 已有
-服务。实际依赖版本和平台支持由实施证据确定，写入锁文件、安装说明和发布记录。
+开发者使用 Node.js 24.9 或更高版本和 .NET SDK 10。依赖由 npm 与 NuGet 锁文件确定。
+文档辅助程序使用 Open XML SDK，自带运行时；普通安装使用者无需 .NET SDK。
+
+```sh
+npm ci
+dotnet publish document-engine -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -o runtime/osx-arm64
+npm run typecheck
+npm test
+npm run build
+npm run package
+```
+
+真实 Host 集成检查单独使用 `npm run test:host`，只连接 `DSH_TEST_URL` 指定的可丢弃
+测试服务，创建合成会话并调用已安装插件，不发模型请求。不得将它指向正常用户环境。
 
 ## 贡献与许可
 

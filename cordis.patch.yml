@@ -1,0 +1,4 @@
+- insert:
+    - id: paper-workbench
+      name: dsh-paper-workbench
+      config: {}

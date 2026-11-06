@@ -1,0 +1,75 @@
+{
+  "name": "dsh-paper-workbench",
+  "version": "0.1.0-alpha.9",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/frokens/dsh-paper-workbench.git"
+  },
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=24.9.0",
+    "dsh": "0.2.2-rc.1"
+  },
+  "exports": {
+    ".": "./dist/host.js",
+    "./client": "./dist/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./resources/icon.svg"
+  },
+  "files": [
+    "dist",
+    "runtime",
+    "skills",
+    "locale",
+    "resources",
+    "cordis.patch.yml",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "README.md",
+    "docs/install.md",
+    "docs/reference/native-slice-status.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml",
+      "platforms": [
+        "darwin"
+      ]
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "package": "node scripts/package.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:host": "node --test tests/dsh-host.test.mjs",
+    "fixture:word": "tsx scripts/word-fixture.mjs",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.1",
+    "@types/node": "24.10.0",
+    "@types/react": "19.2.2",
+    "diff": "8.0.2",
+    "esbuild": "0.25.12",
+    "prosemirror-model": "1.25.4",
+    "prosemirror-transform": "1.10.5",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "zod": "4.4.3"
+  }
+}
