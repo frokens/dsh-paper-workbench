@@ -171,7 +171,8 @@ test("complete custom paragraph and run formats survive replacements and structu
   const accepted = engine({ action: "inspect", base64: output.base64, revisionMode: "accept" });
   const rejected = engine({ action: "inspect", base64: output.base64, revisionMode: "reject" });
   assert.equal(accepted.blocks[0].paragraphFormat, original.blocks[0].paragraphFormat);
-  assert.equal(accepted.blocks[1].paragraphFormat, "");
+  assert.equal(accepted.blocks[1].paragraphFormat, original.blocks[0].paragraphFormat,
+    "A new block identity retains its full custom paragraph format source; headings still use the explicit normal-paragraph rule.");
   assert.equal(rejected.blocks[0].paragraphFormat, original.blocks[0].paragraphFormat);
 });
 
@@ -225,6 +226,37 @@ test("original comments remain linked through accepted feedback and ambiguous na
   const refused = engine({ action: "inspect", base64: duplicate.base64 });
   assert.equal(refused.nativeComments[0].editable, false);
   assert.equal(refused.blocks[0].editable, false);
+});
+
+test("an unchanged original native comment retains its exact phrase through unrelated edits and both tracked projections", () => {
+  const source = initial(), block = paperView(source).blocks[1], quote = "The model proposes a change.";
+  const from = block.text.indexOf(quote), to = from + quote.length;
+  const supplied = engine({ action: "export", base64: source.sourceBase64, tracked: false, ...wordProjection(source),
+    comments: [{ blockIds: [block.id], selections: [{ blockId: block.id, from, to }], text: "Preserve this exact claim." }] });
+  const inspected = engine({ action: "inspect", base64: supplied.base64 });
+  let paper = importWordComments(createPaper({ id: "precise", name: "precise.docx", originalBase64: supplied.base64,
+    sourceBase64: inspected.normalizedBase64, document: importDocument(inspected.blocks), warnings: inspected.warnings }), inspected.nativeComments);
+  const selected = paperView(paper).blocks[1].selection;
+  paper = acceptOperations(paper, [{ kind: "replace", selection: { ...selected, from: 4, to: 10, quote: "worker" }, replacement: "executor" }]);
+  const comments = wordComments(paper, 0, paper.revision, false);
+  assert.deepEqual(comments.warnings, []);
+  const output = engine({ action: "export", base64: paper.sourceBase64, tracked: true, ...wordProjection(paper), comments: comments.comments });
+  for (const revisionMode of ["accept", "reject"]) {
+    const projected = engine({ action: "inspect", base64: output.base64, revisionMode });
+    const comment = projected.nativeComments[0], range = comment.ranges[0];
+    assert.equal(comment.text, "Preserve this exact claim.");
+    assert.equal(comment.editable, true);
+    assert.equal(projected.blocks[range.sourceIndex].text.slice(range.from, range.to), quote);
+  }
+});
+
+test("unresolved revisions in preserved Word stories are refused instead of pretending that a body-only choice resolved them", () => {
+  for (const variant of ["header-revision", "footnote-revision"]) {
+    const original = engine({ action: "fixture", fixture: variant });
+    for (const revisionMode of [undefined, "accept", "reject"]) {
+      assert.throws(() => engine({ action: "inspect", base64: original.base64, revisionMode }), /outside the supported primary body/);
+    }
+  }
 });
 
 test("functional delivery markers survive accept and reject projection and are replaced by a later actual delivery", () => {

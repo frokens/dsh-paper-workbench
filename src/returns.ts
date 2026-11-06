@@ -1,8 +1,8 @@
 import { diffChars } from "diff";
 import type { z } from "zod";
-import { documentAt, mapSelection, propose, type Paper } from "./model.js";
+import { documentAt, mapSelection, propose, addFeedback, type Paper } from "./model.js";
 import { documentReturnSchema, type ReturnedBlock } from "./records.js";
-import { proposeRequest, type Selection, type returnMappingsSchema, type proposeReturnRequest } from "./contracts.js";
+import { proposeRequest, type Selection, type returnMappingsSchema, type proposeReturnRequest, type copyReturnCommentsRequest } from "./contracts.js";
 
 type Mappings = z.infer<typeof returnMappingsSchema>;
 export function recordDocumentReturn(paper: Paper, raw: unknown): Paper {
@@ -39,6 +39,24 @@ function textChanges(before: string, after: string) {
   }
   if (pending) changes.push(pending);
   return changes;
+}
+
+function unchangedReturnRange(before: string, after: string, from: number, to: number) {
+  if (before === after) return { from, to };
+  if (before.length + after.length > 200000) throw new Error("The comment needs a smaller, explicit source comparison.");
+  const parts = diffChars(before, after, { timeout: 200, maxEditLength: 20000 });
+  if (!parts) throw new Error("The comment source comparison exceeded its bounded scope.");
+  let oldPosition = 0, newPosition = 0;
+  const candidates: { from: number; to: number }[] = [];
+  for (const part of parts) {
+    if (!part.added && !part.removed && from >= newPosition && to <= newPosition + part.value.length)
+      candidates.push({ from: oldPosition + from - newPosition, to: oldPosition + to - newPosition });
+    if (!part.added) oldPosition += part.value.length;
+    if (!part.removed) newPosition += part.value.length;
+  }
+  const distinct = candidates.filter((item, index) => candidates.findIndex(other => other.from === item.from && other.to === item.to) === index);
+  if (distinct.length !== 1) throw new Error("This comment refers to returned wording that is not yet in the current source. Review the returned text or its paragraph alignment first.");
+  return distinct[0];
 }
 
 /** E is the immutable delivered body. B only defines the Word rejection projection. */
@@ -108,12 +126,39 @@ export function compareReturn(paper: Paper, returnId: string, mappings: Mappings
       changes.push(change);
     });
   }
+  const comments = returned.nativeComments.map(comment => {
+    const locations = comment.ranges.map(range => ({ ...range,
+      quote: returned.blocks.find(block => block.sourceIndex === range.sourceIndex)?.text.slice(range.from, range.to) ?? "" }));
+    const copied = paper.feedback.some(feedback => feedback.returnComment?.returnId === returnId && feedback.returnComment.commentId === comment.id);
+    const sources: Selection[] = [];
+    let diagnostic: string | undefined;
+    try {
+      if (markerMismatch) throw new Error("Choose the correct delivered file before copying its comments.");
+      if (!comment.editable || !comment.text.trim() || !comment.ranges.length || comment.ranges.length > 100)
+        throw new Error("This comment has no supported text range to copy. Inspect the original returned DOCX.");
+      for (const range of comment.ranges) {
+        const block = returned.blocks.find(item => item.sourceIndex === range.sourceIndex), blockId = aligned.get(range.sourceIndex);
+        const original = blockId ? source.get(blockId) : undefined;
+        if (!block || !blockId || !original || range.from > range.to || range.to > block.text.length)
+          throw new Error("Verify this comment's returned paragraph alignment first.");
+        const node = [...current.content.content].find(item => item.attrs.id === blockId && item.type.name === "paragraph");
+        if (node?.textContent === block.text) sources.push({ ...original.selection, revision: paper.revision,
+          from: range.from, to: range.to, quote: block.text.slice(range.from, range.to) });
+        else {
+          const unchanged = unchangedReturnRange(original.text, block.text, range.from, range.to);
+          sources.push(mapSelection(paper, { ...original.selection, ...unchanged, quote: original.text.slice(unchanged.from, unchanged.to) }));
+        }
+      }
+    } catch (error) { diagnostic = error instanceof Error ? error.message : String(error); }
+    return { ...comment, locations, sources: diagnostic ? [] : sources,
+      state: copied ? "copied" as const : diagnostic ? "unresolved" as const : "ready" as const,
+      ...(diagnostic ? { diagnostic } : {}) };
+  });
   return { returnId, deliveryId: delivery.id, deliveredRevision: delivery.revision, baselineRevision: delivery.baselineRevision,
     currentRevision: paper.revision, markerMismatch, orderChanged, mappings, warnings: [...new Set(warnings)], changes, formatChanges, unCompared, unmapped, missing,
     sourceParagraphs: [...source].map(([blockId, block]) => ({ blockId, text: block.text })),
     returnedParagraphs: returned.blocks.filter(block => block.editable).map(block => ({ sourceIndex: block.sourceIndex, text: block.text, blockId: aligned.get(block.sourceIndex) ?? null })),
-    comments: returned.nativeComments.map(comment => ({ ...comment, locations: comment.ranges.map(range => ({ ...range,
-      quote: returned.blocks.find(block => block.sourceIndex === range.sourceIndex)?.text.slice(range.from, range.to) ?? "" })) })),
+    comments,
   };
 }
 
@@ -126,6 +171,9 @@ export function proposeReturnChanges(paper: Paper, request: z.infer<typeof propo
     return paper;
   }
   if (request.expectedRevision !== paper.revision) throw new Error("The current paper changed. Compare the returned file again.");
+  if (paper.candidates.some(candidate => candidate.status === "pending" && candidate.returnedFrom?.returnId === request.returnId
+    && candidate.returnedFrom.changeIds.some(id => provenance.changeIds.includes(id))))
+    throw new Error("Some selected return changes already have a pending candidate. Review that candidate first.");
   const comparison = compareReturn(paper, request.returnId, request.mappings);
   const changes = provenance.changeIds.map(id => comparison.changes.find(change => change.id === id));
   if (changes.some(change => !change || change.status !== "ready" || !change.current))
@@ -134,4 +182,24 @@ export function proposeReturnChanges(paper: Paper, request: z.infer<typeof propo
     reason: `Selected text changes from the returned Word file, compared with delivered revision ${comparison.deliveredRevision}. Current source formatting is retained.`,
     operations: changes.map(change => ({ kind: "replace", selection: change!.current, replacement: change!.after })) }));
   return { ...next, candidates: next.candidates.map(candidate => candidate.requestId === request.requestId ? { ...candidate, returnedFrom: provenance } : candidate) };
+}
+
+export function copyReturnComments(paper: Paper, request: z.infer<typeof copyReturnCommentsRequest>): Paper {
+  const ids = [...new Set(request.commentIds)];
+  const copied = (id: string) => paper.feedback.some(feedback => feedback.returnComment?.returnId === request.returnId && feedback.returnComment.commentId === id);
+  if (ids.every(copied)) return paper;
+  if (paper.revision !== request.expectedRevision) throw new Error("The current paper changed. Review the returned comment locations again.");
+  const comparison = compareReturn(paper, request.returnId, request.mappings);
+  let next = paper;
+  for (const id of ids) {
+    if (copied(id)) continue;
+    const comment = comparison.comments.find(item => item.id === id);
+    if (!comment || comment.state !== "ready") throw new Error("Only returned comment text with an exact current source range can be copied to feedback.");
+    const requestId = `return:${request.requestId}:${id}`;
+    if (next.feedback.some(item => item.requestId === requestId)) throw new Error("This feedback request identity was already used.");
+    next = addFeedback(next, { requestId, target: { kind: "source", selections: comment.sources }, comment: comment.text });
+    next = { ...next, feedback: next.feedback.map(item => item.requestId === requestId
+      ? { ...item, returnComment: { returnId: request.returnId, commentId: id } } : item) };
+  }
+  return next;
 }

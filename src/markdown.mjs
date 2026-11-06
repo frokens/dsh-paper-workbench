@@ -1,10 +1,12 @@
-import { convert, query } from "pandoc-wasm";
 import { posix } from "node:path";
 import { markdownSourceSchema } from "./contracts.ts";
 
 // This process owns one conversion and its WASM memory. The Host owns its
 // subprocess lifetime; only explicitly supplied files enter Pandoc's virtual FS.
 try {
+  const { convert, query } = await import("pandoc-wasm").catch(() => {
+    throw new Error("The Markdown runtime dependency is unavailable. Reinstall Paper Workbench through DSH Plugins with access to the public package registry, then restart the same DSH profile. No separate Pandoc installation is needed.");
+  });
   const chunks = [];
   let length = 0;
   for await (const chunk of process.stdin) {

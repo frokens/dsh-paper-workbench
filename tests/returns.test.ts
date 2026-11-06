@@ -2,10 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createPaper, importDocument, paperView, propose, decide, type Paper } from "../src/model.js";
-import { proposeRequest, proposeReturnRequest } from "../src/contracts.js";
-import { wordProjection } from "../src/word.js";
+import { proposeRequest, proposeReturnRequest, copyReturnCommentsRequest } from "../src/contracts.js";
+import { wordProjection, wordComments } from "../src/word.js";
 import { recordDocumentDelivery } from "../src/delivery.js";
-import { recordDocumentReturn, compareReturn, proposeReturnChanges } from "../src/returns.js";
+import { recordDocumentReturn, compareReturn, proposeReturnChanges, copyReturnComments } from "../src/returns.js";
 
 function engine(input: object) {
   const child = spawnSync("runtime/osx-arm64/paper-docx", { input: JSON.stringify(input), encoding: "utf8", timeout: 30000, maxBuffer: 32 * 1024 * 1024 });
@@ -92,4 +92,48 @@ test("a third-party re-export with changed native IDs requires explicit paragrap
   const proposed = proposeReturnChanges(current, proposal(current, "return", mappings));
   assert.deepEqual(proposed.candidates.at(-1)!.returnedFrom?.mappings, mappings);
   assert.throws(() => compareReturn(current, "return", [{ ...mappings[0] }, { ...mappings[0], sourceIndex: 1 }]), /distinct/);
+});
+
+test("returned comment text enters existing feedback only at an exact current source range and survives native tracked projections", () => {
+  const { paper } = fixture();
+  const remote = change(paper, 0, "The Planner chooses the action.");
+  const block = paperView(remote).blocks[0], from = block.text.indexOf("chooses"), to = from + "chooses".length;
+  const output = engine({ action: "export", base64: remote.sourceBase64, tracked: false, ...wordProjection(remote),
+    delivery: { id: "delivery", paperId: paper.id }, comments: [{ blockIds: [block.id], selections: [{ blockId: block.id, from, to }], text: "Clarify the action owner." }] });
+  let current = returned(change(paper, 1, "The result is still unverified."), output.base64);
+  const originalReturn = current.documentReturns[0];
+  let comparison = compareReturn(current, "return");
+  assert.equal(comparison.comments[0].state, "unresolved");
+  assert.equal(comparison.comments[0].locations[0].quote, "chooses");
+  const copy = () => copyReturnCommentsRequest.parse({ action: "copy_return_comments", requestId: "copy-comment", returnId: "return",
+    mappings: [], commentIds: [comparison.comments[0].id], expectedRevision: current.revision, textOnly: true });
+  assert.throws(() => copyReturnComments(current, copy()), /exact current source/);
+  const request = proposal(current);
+  current = proposeReturnChanges(current, request);
+  assert.throws(() => proposeReturnChanges(current, { ...request, requestId: "duplicate-pending" }), /pending candidate/);
+  current = decide(current, current.candidates.at(-1)!.id, "accepted");
+  comparison = compareReturn(current, "return");
+  assert.equal(comparison.comments[0].state, "ready");
+  assert.equal(comparison.comments[0].sources[0].quote, "chooses");
+  const beforeBody = current.document, copyRequest = copy();
+  current = copyReturnComments(current, copyRequest);
+  assert.deepEqual(current.document, beforeBody);
+  assert.equal(paperView(current).blocks[1].text, "The result is still unverified.");
+  assert.deepEqual(current.feedback[0].returnComment, { returnId: "return", commentId: comparison.comments[0].id });
+  assert.equal(current.feedback[0].target.kind, "source");
+  assert.equal(copyReturnComments(current, copyRequest), current);
+  assert.equal(compareReturn(current, "return").comments[0].state, "copied");
+  assert.deepEqual(current.documentReturns[0], originalReturn);
+  const exported = engine({ action: "export", base64: current.sourceBase64, tracked: true, ...wordProjection(current),
+    comments: wordComments(current, 0, current.revision, false).comments });
+  for (const revisionMode of ["accept", "reject"]) {
+    const inspected = engine({ action: "inspect", base64: exported.base64, revisionMode });
+    assert.equal(inspected.nativeComments.length, 1);
+    assert.equal(inspected.nativeComments[0].text, "Clarify the action owner.");
+    assert.equal(inspected.nativeComments[0].editable, true);
+    if (revisionMode === "accept") {
+      const range = inspected.nativeComments[0].ranges[0];
+      assert.equal(inspected.blocks[range.sourceIndex].text.slice(range.from, range.to), "chooses");
+    }
+  }
 });

@@ -13,6 +13,7 @@ export const documentSchema = new Schema({
       attrs: {
         id: {},
         sourceIndex: { default: null },
+        formatFrom: { default: null },
         heading: { default: null },
       },
     },
@@ -146,7 +147,7 @@ export function transformOperation(
     return transform.split(position + 1 + operation.selection.from, 1, [
       {
         type: documentSchema.nodes.paragraph,
-        attrs: { id: randomUUID(), sourceIndex: null, heading: null },
+        attrs: { id: randomUUID(), sourceIndex: null, formatFrom: node.attrs.formatFrom ?? node.attrs.sourceIndex, heading: null },
       },
     ]);
   }

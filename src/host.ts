@@ -29,7 +29,7 @@ import { remoteInfo } from "./remote.js";
 import { wordProjection, wordComments } from "./word.js";
 import { bilingualProjection, existingDelivery, recordDocumentDelivery, selectComparison } from "./delivery.js";
 import { cleanPdf } from "./pdf.js";
-import { compareReturn, recordDocumentReturn, proposeReturnChanges } from "./returns.js";
+import { compareReturn, recordDocumentReturn, proposeReturnChanges, copyReturnComments } from "./returns.js";
 import { returnedBlockSchema } from "./records.js";
 import type { DocumentDelivery } from "./records.js";
 import { prepareReading, readingPrompt, readingPacket, updateReading, validateReadingOutput, readingViews } from "./reading.js";
@@ -349,7 +349,7 @@ export class PaperWorkbench extends TypertRemoteService {
       base64 = exported.base64 as string; anchors = exported.anchors as DocumentDelivery["anchors"];
     } else {
       const version = JSON.stringify({ packageVersion, revision: paper.revision, baselineRevision, variant: request.variant,
-        includeReasons: request.includeReasons, translations });
+        includeReasons: request.includeReasons, translations, comments: comments.comments });
       const converted = await this.ctx.officeToPdf.convert({ extension: "docx", priority: "foreground", source: {
         key: OfficeSourceKey(JSON.stringify({ domain: "paper_workbench", paperId: paper.id, deliveryId: request.requestId })), version,
         read: async (readSignal, maxBytes) => {
@@ -631,6 +631,8 @@ export class PaperWorkbench extends TypertRemoteService {
           return selectComparison(current, request.revision, request.expectedRevision);
         case "propose_return":
           return proposeReturnChanges(current, request);
+        case "copy_return_comments":
+          return copyReturnComments(current, request);
         case "propose":
           return propose(current, request);
         case "decide":

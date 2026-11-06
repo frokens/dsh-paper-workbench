@@ -25,7 +25,7 @@ function regions(document: PMNode) {
       result.push({ paragraphs: [] });
     } else if (node.type.name === "paragraph") {
       region.paragraphs.push({ node, from: position + 1, to: position + 1 + node.content.size,
-        properties: { blockId: node.attrs.id, sourceIndex: node.attrs.sourceIndex, heading: node.attrs.heading } });
+        properties: { blockId: node.attrs.id, sourceIndex: node.attrs.formatFrom ?? node.attrs.sourceIndex, heading: node.attrs.heading } });
     } else throw new Error("The Word projection has an unsupported primary block.");
   });
   return result;
@@ -201,24 +201,32 @@ export function wordReasons(paper: Paper, baselineRevision: number, revision = p
 export function wordComments(paper: Paper, baselineRevision: number, revision: number, includeReasons: boolean) {
   const scoped = { ...paper, revision, document: documentAt(paper, revision).toJSON(), history: paper.history.slice(0, revision) };
   const { reasons, warnings } = includeReasons ? wordReasons(scoped, baselineRevision) : { reasons: [], warnings: [] };
-  const comments: { blockIds: string[]; text?: string; nativeId?: string }[] = includeReasons
+  const comments: { blockIds: string[]; text?: string; nativeId?: string; selections?: { blockId: string; from: number; to: number }[] }[] = includeReasons
     ? reasons.map(reason => ({ blockIds: [reason.blockId], text: reason.text })) : [];
-  const native = paper.feedback.filter(item => item.wordCommentId !== undefined);
-  const linked = native.length ? wordReasons(scoped, 0).reasons : [];
+  const native = paper.feedback.filter(item => item.wordCommentId !== undefined || item.returnComment !== undefined);
+  let linked: ReturnType<typeof wordReasons>["reasons"] | undefined;
   const order = new Map<string, number>();
   documentAt(scoped, revision).forEach((node, position) => order.set(node.attrs.id, position));
   for (const feedback of native) {
     if (feedback.target.kind !== "source") throw new Error("A native Word comment must retain source feedback.");
     const blockIds = new Set<string>();
+    const selections: Selection[] = [];
+    let precise = true;
     for (const selection of feedback.target.selections) {
-      try { blockIds.add(mapSelection(scoped, selection).blockId); }
+      try { const mapped = mapSelection(scoped, selection); blockIds.add(mapped.blockId); selections.push(mapped); }
       catch {
+        precise = false;
+        linked ??= wordReasons(scoped, needsExplicitRestore(scoped) ? baselineRevision : 0).reasons;
         const transferred = linked.filter(reason => reason.feedbackIds.includes(feedback.id));
         if (!transferred.length) throw new Error("An original Word comment overlaps an edit without a linked accepted reason. Link that feedback to the change or review its location before export; the original file is retained.");
         transferred.forEach(reason => blockIds.add(reason.blockId));
+        warnings.push("An original comment overlaps accepted wording changes. Its Word range follows the linked changed paragraph; the original exact quote remains in feedback.");
       }
     }
-    comments.push({ nativeId: feedback.wordCommentId, blockIds: [...blockIds].sort((a, b) => order.get(a)! - order.get(b)!) });
+    comments.push({ ...(feedback.wordCommentId === undefined ? { text: feedback.comment } : { nativeId: feedback.wordCommentId }),
+      blockIds: [...blockIds].sort((a, b) => order.get(a)! - order.get(b)!),
+      ...(precise ? { selections: selections.sort((a, b) => order.get(a.blockId)! - order.get(b.blockId)! || a.from - b.from).map(({ blockId, from, to }) => ({ blockId, from, to })) } : {}),
+    });
   }
-  return { comments, warnings: includeReasons ? warnings : [] };
+  return { comments, warnings: [...new Set(warnings)] };
 }

@@ -26,9 +26,10 @@ test(
     const client = await connectPaperClient(remoteInfo),
       rpc = client.rpc;
     t.after(() => client.close());
-    await mkdir(".local/test-workspace", { recursive: true });
+    const testWorkspace = resolve(process.env.DSH_TEST_WORKSPACE ?? ".local/test-workspace");
+    await mkdir(testWorkspace, { recursive: true });
     const created = await rpc("session/create", {
-      request: { cwd: resolve(".local/test-workspace") },
+      request: { cwd: testWorkspace },
     });
     const agentId = created.sessionId;
     const action = async (request) => {
@@ -40,6 +41,11 @@ test(
       if (!result.ok) throw new Error(result.error.message);
       return result.value;
     };
+    async function exportCopy(tracked) {
+      const { paper } = await action({ action: "read" });
+      return action({ action: "export", requestId: crypto.randomUUID(), variant: tracked ? "tracked" : "clean", format: "docx",
+        includeReasons: false, expectedRevision: paper.revision, baselineRevision: paper.comparisonRevision });
+    }
     const cancellation = new AbortController(),
       stream = client.paper
         .observe(agentId, cancellation.signal)
@@ -120,7 +126,7 @@ test(
     await observed((value) => value.paper?.revision === 1);
     cancellation.abort();
     await stream.return();
-    const exported = await action({ action: "export", tracked: true });
+    const exported = await exportCopy(true);
     const final = engine({
       action: "inspect",
       base64: exported.base64,
@@ -135,16 +141,16 @@ test(
     assert.equal(original.blocks[1].text, block.text);
     const reread = await action({ action: "read" });
     assert.equal(reread.paper.decisions.length, 1);
-    const structural = engine({ action: "fixture", fixture: "paragraph-mark" });
+    const structural = engine({ action: "fixture", fixture: "header-revision" });
     for (const revisionMode of [undefined, "accept", "reject"])
       await assert.rejects(
         action({
           action: "import",
-          name: "Unsupported revisions.docx",
+          name: "Unresolved header revisions.docx",
           base64: structural.base64,
           revisionMode,
         }),
-        /structural or formatting revisions.*Word/,
+        /outside the supported primary body/,
       );
     assert.equal(
       (await action({ action: "read" })).paper.id,
@@ -177,7 +183,7 @@ test(
       expectedRevision: 0,
     });
     for (const tracked of [false, true]) {
-      const download = await action({ action: "export", tracked });
+      const download = await exportCopy(tracked);
       const final = engine({
         action: "inspect",
         base64: download.base64,
@@ -224,7 +230,7 @@ test(
         expectedRevision: color.paper.revision,
       });
     }
-    const colorExport = await action({ action: "export", tracked: true });
+    const colorExport = await exportCopy(true);
     assert.equal(
       engine({ action: "inspect", base64: colorExport.base64 }).hasRevisions,
       true,
@@ -306,7 +312,7 @@ test(
     assert.equal(draft.paper.feedback.length, 1);
     assert.equal(draft.paper.batches.length, 0, "Saving a writing goal must not submit a batch or call a model.");
     const written = await accept(await proposeOperation({ kind: "replace", selection: draft.paper.blocks[0].selection, replacement: "The result remains unverified." }, "Use only the supplied facts."));
-    const draftedExport = await action({ action: "export", tracked: true });
+    const draftedExport = await exportCopy(true);
     assert.equal(engine({ action: "inspect", base64: draftedExport.base64, revisionMode: "accept" }).blocks[0].text, written.paper.blocks[0].text);
     const multi = await action({ action: "create", name: "Multi-paragraph draft.docx", brief: "Explain the roles, feedback and evidence limit." });
     const paragraphs = ["The Planner selects the action.", "The Worker executes and reports the result.", "The result remains unverified."];
@@ -321,7 +327,9 @@ test(
     const multiAccepted = await accept(multiPending);
     assert.deepEqual(multiAccepted.paper.blocks.map(block => block.text), paragraphs);
     assert.deepEqual(multiAccepted.paper.translations.map(translation => translation.mappedSources.map(source => source.blockId)), multiAccepted.paper.blocks.map(block => [block.id]));
-    await assert.rejects(action({ action: "export", tracked: true }), /splits and merges/);
+    const multiExport = await exportCopy(true);
+    assert.deepEqual(engine({ action: "inspect", base64: multiExport.base64, revisionMode: "accept" }).blocks.map(block => block.text), paragraphs);
+    assert.deepEqual(engine({ action: "inspect", base64: multiExport.base64, revisionMode: "reject" }).blocks.map(block => block.text), [""]);
     const after = await rpc("session/events", {
       request: {
         address: { kind: "session", sessionId: agentId },

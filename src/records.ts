@@ -65,6 +65,7 @@ export const translationViewSchema = translationSchema.extend({
 const feedbackSchema = z.object({
   id: z.string(), requestId: z.string(), target: feedbackTargetSchema, comment: z.string(),
   wordCommentId: z.string().optional(),
+  returnComment: z.object({ returnId: z.string(), commentId: z.string() }).optional(),
 });
 export const documentDeliverySchema = z.object({
   id: z.string(), revision: z.number().int().nonnegative(), baselineRevision: z.number().int().nonnegative(),

@@ -57,6 +57,13 @@ static partial class Program
         var body = document.Body ?? throw new Exception("Missing Word body.");
         if (body.ChildElements.Count > 5000) throw new Exception("DOCX exceeds 5000 top-level blocks.");
         var mode = request.TryGetProperty("revisionMode", out var m) ? m.GetString() : null;
+        // Only the supported primary body can be settled by this adapter. A
+        // revision in a preserved story must never be reported as resolved.
+        OpenXmlPart?[] preservedStories = [main.FootnotesPart, main.EndnotesPart,
+            main.WordprocessingCommentsPart, main.GlossaryDocumentPart, main.StyleDefinitionsPart, main.NumberingDefinitionsPart];
+        if (main.HeaderParts.Cast<OpenXmlPart>().Concat(main.FooterParts).Concat(preservedStories.OfType<OpenXmlPart>())
+            .Any(part => part.RootElement?.Descendants().Any(IsRevision) == true))
+            throw new Exception("This file has revisions outside the supported primary body. Resolve header, footer, note or other preserved-story revisions in Word first; the original file is unchanged.");
         var revisionElements = body.Descendants().Where(IsRevision).ToArray();
         bool revisions = revisionElements.Length != 0;
         if (revisionElements.Any(e => !SupportedRevision(e)))
@@ -232,6 +239,18 @@ static partial class Program
             if (variant == "paragraph-mark")
                 main.Document.Body!.Elements<W.Paragraph>().First().ParagraphProperties!.Append(
                     new W.ParagraphMarkRunProperties(new W.Inserted { Id = "12", Author = "" }));
+            if (variant == "header-revision")
+            {
+                var header = main.AddNewPart<HeaderPart>();
+                header.Header = new W.Header(new W.Paragraph(new W.InsertedRun(new W.Run(new W.Text("Unresolved header."))) { Id = "9", Author = "" }));
+                main.Document.Body!.Elements<W.SectionProperties>().Last().PrependChild(new W.HeaderReference { Id = main.GetIdOfPart(header), Type = W.HeaderFooterValues.Default });
+            }
+            if (variant == "footnote-revision")
+            {
+                var notes = main.AddNewPart<FootnotesPart>();
+                notes.Footnotes = new W.Footnotes(new W.Footnote(new W.Paragraph(new W.DeletedRun(new W.Run(new W.DeletedText("Unresolved note."))) { Id = "9", Author = "" })) { Id = 1 });
+                main.Document.Body!.Elements<W.Paragraph>().First().Append(new W.Run(new W.FootnoteReference { Id = 1 }));
+            }
             if (variant == "custom-format")
             {
                 var paragraph = main.Document.Body!.Elements<W.Paragraph>().First();

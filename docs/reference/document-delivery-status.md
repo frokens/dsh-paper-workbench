@@ -21,8 +21,13 @@ available separately from metadata-clean derived exports.
 Native supported text comments enter the existing feedback owner while retaining
 their original bodies in the source package. Reasons derive from committed steps
 and actual candidate/feedback relationships. Ambiguous/stale locations are explicit;
-they are not silently moved to a convenient occurrence. Native comments are attached
-to the relevant delivered paragraph, rather than claiming a word-for-word alignment.
+they are not silently moved to a convenient occurrence. Unchanged supported native
+comment ranges retain their exact delivered text scope. An overlapping accepted
+change requires an actual linked feedback/reason before moving the comment to the
+changed paragraph, with an explicit warning and retained original quote. Newly
+generated reasons use paragraph scope. Revisions in preserved headers, footers,
+notes and other external stories must be resolved in Word before intake; a
+primary-body choice does not pretend to resolve those stories.
 
 Returned files retain their raw bytes and explicit existing-revision projection.
 Marker mismatch prevents proposals. Missing or changed paragraph identifiers require
@@ -30,8 +35,11 @@ human alignment. Granular E-to-return text changes map strictly into P, retainin
 unrelated local work and exposing overlap conflicts. They become ordinary pending
 candidates through the existing acceptance owner. Formatting, moved paragraphs and
 unmatched structural changes remain explicit review items; the current text-only
-return proposal does not apply them. Return-comment feedback intake is still being
-completed.
+return proposal does not apply them. Supported returned comment text can be copied
+to ordinary feedback after its exact current source range is confirmed. New returned
+wording must be accepted before comments on it can be copied. This text-only action
+retains return/comment provenance and does not copy rich comment bodies or accept
+the returned manuscript automatically. The original returned DOCX remains available.
 
 Markdown uses a separately managed process with the unmodified public
 `pandoc-wasm@1.1.0` runtime dependency, whose included program reports Pandoc 3.10.
@@ -42,8 +50,10 @@ rewrites supplied image/bibliography targets, and the SDK normalizes the resulti
 Word source. UTF-8, resources, raw HTML/TeX and read-only objects have explicit
 boundaries. Common text, native tables/equations/notes, Unicode nested images and
 supplied bibliography have direct checks; this is not arbitrary-format fidelity.
-Actual fresh-profile dependency installation and final license/source notices remain
-required before distribution. The plugin's own license has not been changed.
+Version-specific GPL/copyright texts, the unmodified wrapper license and correct
+source/build pointers are included in the package. Actual fresh-profile dependency
+installation remains required before distribution. The plugin's own license has not
+been changed; an external-process boundary is not a legal compliance conclusion.
 
 PDF uses DSH's existing OfficeToPdf authorization/admission/read/converter lifecycle.
 The immutable export is generated only after shared admission. The caller cleans its
@@ -60,7 +70,7 @@ configuration probe. The plugin does not silently replace shared Host font setti
 or create another converter. Installed Host cancellation, a supported deployment
 configuration and final candidate render/metadata verification remain open.
 
-The current checkpoint passes 82 owner/SDK checks, type checking and build. Direct
+The current candidate source passes 85 owner/SDK checks, type checking and build. Direct
 SDK accept/reject projections cover empty-to-multiple paragraphs, split/merge,
 inverse history, nonzero B, complete native formats, comments and source evidence.
 Managed-process intake covers retained Markdown/resources and joined cancellation.

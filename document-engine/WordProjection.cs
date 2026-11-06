@@ -44,6 +44,10 @@ static partial class Program
                     ?? new W.ParagraphProperties();
             var heading = reference.GetProperty("heading").GetString();
             if (heading != null) result.ParagraphStyleId = new W.ParagraphStyleId { Val = heading };
+            else if (result.ParagraphStyleId?.Val?.Value is string style
+                && (style.Equals("Title", StringComparison.OrdinalIgnoreCase)
+                    || style.Length == 8 && style.StartsWith("Heading", StringComparison.OrdinalIgnoreCase) && style[^1] is >= '1' and <= '6'))
+                result.ParagraphStyleId = null;
             return result;
         }
         W.Run Run(JsonElement item, bool deleted)
@@ -169,51 +173,6 @@ static partial class Program
             .Select(p => new WordAnchor(p.Annotation<WorkingParagraph>()!.BlockId, p.ParagraphId!.Value!)).ToArray();
     }
 
-    static void AttachComments(MainDocumentPart main, JsonElement supplied)
-    {
-        var part = main.WordprocessingCommentsPart ?? main.AddNewPart<WordprocessingCommentsPart>();
-        var comments = part!.Comments ??= new W.Comments();
-        int lastId = comments.Elements<W.Comment>().Select(c => int.Parse(c.Id?.Value ?? throw new Exception("A Word comment body has no identifier."))).DefaultIfEmpty(-1).Max();
-        var groups = new Dictionary<string, (W.Paragraph First, W.Paragraph Last)>();
-        W.Paragraph? start = null;
-        var body = main.Document?.Body ?? throw new Exception("Missing Word body for comment anchors.");
-        foreach (var paragraph in body.Elements<W.Paragraph>())
-        {
-            if (paragraph.Annotation<ProjectedParagraph>() == null) { start = null; continue; }
-            start ??= paragraph;
-            var working = paragraph.Annotation<WorkingParagraph>();
-            if (working == null) continue;
-            groups.Add(working.BlockId, (start, paragraph)); start = null;
-        }
-        foreach (var reason in supplied.EnumerateArray())
-        {
-            var targets = reason.GetProperty("blockIds").EnumerateArray().Select(item =>
-                groups.TryGetValue(item.GetString()!, out var group) ? group
-                    : throw new Exception("A Word comment has no exact delivered paragraph.")).ToArray();
-            if (targets.Length == 0) throw new Exception("A Word comment has no delivered range.");
-            var range = (First: targets[0].First, Last: targets[^1].Last);
-            string id;
-            if (reason.TryGetProperty("nativeId", out var native))
-            {
-                id = native.GetString()!;
-                if (comments.Elements<W.Comment>().Count(c => c.Id?.Value == id) != 1)
-                    throw new Exception("An original Word comment body is missing or ambiguous.");
-            }
-            else
-            {
-                id = checked(++lastId).ToString();
-                var comment = new W.Comment { Id = id, Author = "" };
-                foreach (var line in reason.GetProperty("text").GetString()!.Split('\n'))
-                    comment.Append(new W.Paragraph(new W.Run(new W.Text(line) { Space = SpaceProcessingModeValues.Preserve })));
-                comments.Append(comment);
-            }
-            var anchor = range.First.ChildElements.FirstOrDefault(e => e is not W.ParagraphProperties);
-            var from = new W.CommentRangeStart { Id = id };
-            if (anchor == null) range.First.Append(from); else range.First.InsertBefore(from, anchor);
-            range.Last.Append(new W.CommentRangeEnd { Id = id }, new W.Run(new W.CommentReference { Id = id }));
-        }
-        comments.Save();
-    }
 
     static bool EquivalentParagraph(W.Paragraph before, W.Paragraph after) =>
         (before.ParagraphProperties?.OuterXml ?? "") == (after.ParagraphProperties?.OuterXml ?? "")

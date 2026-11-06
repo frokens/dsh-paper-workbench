@@ -66,6 +66,10 @@ export const proposeReturnRequest = z.object({ action: z.literal("propose_return
   returnId: z.string(), mappings: returnMappingsSchema.default([]), changeIds: z.array(z.string()).min(1).max(100),
   expectedRevision: z.number().int().nonnegative(), textOnly: z.literal(true),
 });
+export const copyReturnCommentsRequest = z.object({ action: z.literal("copy_return_comments"), requestId: z.string().min(1).max(200),
+  returnId: z.string(), mappings: returnMappingsSchema.default([]), commentIds: z.array(z.string()).min(1).max(100),
+  expectedRevision: z.number().int().nonnegative(), textOnly: z.literal(true),
+});
 export const createRequest = z.object({
   action: z.literal("create"),
   name: z.string().min(1).max(250),
@@ -230,6 +234,7 @@ export const uiRequest = z.discriminatedUnion("action", [
   z.object({ action: z.literal("download_source"), resourcePath: z.string().optional() }),
   compareReturnRequest,
   proposeReturnRequest,
+  copyReturnCommentsRequest,
   documentExportRequest,
 ]);
 export type UiRequest = z.infer<typeof uiRequest>;

@@ -1,5 +1,6 @@
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using System.Text.Json;
 using W = DocumentFormat.OpenXml.Wordprocessing;
 
 static partial class Program
@@ -7,6 +8,131 @@ static partial class Program
     record CommentRange(int SourceIndex, int From, int To);
     record ImportedComment(string Id, string Text, CommentRange[] Ranges, bool Editable);
     record CommentMarker(int Index, int Offset, string Kind);
+    record CommentGroup(W.Paragraph[] Paragraphs);
+    record CommentPosition(W.Run? Run, int Offset, W.Paragraph Paragraph);
+
+    static IEnumerable<W.Run> AcceptedCommentRuns(CommentGroup group) => group.Paragraphs.SelectMany(p => p.Descendants<W.Run>())
+        .Where(run => !run.Ancestors<W.DeletedRun>().Any() && run.Elements<W.Text>().Any());
+
+    static CommentPosition? FindCommentPosition(CommentGroup group, int offset, bool end)
+    {
+        int position = 0;
+        W.Run? last = null;
+        foreach (var run in AcceptedCommentRuns(group))
+        {
+            int length = string.Concat(run.Elements<W.Text>().Select(text => text.Text)).Length;
+            if (offset >= position && (offset < position + length || end && offset == position + length))
+                return new CommentPosition(run, offset - position, run.Ancestors<W.Paragraph>().First());
+            position += length; last = run;
+        }
+        return offset != position ? null : new CommentPosition(last, last == null ? 0 : last.InnerText.Length, group.Paragraphs[^1]);
+    }
+
+    static void PlaceCommentMarker(CommentPosition position, OpenXmlElement marker, Func<string> nextRevision)
+    {
+        var run = position.Run;
+        if (run == null) { position.Paragraph.Append(marker); return; }
+        var text = string.Concat(run.Elements<W.Text>().Select(item => item.Text));
+        W.Run Fragment(string value)
+        {
+            var part = new W.Run(); part.SetAttributes(run.GetAttributes());
+            if (run.RunProperties != null) part.Append(run.RunProperties.CloneNode(true));
+            part.Append(new W.Text(value) { Space = SpaceProcessingModeValues.Preserve }); return part;
+        }
+        if (run.Parent is W.InsertedRun insertion)
+        {
+            // Markers remain outside the tracked insertion, including when its
+            // text is later rejected. Each split revision keeps a unique ID.
+            if (position.Offset == 0) { insertion.InsertBeforeSelf(marker); return; }
+            if (position.Offset == text.Length) { insertion.InsertAfterSelf(marker); return; }
+            if (insertion.ChildElements.Count != 1) throw new Exception("A comment requires an unsupported insertion boundary.");
+            var left = (W.InsertedRun)insertion.CloneNode(false);
+            var right = (W.InsertedRun)insertion.CloneNode(false); right.Id = nextRevision();
+            left.Append(Fragment(text[..position.Offset])); right.Append(Fragment(text[position.Offset..]));
+            insertion.InsertBeforeSelf(left); insertion.InsertBeforeSelf(marker); insertion.InsertBeforeSelf(right); insertion.Remove();
+        }
+        else if (run.Parent is W.Paragraph)
+        {
+            if (position.Offset == 0) run.InsertBeforeSelf(marker);
+            else if (position.Offset == text.Length) run.InsertAfterSelf(marker);
+            else
+            {
+                run.InsertBeforeSelf(Fragment(text[..position.Offset])); run.InsertBeforeSelf(marker);
+                run.InsertBeforeSelf(Fragment(text[position.Offset..])); run.Remove();
+            }
+        }
+        else throw new Exception("A comment requires an unsupported run boundary.");
+    }
+
+    static void AttachComments(MainDocumentPart main, JsonElement supplied)
+    {
+        var part = main.WordprocessingCommentsPart ?? main.AddNewPart<WordprocessingCommentsPart>();
+        var comments = part!.Comments ??= new W.Comments();
+        int lastId = comments.Elements<W.Comment>().Select(c => int.Parse(c.Id?.Value ?? throw new Exception("A Word comment body has no identifier."))).DefaultIfEmpty(-1).Max();
+        var body = main.Document?.Body ?? throw new Exception("Missing Word body for comment anchors.");
+        int revisionId = body.Descendants().Where(IsRevision).Select(e => e.GetAttribute("id", "http://schemas.openxmlformats.org/wordprocessingml/2006/main").Value)
+            .Select(value => int.TryParse(value, out var id) ? id : -1).DefaultIfEmpty(-1).Max();
+        string NextRevision() => checked(++revisionId).ToString();
+        var groups = new Dictionary<string, CommentGroup>();
+        var pending = new List<W.Paragraph>();
+        foreach (var element in body.ChildElements)
+        {
+            if (element is not W.Paragraph paragraph || paragraph.Annotation<ProjectedParagraph>() == null) { pending.Clear(); continue; }
+            pending.Add(paragraph);
+            var working = paragraph.Annotation<WorkingParagraph>();
+            if (working == null) continue;
+            groups.Add(working.BlockId, new CommentGroup(pending.ToArray())); pending.Clear();
+        }
+        foreach (var item in supplied.EnumerateArray())
+        {
+            var ids = item.GetProperty("blockIds").EnumerateArray().Select(value => value.GetString()!).ToArray();
+            if (ids.Length == 0 || ids.Any(id => !groups.ContainsKey(id))) throw new Exception("A Word comment has no exact delivered paragraph.");
+            string id;
+            if (item.TryGetProperty("nativeId", out var native))
+            {
+                id = native.GetString()!;
+                if (comments.Elements<W.Comment>().Count(c => c.Id?.Value == id) != 1) throw new Exception("An original Word comment body is missing or ambiguous.");
+            }
+            else
+            {
+                id = checked(++lastId).ToString();
+                var comment = new W.Comment { Id = id, Author = "" };
+                foreach (var line in item.GetProperty("text").GetString()!.Split('\n'))
+                    comment.Append(new W.Paragraph(new W.Run(new W.Text(line) { Space = SpaceProcessingModeValues.Preserve })));
+                comments.Append(comment);
+            }
+            var start = new W.CommentRangeStart { Id = id };
+            var end = new W.CommentRangeEnd { Id = id };
+            if (item.TryGetProperty("selections", out var suppliedRanges))
+            {
+                var ranges = suppliedRanges.EnumerateArray().ToArray();
+                if (!ranges.Select(range => range.GetProperty("blockId").GetString()!).SequenceEqual(ids))
+                    throw new Exception("The comment source ranges do not match its delivered paragraphs.");
+                foreach (var range in ranges)
+                {
+                    var group = groups[range.GetProperty("blockId").GetString()!];
+                    int from = range.GetProperty("from").GetInt32(), to = range.GetProperty("to").GetInt32();
+                    if (from < 0 || to < from || FindCommentPosition(group, from, false) == null || FindCommentPosition(group, to, true) == null)
+                        throw new Exception("A comment source range is outside the exact delivered text.");
+                }
+                var first = ranges[0]; var last = ranges[^1];
+                var fromGroup = groups[ids[0]]; var toGroup = groups[ids[^1]];
+                int fromOffset = first.GetProperty("from").GetInt32(), toOffset = last.GetProperty("to").GetInt32();
+                PlaceCommentMarker(FindCommentPosition(fromGroup, fromOffset, false)!, start, NextRevision);
+                if (ids.Length == 1 && fromOffset == toOffset) start.InsertAfterSelf(end);
+                else PlaceCommentMarker(FindCommentPosition(toGroup, toOffset, true)!, end, NextRevision);
+            }
+            else
+            {
+                var first = groups[ids[0]].Paragraphs[0];
+                var anchor = first.ChildElements.FirstOrDefault(e => e is not W.ParagraphProperties);
+                if (anchor == null) first.Append(start); else first.InsertBefore(start, anchor);
+                groups[ids[^1]].Paragraphs[^1].Append(end);
+            }
+            end.InsertAfterSelf(new W.Run(new W.CommentReference { Id = id }));
+        }
+        comments.Save();
+    }
 
     static bool CommentParagraph(W.Paragraph p) => p.ChildElements.All(e => e is W.ParagraphProperties
         or W.CommentRangeStart or W.CommentRangeEnd || e is W.Run r && r.ChildElements.All(c => c is W.RunProperties or W.Text or W.CommentReference))

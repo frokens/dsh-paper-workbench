@@ -164,6 +164,7 @@ const en = {
   returnComments: "Comments in the returned file", noDelivery: "Export an English clean or tracked DOCX before comparing its return.",
   returnStatus_ready: "Ready to propose", returnStatus_conflict: "Overlapping local change",
   returnStatus_already_applied: "Already in the current body", returnStatus_wrong_delivery: "Wrong delivered file",
+  copyReturnComment: "Copy comment text to feedback", copiedReturnComment: "Already copied to feedback",
   unsupported: "Preserved read only",
   cancel: "Cancel request",
   busy: "Saving…",
@@ -307,6 +308,7 @@ const zh: typeof en = {
   returnComments: "返稿中的批注", noDelivery: "先导出英文干净或修订 DOCX，再比较对应返稿。",
   returnStatus_ready: "可保存为候选", returnStatus_conflict: "与本地修改重叠",
   returnStatus_already_applied: "当前正文已包含", returnStatus_wrong_delivery: "交付文件不匹配",
+  copyReturnComment: "复制批注文字为反馈", copiedReturnComment: "已复制到反馈",
   unsupported: "原样保留且只读",
   cancel: "取消本次请求",
   busy: "保存中…",
@@ -1630,7 +1632,13 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                   <button disabled={busy} onClick={() => void run({ action: "compare_return", returnId: returnedComparison.returnId, mappings: returnMappings })}>{t("updateReturn")}</button>
                 </details>
                 {!!returnedComparison.comments.length && <h4>{t("returnComments")}</h4>}
-                {returnedComparison.comments.map(comment => <article key={comment.id}><p>{comment.text}</p>{comment.locations.map((location, index) => <blockquote key={index}>{location.quote}</blockquote>)}</article>)}
+                {returnedComparison.comments.map(comment => <article key={comment.id}><p>{comment.text}</p>{comment.locations.map((location, index) => <blockquote key={index}>{location.quote}</blockquote>)}
+                  {comment.diagnostic && <p>{comment.diagnostic}</p>}
+                  {comment.state === "copied" ? <p>{t("copiedReturnComment")}</p> : <button disabled={busy || comment.state !== "ready" || returnedComparison.currentRevision !== paper.revision}
+                    onClick={() => void (async () => { if (await run({ action: "copy_return_comments", requestId: crypto.randomUUID(), returnId: returnedComparison.returnId,
+                      mappings: returnedComparison.mappings, commentIds: [comment.id], expectedRevision: returnedComparison.currentRevision, textOnly: true }))
+                      await run({ action: "compare_return", returnId: returnedComparison.returnId, mappings: returnedComparison.mappings }); })()}>{t("copyReturnComment")}</button>}
+                </article>)}
               </section>}
             </details>
           </>
