@@ -5,6 +5,12 @@ export const selectionSchema = z.object({
   from: z.number().int().nonnegative(), to: z.number().int().nonnegative(), quote: z.string(),
 });
 export type Selection = z.infer<typeof selectionSchema>;
+export const operationSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('replace'), selection: selectionSchema, replacement: z.string().max(100000).refine(t => !/[\r\n]/.test(t), 'Use a paragraph split for structural changes.') }),
+  z.object({ kind: z.literal('split'), selection: selectionSchema }),
+  z.object({ kind: z.literal('merge'), selection: selectionSchema, next: selectionSchema, separator: z.string().max(8).refine(t => !/[\r\n]/.test(t), 'A merge separator cannot contain a paragraph break.') }),
+]);
+export type Operation = z.infer<typeof operationSchema>;
 export const readRequest = z.object({ action: z.literal('read') });
 export const proposeRequest = z.object({
   action: z.literal('propose'), requestId: z.string().min(1).max(200), selection: selectionSchema,
