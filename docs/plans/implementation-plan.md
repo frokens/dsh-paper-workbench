@@ -54,6 +54,10 @@ DOCX 适配与原生修订、合成夹具和相关测试、实测安装说明/�
 必验：译文迟到、重复选区、拆分/合并、并发人工编辑、部分接收依赖、取消/保存失败、
 重启与历史、导师句子保留。先 owner 层检查，再代表性真实 DSH 使用。
 
+功能路径验证后整理侧栏显示与可用性：刷新/保存状态清楚，双语对照与过期提示明确，
+批注可定位到实际来源，真实差异、候选组和接受/拒绝层级可理解。保留原生对话与主 Agent，
+不以换色或静态截图替代功能验证；最终在 E 批的真实用户流程再次核验。
+
 排除：凭改动更少证明质量、仅整段重写后贴摘要、双语两份独立权威。
 
 ### C. 研究写作 Skills 与独立审读
@@ -118,8 +122,8 @@ Host/Client/工具/Skills、重启恢复、升级保全、卸载退出；Word �
 
 | 批次 | 初始状态 | 接收依据 |
 | --- | --- | --- |
-| A | 候选实施中，未接收 | [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)；[实际证据及未验项](../reference/native-slice-status.md) |
-| B | 未开始 | 待 A 及受影响证据 |
+| A | 有界代码切片已合入，完整出口仍未接收 | [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)；[实际证据及未验项](../reference/native-slice-status.md) |
+| B | 实施中，未接收 | [实际职责及待验项](../reference/bilingual-lifecycle-status.md) |
 | C | 未开始 | 待 B 及原生审读证据 |
 | D | 未开始 | 待格式与返稿证据 |
 | E | 未开始 | 待真实用户安装及最终接收 |
