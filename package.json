@@ -1,6 +1,6 @@
 {
   "name": "dsh-paper-workbench",
-  "version": "0.2.0-alpha.3",
+  "version": "0.3.0-alpha.4",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -35,7 +35,8 @@
     "README.md",
     "docs/install.md",
     "docs/reference/native-slice-status.md",
-    "docs/reference/bilingual-lifecycle-status.md"
+    "docs/reference/bilingual-lifecycle-status.md",
+    "docs/reference/research-reading-status.md"
   ],
   "dsh": {
     "bundle": {

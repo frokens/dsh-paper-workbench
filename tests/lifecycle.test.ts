@@ -13,6 +13,7 @@ import {
   importDocument,
   createPaper,
   paperView,
+  projectCandidates,
   documentAt,
   mapSelection,
   propose,
@@ -89,6 +90,75 @@ function acceptLast(paper: Paper) {
   return decide(paper, paper.candidates.at(-1)!.id, "accepted");
 }
 const text = (paper: Paper, block = 0) => paperView(paper).blocks[block].text;
+
+test("a multi-paragraph first draft stays one pending group, then persists actual paragraph identities and scoped Chinese through decisions and restoration", () => {
+  let { paper } = initial([""]);
+  const empty = paper.document, firstId = selection(paper).blockId;
+  const paragraphs = ["The Planner selects an action.", "The Worker executes that action.", "The result remains unverified."];
+  paper = proposal(paper, [{ kind: "fill_draft", selection: selection(paper), paragraphs }], {
+    translations: [
+      { operationIndexes: [0], paragraphIndexes: [0], text: "规划者选择操作。" },
+      { operationIndexes: [0], paragraphIndexes: [1, 2], text: "执行者执行该操作。结果仍未经验证。" },
+    ],
+  });
+  assert.deepEqual(paper.document, empty);
+  assert.equal(paper.revision, 0);
+  assert.equal(paper.candidates[0].status, "pending");
+  assert.deepEqual(paper.candidates[0].diffs[0], [{ kind: "insert", text: paragraphs.join("\n") }]);
+  const projected = projectCandidates(paper, "all");
+  assert.deepEqual(PMNode.fromJSON(schema, projected.document).content.content.map(node => node.textContent), paragraphs);
+  assert.deepEqual(projected.translations.map(translation => translation.mappedSources.map(source => source.quote)), [[paragraphs[0]], paragraphs.slice(1)]);
+  paper = paperSchema.parse(JSON.parse(JSON.stringify(paper)));
+  assert.deepEqual(previewAcceptance(paper, "all").conflicts, []);
+  paper = acceptLast(paper);
+  const accepted = paper, ids = paperView(paper).blocks.map(block => block.id), decisionId = paper.decisions[0].id;
+  assert.equal(ids[0], firstId);
+  assert.equal(new Set(ids).size, 3);
+  assert.deepEqual(paperView(paper).blocks.map(block => block.text), paragraphs);
+  assert.deepEqual(paperView(paper).translations.map(translation => translation.mappedSources.map(source => source.blockId)), [[ids[0]], ids.slice(1)]);
+  paper = paperSchema.parse(JSON.parse(JSON.stringify(paper)));
+  assert.deepEqual([...documentAt(paper, 1).content.content].map(node => node.attrs.id), ids);
+  assert.throws(() => exportParagraphs(paper), /splits and merges/);
+  paper = restoreRevision(paper, 0, 1);
+  assert.deepEqual(paper.document, empty);
+  assert.ok(paperView(paper).translations.every(translation => translation.state === "stale"));
+  paper = restoreRevision(paper, 1, 2);
+  assert.deepEqual(paperView(paper).blocks.map(block => block.id), ids);
+  assert.deepEqual(paper.translations, accepted.translations, "Body restoration does not rewrite the retained Chinese input.");
+  assert.ok(paperView(paper).translations.every(translation => translation.state === "stale"), "The existing exact-range protection requires explicit translation renewal after intervening source changes, even when text is restored.");
+  paper = requestTranslation(paper, { requestId: "restored-zh", sources: paperView(paper).blocks.map(block => block.selection), replaces: paper.translations.map(translation => translation.id) }, "task");
+  paper = completeTranslation(paper, { action: "complete_translation", jobId: paper.translationJobs[0].id, groups: [{ sourceIndexes: [0], text: "规划者选择操作。" }, { sourceIndexes: [1, 2], text: "执行者执行该操作。结果仍未经验证。" }] });
+  assert.deepEqual(paperView(paper).translations.filter(translation => translation.state === "current").map(translation => translation.mappedSources.map(source => source.blockId)), [[ids[0]], ids.slice(1)]);
+  paper = undoDecision(accepted, decisionId, 1);
+  assert.deepEqual(paper.document, empty);
+  assert.ok(paperView(paper).translations.every(translation => translation.state === "superseded"));
+  assert.equal(paper.candidates[0].status, "undone");
+});
+
+test("fill_draft bounds and Chinese scopes preserve existing exact selections and conflicts", () => {
+  let { paper } = initial([""]);
+  const fill: Operation = { kind: "fill_draft", selection: selection(paper), paragraphs: ["First.", "Second."] };
+  const command = { action: "propose", requestId: "draft", operations: [fill], reason: "Write the supplied mechanism." };
+  for (const paragraphs of [["One only."], ["First.\nSecond.", "Third."], [" ", "Second."], Array.from({ length: 101 }, () => "Paragraph.")])
+    assert.equal(proposeRequest.safeParse({ ...command, operations: [{ ...fill, paragraphs }] }).success, false);
+  assert.equal(proposeRequest.safeParse({ ...command, operations: [{ ...fill, paragraphs: Array.from({ length: 41 }, () => "x".repeat(100000)) }] }).success, false);
+  assert.throws(() => proposal(paper, [fill], { translations: [{ operationIndexes: [0], paragraphIndexes: [2], text: "不存在的段落" }] }), /real paragraphs/);
+  assert.throws(() => proposal(paper, [fill], { translations: [{ operationIndexes: [0], paragraphIndexes: [0, 0], text: "重复范围" }] }), /real paragraphs/);
+  const whole = proposal(paper, [fill], { translations: [{ operationIndexes: [0], text: "第一段。第二段。" }] });
+  assert.deepEqual(projectCandidates(whole, "all").translations[0].mappedSources.map(source => source.quote), fill.paragraphs);
+  const existing = initial(["Confirmed text."]).paper;
+  assert.throws(() => proposal(existing, [{ ...fill, selection: selection(existing) }]), /single empty paragraph/);
+  const multiple = initial(["", ""]).paper;
+  assert.throws(() => proposal(multiple, [{ ...fill, selection: selection(multiple) }]), /single empty paragraph/);
+  paper = proposal(paper, [fill]);
+  paper = replace(paper, selection(paper), "An independent pending edit.");
+  assert.equal(previewAcceptance(paper, "all").conflicts.length, 1);
+  const unchanged = paper.document;
+  assert.throws(() => decideMany(paper, paper.candidates.map(candidate => candidate.id), "accepted", 0), /overlaps/);
+  assert.deepEqual(paper.document, unchanged);
+  paper = decide(paper, paper.candidates[1].id, "accepted");
+  assert.throws(() => decide(paper, paper.candidates[0].id, "accepted"), /overlaps/);
+});
 
 test("unrelated changes map an exact repeated range without replacing the first occurrence", () => {
   let { paper } = initial();

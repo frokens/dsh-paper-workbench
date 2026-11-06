@@ -1,7 +1,9 @@
 # Bilingual and revision lifecycle status
 
-Status: B implementation in progress, not independently accepted. Candidate
-version: 0.2.0-alpha.3. The original A package and synthetic Word files are retained;
+Status: bounded B code and its representative native path independently accepted
+in [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2), reviewed at
+`7936adcef50222002a5284130d6f9cc07a770afd` and merged as `f398f95`.
+Accepted package: 0.2.0-alpha.3. The original A package and synthetic Word files are retained;
 the remaining real Word and Desktop checks are not replaced by these changes.
 
 ## Implemented ownership
@@ -96,8 +98,21 @@ Production Host native dispatch is checked with DSH's own lossless JSON predicat
 before serialization, including completion and clearing a previous failure. The
 restoration checks cover 100 alternating restores and active edits across cancelled
 prefixes and overlapping later edits. A one-character transition appends its two
-primitive steps each time, keeping all history with linear growth. Further model
-requests are paused pending this tool-contract review.
+primitive steps each time, keeping all history with linear growth. Independent
+review rechecked the original failures, native JSON returns and installed package.
+
+A subsequent request in the earlier test task was stopped after reading an
+engineering driver outside its limited paper task; it did not reach the paper tool
+and is not a JSON regression failure. A new ordinary standard task then linked the
+same existing synthetic paper and unchanged configured model. One explicit Send
+successfully read the paper, acknowledged the original completed job with its
+identical original result, and proposed the requested English sentence with its
+Chinese counterpart and feedback link. All three actual paper-tool receipts
+succeeded; the candidate stayed pending, source revision 2 and the old translation
+and job were unchanged, and the session ended idle with no queued or pending input.
+The earlier failed/stopped attempts remain preserved. This representative path,
+42 checks and installed sidebar/stream evidence were independently verified in the
+[six-direction review](https://github.com/frokens/dsh-paper-workbench/pull/2#pullrequestreview-5804575270).
 
 Four checks also call the production Host handler and observation owner over the
 real DSH storageDomain and JSON backend with explicit fault injection. They cover

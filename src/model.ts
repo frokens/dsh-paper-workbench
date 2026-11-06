@@ -33,15 +33,17 @@ export function createPaper(
   input: Pick<
     Paper,
     "id" | "name" | "document" | "originalBase64" | "sourceBase64" | "warnings"
-  >,
+  > & { brief?: string },
 ): Paper {
   return {
     ...input,
+    brief: input.brief ?? "",
     revision: 0,
     baseline: input.document,
     candidates: [],
     decisions: [],
     history: [],
+    readings: [],
     feedback: [],
     batches: [],
     translations: [],
@@ -292,6 +294,8 @@ function operationDiff(paper: Paper, operation: Operation) {
     block = validateDocumentRange(source, operation.selection);
   if (operation.kind === "replace")
     return textDiff(operation.selection.quote, operation.replacement);
+  if (operation.kind === "fill_draft")
+    return textDiff(operation.selection.quote, operation.paragraphs.join("\n"));
   if (operation.kind === "split")
     return textDiff(
       block.node.textContent,
@@ -341,13 +345,21 @@ export function propose(
   for (const id of request.feedbackIds)
     if (!paper.feedback.some((f) => f.id === id))
       throw new Error("The linked feedback does not exist.");
-  for (const translation of request.translations)
+  for (const translation of request.translations) {
     if (
       new Set(translation.operationIndexes).size !==
         translation.operationIndexes.length ||
       translation.operationIndexes.some((i) => i >= request.operations.length)
     )
       throw new Error("A candidate translation refers to a missing operation.");
+    if (translation.paragraphIndexes) {
+      const operation = request.operations[translation.operationIndexes[0]];
+      if (translation.operationIndexes.length !== 1 || operation.kind !== "fill_draft"
+        || new Set(translation.paragraphIndexes).size !== translation.paragraphIndexes.length
+        || translation.paragraphIndexes.some(index => index >= operation.paragraphs.length))
+        throw new Error("Paragraph indexes must select real paragraphs of one fill_draft operation.");
+    }
+  }
   if (
     paper.feedback.some(
       (f) =>
@@ -425,6 +437,16 @@ function planAcceptance(paper: Paper, requested: string[] | "all") {
         const resolved = resolveOperation(paper, operation, combined),
           block = validateDocumentRange(trial.doc, resolved.selection);
         const applied = transformOperation(trial.doc, resolved);
+        if (operation.kind === "fill_draft") {
+          for (const step of applied.steps) trial.step(step);
+          const paragraphs: { from: number; to: number; step: number }[] = [];
+          trial.doc.forEach((node, position) => paragraphs.push({
+            from: position + 1, to: position + 1 + node.content.size,
+            step: transform.steps.length + trial.steps.length,
+          }));
+          ranges.push(paragraphs);
+          continue;
+        }
         const start =
           block.position +
           1 +
@@ -478,6 +500,13 @@ export function previewAcceptance(paper: Paper, ids: string[] | "all") {
     conflicts,
   };
 }
+export function projectCandidates(paper: Paper, ids: string[] | "all") {
+  const plan = planAcceptance(paper, ids);
+  if (plan.conflicts.length)
+    throw new Error(plan.conflicts.map((c) => c.message).join("\n"));
+  const projected = applyAcceptance(paper, plan);
+  return { candidateIds: plan.candidateIds, document: projected.document, translations: translationViews(projected) };
+}
 function commit(
   paper: Paper,
   transform: Transform,
@@ -524,6 +553,28 @@ function selectionsForRange(
     throw new Error("The candidate translation has no surviving source range.");
   return result;
 }
+function applyAcceptance(paper: Paper, plan: ReturnType<typeof planAcceptance>) {
+  let next = commit(paper, plan.transform, "accept", plan.candidateIds);
+  for (const id of plan.candidateIds) {
+    const candidate = paper.candidates.find((c) => c.id === id)!;
+    for (const translation of candidate.translations) {
+      const sources = translation.operationIndexes.flatMap((index) =>
+        plan.results.get(id)![index].filter((_, paragraphIndex) =>
+          !translation.paragraphIndexes || translation.paragraphIndexes.includes(paragraphIndex),
+        ).flatMap((range) => {
+          const mapped = mapRange(range.from, range.to, plan.transform.mapping.slice(range.step), true);
+          return selectionsForRange(plan.transform.doc, mapped.from, mapped.to, next);
+        }),
+      );
+      next = { ...next, translations: [...next.translations, {
+        id: randomUUID(), jobId: `candidate:${id}`, sources,
+        text: translation.text, version: 1, corrections: [],
+      }] };
+    }
+  }
+  return next;
+}
+
 export function decideMany(
   paper: Paper,
   ids: string[],
@@ -549,42 +600,7 @@ export function decideMany(
     if (plan.conflicts.length)
       throw new Error(plan.conflicts.map((c) => c.message).join("\n"));
     decided = plan.candidateIds;
-    next = commit(paper, plan.transform, "accept", decided);
-    for (const id of decided) {
-      const candidate = paper.candidates.find((c) => c.id === id)!;
-      for (const translation of candidate.translations) {
-        const sources = translation.operationIndexes.flatMap((index) =>
-          plan.results.get(id)![index].flatMap((range) => {
-            const mapped = mapRange(
-              range.from,
-              range.to,
-              plan.transform.mapping.slice(range.step),
-              true,
-            );
-            return selectionsForRange(
-              plan.transform.doc,
-              mapped.from,
-              mapped.to,
-              next,
-            );
-          }),
-        );
-        next = {
-          ...next,
-          translations: [
-            ...next.translations,
-            {
-              id: randomUUID(),
-              jobId: `candidate:${id}`,
-              sources,
-              text: translation.text,
-              version: 1,
-              corrections: [],
-            },
-          ],
-        };
-      }
-    }
+    next = applyAcceptance(paper, plan);
   }
   return {
     ...next,
@@ -797,6 +813,9 @@ function translationState(
   } catch {
     return { state: "stale" as const, mappedSources: [] as Selection[] };
   }
+}
+export function translationViews(paper: Paper) {
+  return paper.translations.map(translation => ({ ...translation, ...translationState(paper, translation) }));
 }
 function translationReference(
   paper: Paper,
@@ -1204,6 +1223,7 @@ export function paperView(paper: Paper) {
   return {
     id: paper.id,
     name: paper.name,
+    brief: paper.brief,
     revision: paper.revision,
     warnings: paper.warnings,
     wordExportNeedsRestore: needsExplicitRestore(paper),
@@ -1247,10 +1267,7 @@ export function paperView(paper: Paper) {
         ? { ...job, status: "stale" as const }
         : job,
     ),
-    translations: paper.translations.map((translation) => ({
-      ...translation,
-      ...translationState(paper, translation),
-    })),
+    translations: translationViews(paper),
   };
 }
 
