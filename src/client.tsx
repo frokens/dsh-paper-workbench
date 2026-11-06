@@ -119,7 +119,8 @@ const en = {
   linkedFeedback: "Linked feedback",
   compare: "Compare with current body",
   restore: "Restore this reviewed revision",
-  noDifference: "No differences from this revision.",
+  noDifference:
+    "No visible body differences. Restoring this version also restores its comparison with the original.",
   formatChanged: "Formatting or structure changed",
   split: "Propose paragraph split",
   merge: "Propose merge with next paragraph",
@@ -130,6 +131,8 @@ const en = {
     "The paper changed. Select the current text again; your draft is retained.",
   noTranslation: "No current Chinese projection for this source.",
   copiedScope: "This scope is atomic; necessary dependencies are included.",
+  restoreBeforeExport:
+    "An earlier restoration needs its intended comparison restored before Word export. Choose that historical version in History and restore it explicitly; the existing records are retained.",
 };
 const zh: typeof en = {
   title: "论文工作台",
@@ -207,7 +210,7 @@ const zh: typeof en = {
   linkedFeedback: "关联反馈",
   compare: "与当前正文比较",
   restore: "恢复到已审阅的此版本",
-  noDifference: "与此版本没有差异。",
+  noDifference: "正文内容没有可见差异；仍可恢复此版本对应的原稿修订关系。",
   formatChanged: "格式或结构发生变化",
   split: "提出拆段候选",
   merge: "提出与下一段合并",
@@ -216,6 +219,8 @@ const zh: typeof en = {
   changed: "正文已更新，请重新选择当前文字；草稿仍保留。",
   noTranslation: "此原文尚无当前有效的中文译文。",
   copiedScope: "所示范围将整体处理，已包含必要依赖。",
+  restoreBeforeExport:
+    "较早的恢复记录缺少准确的 Word 修订来源。请在历史中选择原本要恢复的版本并明确恢复后再导出；已有记录仍会保留。",
 };
 declare module "@deepseek-ai/dsh-client-ui-slots" {
   interface LocaleNamespaceMap {
@@ -594,6 +599,14 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                 {warning}
               </p>
             ))}
+            {paper.wordExportNeedsRestore && (
+              <p className="pw-error">
+                {t("restoreBeforeExport")}{" "}
+                <button onClick={() => setTab("history")}>
+                  {t("history")}
+                </button>
+              </p>
+            )}
             {tab === "reading" && (
               <>
                 <p className="pw-muted">{t("select")}</p>
@@ -1055,10 +1068,11 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                     )}
                     <div className="pw-actions">
                       <button
+                        disabled={!candidate.currentSelections.length}
                         onClick={() =>
                           locate(
-                            candidate.operations.map(
-                              (op) => op.selection.blockId,
+                            candidate.currentSelections.map(
+                              (selection) => selection.blockId,
                             ),
                           )
                         }
@@ -1212,7 +1226,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                     <button
                       disabled={
                         busy ||
-                        !comparison.blocks.length ||
+                        comparison.revision === paper.revision ||
                         comparison.currentRevision !== paper.revision
                       }
                       onClick={() =>
@@ -1266,13 +1280,13 @@ function Workbench({ sessionId, call, observe, t }: Props) {
               <p className="pw-muted">{t("baseline")}</p>
               <div className="pw-actions">
                 <button
-                  disabled={busy}
+                  disabled={busy || paper.wordExportNeedsRestore}
                   onClick={() => void run({ action: "export", tracked: true })}
                 >
                   {t("exportTracked")}
                 </button>
                 <button
-                  disabled={busy}
+                  disabled={busy || paper.wordExportNeedsRestore}
                   onClick={() => void run({ action: "export", tracked: false })}
                 >
                   {t("exportClean")}

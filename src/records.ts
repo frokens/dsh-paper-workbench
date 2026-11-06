@@ -30,6 +30,7 @@ export const historySchema = z.object({
   candidateIds: z.array(z.string()),
   steps: z.array(z.json()),
   inverseSteps: z.array(z.json()),
+  inverseOf: z.array(z.number().int().nonnegative()).optional(),
 });
 const decisionSchema = z.object({
   id: z.string(),

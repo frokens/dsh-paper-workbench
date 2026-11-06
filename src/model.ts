@@ -80,11 +80,85 @@ export function documentAt(paper: Paper, revision: number) {
 }
 function mappingSince(paper: Paper, revision: number) {
   assertRevision(paper, revision);
+  const offsets = [0];
+  for (const entry of paper.history)
+    offsets.push(offsets.at(-1)! + entry.steps.length);
+  const inverseOf = new Map<number, number>();
+  for (let i = 0; i < paper.history.length; i++) {
+    const entry = paper.history[i];
+    let references = entry.inverseOf;
+    // Earlier installed B undo records already identify their original decision.
+    // Recover that explicit relationship, without rewriting their recorded steps.
+    if (!references && entry.kind === "undo") {
+      const undone = paper.decisions.find(
+        (d) =>
+          d.decision === "undone" && d.revision === entry.revision && d.undoOf,
+      );
+      const original = paper.decisions.find((d) => d.id === undone?.undoOf);
+      if (original?.editRevision) {
+        const source = paper.history[original.editRevision - 1];
+        references = source.steps.map(
+          (_, index) =>
+            offsets[original.editRevision! - 1] +
+            source.steps.length -
+            1 -
+            index,
+        );
+      }
+    }
+    if (!references) continue;
+    if (
+      references.length !== entry.steps.length ||
+      references.some((index) => index >= offsets[i])
+    )
+      throw new Error(
+        "The inverse step history does not identify its actual source steps.",
+      );
+    references.forEach((source, index) =>
+      inverseOf.set(offsets[i] + index, source),
+    );
+  }
+  // An inverse may itself be inverted by a later restore. Pair from the newest
+  // step backwards so one actual map participates in at most one mirror pair.
+  const paired = new Set<number>(),
+    mirrors = new Map<number, number>();
+  for (let index = offsets.at(-1)! - 1; index >= 0; index--) {
+    const source = inverseOf.get(index);
+    if (source === undefined || paired.has(index) || paired.has(source))
+      continue;
+    paired.add(index);
+    paired.add(source);
+    mirrors.set(index, source);
+  }
   const mapping = new Mapping();
+  let index = offsets[revision];
   for (const entry of paper.history.slice(revision))
-    for (const step of entry.steps)
-      mapping.appendMap(Step.fromJSON(schema, step).getMap());
+    for (const step of entry.steps) {
+      const source = mirrors.get(index);
+      mapping.appendMap(
+        Step.fromJSON(schema, step).getMap(),
+        source !== undefined && source >= offsets[revision]
+          ? source - offsets[revision]
+          : undefined,
+      );
+      index++;
+    }
   return mapping;
+}
+function needsExplicitRestore(paper: Paper, mapping = mappingSince(paper, 0)) {
+  let offset = 0;
+  for (const entry of paper.history) {
+    if (
+      entry.kind === "restore" &&
+      !entry.inverseOf &&
+      entry.steps.some(
+        (_, index) => mapping.getMirror(offset + index) === undefined,
+      )
+    )
+      return true;
+    offset += entry.steps.length;
+  }
+  return false;
 }
 function locateRange(
   doc: PMNode,
@@ -387,6 +461,7 @@ function commit(
   transform: Transform,
   kind: Paper["history"][number]["kind"],
   candidateIds: string[],
+  inverseOf?: number[],
 ): Paper {
   if (!transform.steps.length) return paper;
   const revision = paper.revision + 1;
@@ -404,6 +479,7 @@ function commit(
         inverseSteps: transform.steps
           .map((step, i) => step.invert(transform.docs[i]).toJSON())
           .reverse(),
+        ...(inverseOf ? { inverseOf } : {}),
       },
     ],
   };
@@ -576,7 +652,18 @@ export function undoDecision(
       nextMapping.appendMap(mapped.getMap(), 0);
       mapping = nextMapping;
     }
-    next = commit(paper, transform, "undo", decision.candidateIds);
+    const sourceOffset = paper.history
+      .slice(0, entry.revision - 1)
+      .reduce((count, item) => count + item.steps.length, 0);
+    next = commit(
+      paper,
+      transform,
+      "undo",
+      decision.candidateIds,
+      entry.steps.map(
+        (_, index) => sourceOffset + entry.steps.length - 1 - index,
+      ),
+    );
     next = {
       ...next,
       translations: next.translations.map((t) =>
@@ -617,18 +704,24 @@ export function restoreRevision(
     throw new Error("The paper changed. Review the restore again.");
   const target = documentAt(paper, revision),
     current = documentAt(paper, paper.revision);
-  return target.eq(current)
-    ? paper
-    : commit(
-        paper,
-        new Transform(current).replaceWith(
-          0,
-          current.content.size,
-          target.content,
-        ),
-        "restore",
-        [],
-      );
+  const transform = new Transform(current),
+    inverseOf: number[] = [];
+  let offset = paper.history.reduce(
+    (count, entry) => count + entry.steps.length,
+    0,
+  );
+  for (const entry of paper.history.slice(revision).reverse()) {
+    offset -= entry.steps.length;
+    entry.inverseSteps.forEach((json, index) => {
+      transform.step(Step.fromJSON(schema, json));
+      inverseOf.push(offset + entry.steps.length - 1 - index);
+    });
+  }
+  if (!transform.doc.eq(target))
+    throw new Error(
+      "The inverse history does not restore the selected revision.",
+    );
+  return commit(paper, transform, "restore", [], inverseOf);
 }
 export function compareRevision(paper: Paper, revision: number) {
   const prior = documentAt(paper, revision),
@@ -642,7 +735,7 @@ export function compareRevision(paper: Paper, revision: number) {
     revision,
     currentRevision: paper.revision,
     blocks: [...blocks].flatMap(([id, { before, after }]) => {
-      if (before?.eq(after!)) return [];
+      if (before && after && before.eq(after)) return [];
       const text = (node?: PMNode) =>
         node?.type.name === "opaque"
           ? (node.attrs.text as string)
@@ -1081,14 +1174,28 @@ export function paperView(paper: Paper) {
     name: paper.name,
     revision: paper.revision,
     warnings: paper.warnings,
+    wordExportNeedsRestore: needsExplicitRestore(paper),
     blocks,
     candidates: paper.candidates.map((candidate) => {
       const plan =
         candidate.status === "pending"
           ? previewAcceptance(paper, [candidate.id])
           : undefined;
+      const currentSelections: Selection[] = [];
+      for (const operation of candidate.operations)
+        for (const selection of [
+          operation.selection,
+          ...(operation.kind === "merge" ? [operation.next] : []),
+        ]) {
+          try {
+            currentSelections.push(mapSelection(paper, selection));
+          } catch {
+            /* An invalid historical range has no current exact target. */
+          }
+        }
       return {
         ...candidate,
+        currentSelections,
         conflict: plan?.conflicts.map((c) => c.message).join("\n") || null,
         sourceRevisions: [
           ...new Set(candidate.operations.map((op) => op.selection.revision)),
@@ -1175,6 +1282,11 @@ export function migratePaper(
 }
 
 export function exportParagraphs(paper: Paper) {
+  const historyMapping = mappingSince(paper, 0);
+  if (needsExplicitRestore(paper, historyMapping))
+    throw new Error(
+      "An earlier restoration has no precise Word comparison. In History, select the intended historical revision and restore it explicitly before exporting. The existing body and history are retained.",
+    );
   const baseline = PMNode.fromJSON(schema, paper.baseline),
     current = documentAt(paper, paper.revision);
   const beforeBlocks: PMNode[] = [],
@@ -1195,16 +1307,18 @@ export function exportParagraphs(paper: Paper) {
     );
   const mapping = new Mapping(),
     cuts = new Set<number>();
-  for (const entry of paper.history)
-    for (const json of entry.steps) {
-      const map = Step.fromJSON(schema, json).getMap(),
-        inverse = mapping.invert();
-      map.forEach((from, to) => {
-        cuts.add(inverse.map(from, 1));
-        cuts.add(inverse.map(to, -1));
-      });
-      mapping.appendMap(map);
-    }
+  historyMapping.maps.forEach((map, index) => {
+    const inverse = mapping.invert();
+    map.forEach((from, to) => {
+      cuts.add(inverse.map(from, 1));
+      cuts.add(inverse.map(to, -1));
+    });
+    const mirror = historyMapping.getMirror(index);
+    mapping.appendMap(
+      map,
+      mirror !== undefined && mirror < index ? mirror : undefined,
+    );
+  });
   type Segment =
     | { kind: "equal" | "delete"; text: string }
     | { kind: "insert"; text: string; styleFrom: number | null };

@@ -533,3 +533,111 @@ test("the installed aggregate upgrades in place by replaying decisions and bindi
   paper = undoDecision(upgraded, upgraded.decisions[0].id, 1);
   assert.deepEqual(paper.document, source.document);
 });
+
+test("history comparison records a removed merge paragraph and a split paragraph that exits on restore", () => {
+  let { paper } = initial(["First paragraph.", "Second paragraph."]);
+  const second = selection(paper, 1);
+  paper = acceptLast(
+    proposal(paper, [
+      {
+        kind: "merge",
+        selection: selection(paper),
+        next: second,
+        separator: " ",
+      },
+    ]),
+  );
+  assert.equal(
+    compareRevision(paper, 0).blocks.find(
+      (block) => block.id === second.blockId,
+    )!.removed,
+    true,
+  );
+  paper = restoreRevision(paper, 0, 1);
+  paper = acceptLast(
+    proposal(paper, [{ kind: "split", selection: selection(paper, 0, 6, 6) }]),
+  );
+  const addedId = paperView(paper).blocks[1].id;
+  assert.equal(
+    compareRevision(paper, 0).blocks.find((block) => block.id === addedId)!
+      .added,
+    true,
+  );
+  paper = restoreRevision(paper, 0, 3);
+  assert.equal(
+    compareRevision(paper, 3).blocks.find((block) => block.id === addedId)!
+      .removed,
+    true,
+  );
+});
+
+test("the candidate view exposes the current exact target after split without rewriting its source operation", () => {
+  let { paper } = initial(["alpha beta", "Keep this paragraph."]);
+  const source = selection(paper, 0, 6, 10);
+  paper = replace(paper, source, "gamma");
+  const id = paper.candidates.at(-1)!.id;
+  paper = acceptLast(
+    proposal(paper, [{ kind: "split", selection: selection(paper, 0, 6, 6) }]),
+  );
+  const candidate = paperView(paper).candidates.find(
+    (candidate) => candidate.id === id,
+  )!;
+  assert.equal(candidate.conflict, null);
+  assert.equal(candidate.operations[0].selection.blockId, source.blockId);
+  assert.equal(
+    candidate.currentSelections[0].blockId,
+    paperView(paper).blocks[1].id,
+  );
+  assert.equal(candidate.currentSelections[0].quote, "beta");
+  assert.equal(candidate.currentSelections[0].revision, paper.revision);
+});
+
+test("explicit restoration recovers the selected edit relationship from older full-document restore records", () => {
+  const { paper: original } = initial();
+  const accepted = acceptLast(
+    replace(original, selection(original, 0, 0, 1), "First"),
+  );
+  const undone = undoDecision(accepted, accepted.decisions[0].id, 1);
+  const before = documentAt(undone, 2),
+    oldRestore = new Transform(before).replaceWith(
+      0,
+      before.content.size,
+      documentAt(accepted, 1).content,
+    );
+  const older: Paper = {
+    ...undone,
+    revision: 3,
+    document: oldRestore.doc.toJSON(),
+    history: [
+      ...undone.history.map(({ inverseOf, ...entry }) => entry),
+      {
+        revision: 3,
+        kind: "restore",
+        candidateIds: [],
+        steps: oldRestore.steps.map((step) => step.toJSON()),
+        inverseSteps: oldRestore.steps
+          .map((step, index) => step.invert(oldRestore.docs[index]).toJSON())
+          .reverse(),
+      },
+    ],
+  };
+  const repaired = restoreRevision(older, 1, 3);
+  assert.equal(paperView(older).wordExportNeedsRestore, true);
+  assert.throws(() => exportParagraphs(older), /restore it explicitly/);
+  assert.equal(paperView(repaired).wordExportNeedsRestore, false);
+  assert.deepEqual(repaired.document, accepted.document);
+  assert.equal(repaired.revision, 4);
+  assert.deepEqual(
+    exportParagraphs(repaired)
+      .flatMap((p) => p.segments)
+      .filter((s) => s.kind !== "equal"),
+    exportParagraphs(accepted)
+      .flatMap((p) => p.segments)
+      .filter((s) => s.kind !== "equal"),
+  );
+  assert.equal(
+    older.history[2].inverseOf,
+    undefined,
+    "Historical records are retained without inventing their original target.",
+  );
+});

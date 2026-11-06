@@ -611,3 +611,110 @@ test("journal undo and restore export the complete original native style with no
     );
   }
 });
+
+function acceptWorker(paper: Paper, replacement: string, last: boolean) {
+  const block = paperView(paper).blocks[1],
+    from = last
+      ? block.text.lastIndexOf("worker")
+      : block.text.indexOf("worker");
+  const candidate = propose(paper, {
+    action: "propose",
+    requestId: `worker-${paper.revision}`,
+    selection: { ...block.selection, from, to: from + 6, quote: "worker" },
+    replacement,
+    reason: "Change only this executing party.",
+  });
+  return decide(candidate, candidate.candidates.at(-1)!.id, "accepted");
+}
+test("undoing the first same-paragraph edit exports only the surviving last edit as native revisions", () => {
+  const source = initial();
+  let paper = acceptWorker(source, "executor", false);
+  const first = paper.decisions[0].id;
+  paper = acceptWorker(paper, "operator", true);
+  paper = undoDecision(paper, first, 2);
+  const paragraphs = exportParagraphs(paper);
+  assert.deepEqual(
+    paragraphs.flatMap((p) => p.segments).filter((p) => p.kind !== "equal"),
+    [
+      { kind: "delete", text: "worker" },
+      { kind: "insert", text: "operator", styleFrom: 0 },
+    ],
+  );
+  const exported = engine({
+    action: "export",
+    base64: paper.sourceBase64,
+    tracked: true,
+    paragraphs,
+  });
+  assert.equal(
+    engine({
+      action: "inspect",
+      base64: exported.base64,
+      revisionMode: "accept",
+    }).blocks[1].text,
+    paperView(paper).blocks[1].text,
+  );
+  assert.equal(
+    engine({
+      action: "inspect",
+      base64: exported.base64,
+      revisionMode: "reject",
+    }).blocks[1].text,
+    paperView(source).blocks[1].text,
+  );
+  const retained = {
+    ...paper,
+    history: paper.history.map(({ inverseOf, ...entry }) => entry),
+  };
+  assert.deepEqual(
+    exportParagraphs(retained),
+    paragraphs,
+    "Earlier installed undo records use their explicit undoOf decision relation.",
+  );
+});
+
+test("restoring an accepted revision preserves its original local Word range across undo and later restores", () => {
+  const source = initial(),
+    accepted = acceptWorker(source, "executor", false);
+  const expected = exportParagraphs(accepted)
+    .flatMap((p) => p.segments)
+    .filter((p) => p.kind !== "equal");
+  let paper = undoDecision(accepted, accepted.decisions[0].id, 1);
+  paper = restoreRevision(paper, 1, 2);
+  assert.deepEqual(paper.document, accepted.document);
+  assert.deepEqual(
+    exportParagraphs(paper)
+      .flatMap((p) => p.segments)
+      .filter((p) => p.kind !== "equal"),
+    expected,
+  );
+  paper = restoreRevision(paper, 0, 3);
+  paper = restoreRevision(paper, 1, 4);
+  const paragraphs = exportParagraphs(paper);
+  assert.deepEqual(
+    paragraphs.flatMap((p) => p.segments).filter((p) => p.kind !== "equal"),
+    expected,
+  );
+  const exported = engine({
+    action: "export",
+    base64: paper.sourceBase64,
+    tracked: true,
+    paragraphs,
+  });
+  assert.equal(
+    engine({
+      action: "inspect",
+      base64: exported.base64,
+      revisionMode: "accept",
+    }).blocks[1].text,
+    paperView(accepted).blocks[1].text,
+  );
+  assert.equal(
+    engine({
+      action: "inspect",
+      base64: exported.base64,
+      revisionMode: "reject",
+    }).blocks[1].text,
+    paperView(source).blocks[1].text,
+  );
+});

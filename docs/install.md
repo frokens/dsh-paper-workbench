@@ -57,6 +57,10 @@ paper data and decisions. It is not a reversible package-only downgrade: the old
 A package does not understand version 2 storage. Retain a backup before test upgrades.
 Paragraph splits/merges are retained in the workbench but Word export currently
 refuses a changed paragraph layout; the structural Word adapter remains later work.
+An earlier B full-document restoration may lack its precise Word comparison.
+The sidebar reports this and blocks export. In History, choose the intended
+historical revision and explicitly restore it, even if its visible body is the
+same. This appends its actual restoration relationship and retains the old record.
 
 Developer-only Word fixtures can be generated with
 `npm run fixture:word -- prepare <new-test-directory>`. The command refuses to
