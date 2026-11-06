@@ -120,14 +120,45 @@ Separate contract reproduction confirmed that replace/split operations could not
 compose a filled multi-paragraph first draft from the one empty selection. These
 three gaps drove the current correction; original inputs and failure evidence remain.
 
-The current correction passes type checking and 63 owner/SDK checks, including exact
-child ownership, frozen reads after parent changes/restart, read-only refusal,
-unchanged ordinary task behavior, verbatim scoped directions, multi-paragraph pending
+The correction passes type checking and 63 owner/SDK checks, including exact child
+ownership, frozen reads after parent changes/restart, read-only refusal, unchanged
+ordinary task behavior, verbatim scoped directions, multi-paragraph pending
 projection/acceptance, persisted identities, Chinese scope, undo/restoration and
-unchanged source conflict protection. These checks do not demonstrate a successful
-model reading or general writing quality. The actual installed Host/Remote check
-passes without model execution, including SDK blank-document creation, pending
-multi-paragraph proposal/acceptance and Chinese ranges. Same-profile upgrade/restart
-preserved the existing aggregate bytes. Stable packaged-contract review, live Client
-reading display and the minimal actual multi-paragraph writing/fresh-reading path
-remain open; further model execution is paused for independent contract review.
+unchanged source conflict protection. Independent production Host/storage and
+package-contract review confirmed those corrections. The actual installed
+Host/Remote check also passes without model execution, including SDK blank-document
+creation, pending multi-paragraph proposal/acceptance and Chinese ranges.
+Same-profile upgrade/restart preserved the existing aggregate bytes.
+
+The representative native path then ran on implementation head
+`74e70c8e1236d83858f1138ffec7f59a60235ef9` and the unchanged installed alpha.4
+package. One fresh ordinary writing task used the existing standard Agent/default
+model, investigated the actual material and proposed three English paragraphs with
+one Chinese counterpart bound to each paragraph. One fresh owned reader retrieved
+its own frozen packet, including both submitted user directions and their scope,
+read the material and returned three located concern/question findings through the
+actual scoped structured tool. The initial task packet and formal child read agree.
+Complete parent/child traces have 60/44 records with no further pages or tool errors;
+both settled without queued/pending work and the child became inactive. The source
+remains revision zero and empty; the old single-paragraph alternative and cancelled
+reading remain retained, and nothing was accepted or automatically rewritten.
+
+Independent semantic assessment found the role separation, allowed action set,
+execution/feedback relation, mechanism-before-conditional-example order, confirmed
+sentence and bilingual negation consistent with the supplied material. Repetition
+and commentary about the write-up's provenance remain. The reader independently
+identified that commentary and questioned an unsupported prior-expectation contrast.
+Its references to absent cycle counts or an absent keyword do not by themselves
+disprove a repeatable feedback mechanism. Its referent question is reasonable, but
+author intent cannot authorize adding an experimental result absent from the
+material. These are suggestions for author judgement, not three established factual
+errors, a writing-quality pass or a general claim about Skill effectiveness.
+
+The live Client displays the completed reading and unchanged source revision; a
+finding's candidate control navigates to the new candidate and its paragraph-scoped
+Chinese. Native chat and composer remain intact. Very long finding/reason headings,
+centering of tall candidate cards and control/state density remain final UI work.
+No additional model run is needed for this closeout. This repository-only status
+update does not rebuild or replace the frozen alpha.4 package. Code and the
+representative path await final independent acceptance; complete product acceptance,
+Word/Desktop events, D exports/returns/PDF and E distribution/usability remain open.
