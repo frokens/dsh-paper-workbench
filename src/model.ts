@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Schema, Node as PMNode } from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
-import { diffChars } from 'diff';
+import { diffWordsWithSpace } from 'diff';
 import { z } from 'zod';
+import { selectionSchema, type Selection, type proposeRequest } from './contracts.js';
 
 export const schema = new Schema({
   nodes: {
@@ -13,26 +14,6 @@ export const schema = new Schema({
   },
   marks: { bold: {}, italic: {} },
 });
-
-const selectionSchema = z.object({
-  paperId: z.string(), revision: z.number().int().nonnegative(), blockId: z.string(),
-  from: z.number().int().nonnegative(), to: z.number().int().nonnegative(), quote: z.string(),
-});
-export type Selection = z.infer<typeof selectionSchema>;
-export const readRequest = z.object({ action: z.literal('read') });
-export const proposeRequest = z.object({
-  action: z.literal('propose'), requestId: z.string().min(1).max(200), selection: selectionSchema,
-  replacement: z.string().max(100000).refine(t => !/[\r\n]/.test(t), 'This slice supports a single paragraph per operation.'),
-  reason: z.string().min(1).max(10000),
-});
-export const agentRequest = z.discriminatedUnion('action', [readRequest, proposeRequest]);
-export const uiRequest = z.discriminatedUnion('action', [
-  readRequest, proposeRequest,
-  z.object({ action: z.literal('import'), name: z.string().min(1).max(250), base64: z.string().max(24_000_000), revisionMode: z.enum(['accept', 'reject']).optional() }),
-  z.object({ action: z.literal('link'), paperId: z.string() }),
-  z.object({ action: z.literal('decide'), candidateId: z.string(), decision: z.enum(['accepted', 'rejected']) }),
-  z.object({ action: z.literal('export'), tracked: z.boolean() }),
-]);
 
 export const candidateSchema = z.object({
   id: z.string(), requestId: z.string(), selection: selectionSchema, replacement: z.string(), reason: z.string(),
@@ -53,14 +34,14 @@ export function importDocument(blocks: ImportedBlock[]) {
   return schema.node('doc', null, blocks.map(block => {
     const attrs = { id: randomUUID(), sourceIndex: block.sourceIndex };
     if (!block.editable) return schema.node('opaque', { ...attrs, text: block.text, reason: block.reason });
-    return schema.node('paragraph', { ...attrs, heading: block.style }, block.runs.filter(r => r.text).map(run => schema.text(run.text, [
+    return schema.node('paragraph', { ...attrs, heading: block.style && /^(Title|Heading[1-6])$/i.test(block.style) ? block.style : null }, block.runs.filter(r => r.text).map(run => schema.text(run.text, [
       ...(run.bold ? [schema.marks.bold.create()] : []), ...(run.italic ? [schema.marks.italic.create()] : []),
     ])));
   })).toJSON();
 }
 
 export function realDiff(before: string, after: string) {
-  return diffChars(before, after).map(part => ({ kind: part.added ? 'insert' as const : part.removed ? 'delete' as const : 'equal' as const, text: part.value }));
+  return diffWordsWithSpace(before, after).map(part => ({ kind: part.added ? 'insert' as const : part.removed ? 'delete' as const : 'equal' as const, text: part.value }));
 }
 
 export function findBlock(paper: Paper, id: string) {
@@ -105,9 +86,23 @@ export function decide(paper: Paper, candidateId: string, decision: 'accepted' |
   let revision = paper.revision;
   if (decision === 'accepted') {
     const { doc, node, position } = validateSelection(paper, candidate.selection);
-    const from = position + 1 + candidate.selection.from, to = position + 1 + candidate.selection.to;
-    const marks = node.resolve(candidate.selection.from).marks();
-    const transform = new Transform(doc).replaceWith(from, to, candidate.replacement ? schema.text(candidate.replacement, marks) : []);
+    let cursor = position + 1 + candidate.selection.from;
+    let sourceOffset = candidate.selection.from;
+    let deletedStart: number | undefined;
+    const transform = new Transform(doc);
+    for (const part of candidate.diff) {
+      if (part.kind === 'equal') { cursor += part.text.length; sourceOffset += part.text.length; deletedStart = undefined; }
+      else if (part.kind === 'delete') {
+        deletedStart = sourceOffset;
+        transform.delete(cursor, cursor + part.text.length);
+        sourceOffset += part.text.length;
+      } else {
+        const styleOffset = deletedStart ?? sourceOffset;
+        const marks = node.nodeAt(styleOffset)?.marks ?? node.resolve(styleOffset).marks();
+        transform.insert(cursor, schema.text(part.text, marks));
+        cursor += part.text.length;
+      }
+    }
     document = transform.doc.toJSON();
     revision++;
   }

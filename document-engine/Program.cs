@@ -48,7 +48,8 @@ static class Program
         stream.Position = 0;
         using var doc = WordprocessingDocument.Open(stream, true, new OpenSettings { MaxCharactersInPart = 4_000_000 });
         var main = doc.MainDocumentPart ?? throw new Exception("Missing Word main document part.");
-        var body = main.Document.Body ?? throw new Exception("Missing Word body.");
+        var document = main.Document ?? throw new Exception("Missing Word document.");
+        var body = document.Body ?? throw new Exception("Missing Word body.");
         if (body.ChildElements.Count > 5000) throw new Exception("DOCX exceeds 5000 top-level blocks.");
         var mode = request.TryGetProperty("revisionMode", out var m) ? m.GetString() : null;
         bool revisions = body.Descendants().Any(e => e is W.InsertedRun or W.DeletedRun || e.LocalName.EndsWith("Change") || e.LocalName.StartsWith("move"));
@@ -75,6 +76,7 @@ static class Program
                     throw new Exception("Export diff does not cover the exact source.");
                 bool tracked = request.GetProperty("tracked").GetBoolean();
                 int offset = 0;
+                int? deletedStart = null;
                 foreach (var child in p.ChildElements.Where(e => e is not W.ParagraphProperties).ToArray()) child.Remove();
                 int revisionId = 0;
                 foreach (var segment in segments)
@@ -84,7 +86,7 @@ static class Program
                     if (kind == "insert")
                     {
                         var insertion = new W.Run(new W.Text(text) { Space = SpaceProcessingModeValues.Preserve });
-                        var style = StyleAt(original, offset);
+                        var style = StyleAt(original, deletedStart ?? offset);
                         if (style != null) insertion.PrependChild(style);
                         if (tracked) p.Append(new W.InsertedRun(insertion) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
                         else p.Append(insertion);
@@ -92,14 +94,15 @@ static class Program
                     else
                     {
                         var runs = Slice(original, offset, text.Length, kind == "delete" && tracked);
-                        if (kind == "equal") foreach (var run in runs) p.Append(run);
-                        else if (kind == "delete" && tracked) p.Append(new W.DeletedRun(runs) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
+                        if (kind == "equal") { foreach (var run in runs) p.Append(run); deletedStart = null; }
+                        else if (kind == "delete" && tracked) { p.Append(new W.DeletedRun(runs) { Id = (index * 100000 + revisionId++).ToString(), Author = "" }); deletedStart = offset; }
+                        else if (kind == "delete") deletedStart = offset;
                         else if (kind != "delete") throw new Exception("Unknown diff segment.");
                         offset += text.Length;
                     }
                 }
             }
-            main.Document.Save();
+            document.Save();
             ClearMetadata(doc);
             var errors = new OpenXmlValidator(FileFormatVersions.Microsoft365).Validate(doc).Take(10).Select(e => e.Description).ToArray();
             if (errors.Length != 0) throw new Exception("Open XML validation failed: " + string.Join("; ", errors));
@@ -123,7 +126,7 @@ static class Program
         if (main.HeaderParts.Any() || main.FooterParts.Any()) warnings.Add("Headers and footers are preserved; not shown in the workbench.");
         if (main.WordprocessingCommentsPart != null) warnings.Add("Word comments are preserved; comment editing is not implemented in this slice.");
         if (revisions && mode == null) warnings.Add("Existing revisions require an explicit accept or reject choice before editing.");
-        main.Document.Save();
+        document.Save();
         doc.Dispose();
         return new { blocks, warnings, hasRevisions = revisions, normalizedBase64 = Convert.ToBase64String(stream.ToArray()) };
     }
@@ -217,6 +220,7 @@ static class Program
                 new W.Paragraph(new W.ParagraphProperties(new W.ParagraphStyleId { Val = "Title" }), new W.Run(new W.Text("Feedback and local revision"))),
                 new W.Paragraph(new W.Run(new W.Text("The worker executes the operation. The model proposes a change. The worker executes the operation."))),
                 new W.Paragraph(new W.Run(new W.RunProperties(new W.Bold()), new W.Text("The result remains unverified."))),
+                new W.Paragraph(new W.Run(new W.Text("The ") { Space = SpaceProcessingModeValues.Preserve }), new W.Run(new W.RunProperties(new W.Bold()), new W.Text("model")), new W.Run(new W.Text(" proposes a change.") { Space = SpaceProcessingModeValues.Preserve })),
                 new W.SectionProperties(new W.PageSize { Width = 11906, Height = 16838 }, new W.PageMargin { Top = 1440, Bottom = 1440, Left = 1440, Right = 1440 })));
             ClearMetadata(doc);
             main.Document.Save();

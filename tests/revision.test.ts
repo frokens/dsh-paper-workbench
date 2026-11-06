@@ -82,3 +82,16 @@ test('clean DOCX exports the accepted body without native revisions', () => {
   assert.equal(clean.hasRevisions, false);
   assert.equal(clean.blocks[1].text, paperView(paper).blocks[1].text);
 });
+
+test('mixed-format replacements preserve unchanged emphasis and inherit the removed text style at boundaries', () => {
+  const source = initial(), block = paperView(source).blocks[3];
+  const proposed = propose(source, { action: 'propose', requestId: 'formatted', selection: block.selection, replacement: 'A planner proposes a change.', reason: 'Check exact style inheritance.' });
+  const paper = decide(proposed, proposed.candidates[0].id, 'accepted');
+  const runs = paperView(paper).blocks[3].runs;
+  assert.equal(runs.map(r => r.text).join(''), 'A planner proposes a change.');
+  const styled = runs.flatMap(r => [...r.text].map(char => ({ char, bold: r.marks.includes('bold') })));
+  assert.equal(styled.filter(c => c.bold).map(c => c.char).join(''), 'planner');
+  const exported = engine({ action: 'export', base64: paper.sourceBase64, tracked: false, paragraphs: exportParagraphs(paper) });
+  const formatted = engine({ action: 'inspect', base64: exported.base64 });
+  assert.equal(formatted.blocks[3].runs.filter((r: { bold: boolean }) => r.bold).map((r: { text: string }) => r.text).join(''), 'planner');
+});

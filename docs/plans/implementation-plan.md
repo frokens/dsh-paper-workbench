@@ -118,7 +118,7 @@ Host/Client/工具/Skills、重启恢复、升级保全、卸载退出；Word �
 
 | 批次 | 初始状态 | 接收依据 |
 | --- | --- | --- |
-| A | 未开始 | 待 PR 与实际证据 |
+| A | 候选实施中，未接收 | [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)；[实际证据及未验项](../reference/native-slice-status.md) |
 | B | 未开始 | 待 A 及受影响证据 |
 | C | 未开始 | 待 B 及原生审读证据 |
 | D | 未开始 | 待格式与返稿证据 |

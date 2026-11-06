@@ -1,14 +1,14 @@
 import * as React from 'react';
 import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client';
-import type {} from '@deepseek-ai/dsh-commands/remote';
 import type {} from '@deepseek-ai/dsh-client-locale/client';
 import type {} from '@deepseek-ai/dsh-client-ui-slots';
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client';
 import type {} from '@deepseek-ai/dsh-api-gateway/client';
 import type { SessionId } from '@deepseek-ai/dsh-session/types';
-import type { Selection } from './model.js';
+import type { Selection, UiRequest } from './contracts.js';
 import type { paperView } from './model.js';
+import { remoteInfo } from './remote.js';
 
 type PaperView = ReturnType<typeof paperView>;
 type View = { paper: PaperView | null; available: { id: string; name: string }[] };
@@ -74,7 +74,7 @@ function Workbench({ sessionId, call, t }: Props) {
 
   React.useEffect(() => { void run({ action: 'read' }); return () => controller.current?.abort(); }, [sessionId]);
 
-  function capture(event: React.MouseEvent<HTMLDivElement>) {
+  function capture(event: React.SyntheticEvent<HTMLDivElement>) {
     const selected = window.getSelection();
     if (!selected || selected.isCollapsed || !paper) return;
     const range = selected.getRangeAt(0);
@@ -112,7 +112,7 @@ function Workbench({ sessionId, call, t }: Props) {
       {paper && <>
         <h2>{paper.name}</h2>{paper.warnings.map((warning, i) => <p className="paper-muted" key={i}>{warning}</p>)}
         <p className="paper-muted">{t('select')}</p>
-        <div onMouseUp={capture}>{paper.blocks.map(block => <article key={block.id}>
+        <div onMouseUp={capture} onKeyUp={capture}>{paper.blocks.map(block => <article key={block.id}>
           <div className="paper-body" data-paper-block={block.id} style={block.heading ? { fontWeight: 600 } : undefined}>{block.editable ? block.runs.map((run, i) => <span key={i} style={{ fontWeight: run.marks.includes('bold') ? 700 : undefined, fontStyle: run.marks.includes('italic') ? 'italic' : undefined }}>{run.text}</span>) : block.text}</div>
           {!block.editable && <small>{t('unsupported')}: {block.reason}</small>}
         </article>)}</div>
@@ -135,19 +135,21 @@ function Workbench({ sessionId, call, t }: Props) {
   </section>;
 }
 
-export function apply(ctx: Context) {
+export async function apply(ctx: Context) {
   ctx.effect(() => ctx.locale.register('paperWorkbench', { en, zh }));
   const t = ctx.locale.bind('paperWorkbench');
-  ctx.effect(() => ctx.sidebarRightTabs.register({ id, kind: 'paper-workbench', title: () => t('title'),
-    guide: [{ id: 'open', order: 35, title: () => t('title'), description: () => t('description'), icon: () => <span aria-hidden="true">▤</span> }] }));
-  async function call(sessionId: SessionId, request: object, signal: AbortSignal): Promise<Reply> {
-    const result = await ctx.remote.commands.execute(sessionId, `/paper-workbench ${JSON.stringify(request)}`, [], signal);
-    if (!result.ok) throw new Error(result.error.message);
-    const response = result.value?.result;
-    if (!response || response.kind === 'error') throw new Error(response?.text ?? 'The sidebar action returned no result.');
-    return JSON.parse(response.text!);
-  }
-  ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({ name: 'sidebar.right.pane.tab', key: id,
-    inject: () => ({ call, t }),
-  }, Workbench)));
+  const disposeRemote = await ctx.remote.$mount(remoteInfo);
+  ctx.effect(() => disposeRemote);
+  ctx.inject(['remote', 'remote.paperWorkbench'], scope => {
+    scope.effect(() => scope.sidebarRightTabs.register({ id, kind: 'paper-workbench', title: () => t('title'),
+      guide: [{ id: 'open', order: 35, title: () => t('title'), description: () => t('description'), icon: () => <span aria-hidden="true">▤</span> }] }));
+    async function call(sessionId: SessionId, request: object, signal: AbortSignal): Promise<Reply> {
+      const result = await scope.remote.paperWorkbench.userAction(sessionId, request as UiRequest, signal);
+      if (!result.ok) throw new Error(result.error.message);
+      return result.value as Reply;
+    }
+    scope.effect(() => scope.slots.inject('sidebar.right.pane.tab', () => scope.slots.register({ name: 'sidebar.right.pane.tab', key: id,
+      inject: () => ({ call, t }),
+    }, Workbench)));
+  });
 }
