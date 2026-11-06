@@ -16,3 +16,6 @@ playwright-report/
 uploads/
 manuscripts/
 runtime-data/
+document-engine/bin/
+document-engine/obj/
+runtime/
