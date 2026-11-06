@@ -15,4 +15,3 @@ export async function connectHost() {
     return envelope.result.value;
   };
 }
-
