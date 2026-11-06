@@ -12,13 +12,13 @@ import {
 import { JsonStorageBackend } from "@deepseek-ai/dsh-storage-json";
 import { DomainFacility } from "@deepseek-ai/dsh-storage-domain";
 import { PaperWorkbench, paperDomainSpec } from "../src/host.js";
-import { createPaper, importDocument, type Paper } from "../src/model.js";
+import { createPaper, importDocument, paperView, propose, decide, type Paper } from "../src/model.js";
 import type { SessionId } from "@deepseek-ai/dsh-session/types";
 import type { Agent } from "@deepseek-ai/dsh-agent";
 import { isJsonValue } from "@deepseek-ai/dsh-util-values";
 import type { SubagentActivationSpec, SubagentResult } from "@deepseek-ai/dsh-subagent";
 import { prepareReading } from "../src/reading.js";
-import { readingRequest } from "../src/contracts.js";
+import { proposeRequest, readingRequest } from "../src/contracts.js";
 
 function fixture() {
   return createPaper({
@@ -173,6 +173,44 @@ test("production native reading uses the DSH fresh/caller seam, validates struct
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 
+test("only the exact owned child reads its frozen packet through the production Host; parent edits and ordinary task semantics remain separate", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
+  try {
+    let paper = await seed(host);
+    paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "p", operations: [{ kind: "replace", selection: paperView(paper).blocks[0].selection, replacement: "Keep the confirmed sentence exactly." }], reason: "Clarify the preservation requirement." }));
+    const prepared = prepareReading(paper, readingRequest.parse({ ...readingCommand, candidateIds: "all" }), "task");
+    await host.domain.table("papers").put("paper", prepared.paper);
+    const childId = prepared.reading.childId;
+    const read = (id: string, human = false) => host.service.handle({ action: "read" }, id, human, new AbortController().signal, { id } as Agent) as Promise<{ paper: null | ReturnType<typeof paperView>; available: object[]; reading?: ReturnType<typeof import("../src/reading.js").readingPacket> }>;
+    const initial = await read(childId);
+    assert.equal(isJsonValue(initial), true);
+    assert.equal(initial.paper, null);
+    assert.deepEqual(initial.available, []);
+    assert.equal(initial.reading?.childSessionId, childId);
+    assert.equal(initial.reading?.parentSessionId, "task");
+    assert.equal(initial.reading?.baselineBlocks[0].text, "Keep the confirmed sentence.");
+    assert.equal(initial.reading?.candidateBlocks[0].text, "Keep the confirmed sentence exactly.");
+    const later = decide(prepared.paper, paper.candidates[0].id, "accepted");
+    await host.domain.table("papers").put("paper", later);
+    await host.domain.table("bindings").put(childId, { paperId: "paper" });
+    assert.deepEqual(await read(childId, true), initial, "Even a binding cannot turn an owned frozen reader into the live author body.");
+    assert.equal((await read("task")).paper?.revision, 1);
+    const unrelated = await read("ordinary-unlinked");
+    assert.equal(unrelated.paper, null);
+    assert.equal(unrelated.reading, undefined);
+    assert.equal(unrelated.available.length, 1);
+    const before = JSON.stringify(storedPaper(host));
+    for (const [human, command] of [
+      [false, { action: "create", name: "Forbidden", brief: "" }],
+      [false, readingCommand],
+      [true, { action: "link", paperId: "paper" }],
+      [true, { action: "feedback", requestId: "child-f", target: { kind: "source", selections: [paperView(later).blocks[0].selection] }, comment: "Forbidden mutation" }],
+    ] as const)
+      await assert.rejects(host.service.handle(command, childId, human, new AbortController().signal, { id: childId } as Agent), /frozen material read only/);
+    assert.equal(JSON.stringify(storedPaper(host)), before);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
 test("reading cancellation targets its owned activation and retains a late completion as evidence without publishing a verdict", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
   try {
@@ -249,6 +287,10 @@ test("same-data restart marks an unfinished reading interrupted without starting
     assert.equal(restored.childId, prepared.reading.childId);
     assert.equal(restored.output, undefined);
     assert.equal(isJsonValue(await host.invoke({ action: "read" })), true);
+    const childRead = await host.service.handle({ action: "read" }, restored.childId, false, new AbortController().signal) as { reading: { readingId: string; baselineBlocks: { text: string }[] } };
+    assert.equal(childRead.reading.readingId, restored.id);
+    assert.equal(childRead.reading.baselineBlocks[0].text, "Keep the confirmed sentence.");
+    assert.equal(isJsonValue(childRead), true);
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 

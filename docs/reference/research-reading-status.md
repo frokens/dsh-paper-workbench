@@ -1,6 +1,6 @@
 # Research writing and independent reading status
 
-Status: C implementation candidate 0.3.0-alpha.2, not independently accepted. The bounded A/B
+Status: C implementation candidate 0.3.0-alpha.4, not independently accepted. The bounded A/B
 code and representative B native path are recorded separately. Word desktop
 round trips, Desktop frontend, public user installation, D/E and final sidebar
 usability remain open.
@@ -13,6 +13,18 @@ combine additional sidebar feedback and ordinary chat direction before explicit
 Send. The ordinary main Agent investigates actual material and proposes the draft.
 There is no separate writing document, model runtime or paper preset.
 
+On the exact empty selection of a single empty paragraph, `fill_draft` proposes
+2–100 separate non-empty paragraphs as one pending semantic group. Its real
+ProseMirror replacement steps enter the existing acceptance/history owner. The
+primary body stays empty until acceptance. Candidate Chinese uses the existing
+operation scope, with optional paragraph indexes for one or more paragraphs of
+that fill operation; the actual projection and acceptance produce the same source
+ranges. Ordinary source selection and concurrency rules remain unchanged. IDs
+created by acceptance persist in actual steps and survive replay, undo and body
+restoration. Restoring the body does not silently renew Chinese after intervening
+source edits: old input remains retained and stale, and explicit new translation
+binds the restored body's current ranges. Structural Word export remains D work.
+
 Four on-demand skills use the existing DSH filesystem provider: research argument
 and mechanism, feedback-based local revision, bilingual scientific writing, and
 independent reading. Research guidance retains the nine approved judgement layers
@@ -21,8 +33,24 @@ and conditional examples; project facts and terms are read from materials.
 `reading.ts` owns immutable review material, result validation and applicability.
 It consumes the existing candidate acceptance owner's actual projection, full
 surrounding body, linked feedback, bilingual projections, writing goal, document
-limits and supplied evidence. No parent conversation or hidden author reasoning
-is copied. Materials are data for investigation, not executable instructions.
+limits and supplied evidence. Relevant submitted human batch directions are
+captured verbatim with their batch, revision and feedback scope. A whole-body
+reading retains the paper's submitted goal scopes. The author's separately supplied
+goal cannot replace them, and later batch changes cannot change the old snapshot.
+Directions describe the user's writing goal and scope; author execution steps are
+context for the reader, whose task remains reading and located findings.
+No parent conversation or hidden author reasoning is copied. Materials are data
+for investigation, not executable instructions.
+
+The exact owned child can retrieve this same frozen packet through the formal
+paper `read` action. The Host resolves its existing `Paper.readings.childId`, not
+a live paper binding. It exposes no mutable body or unrelated available-paper
+list, and refuses other paper actions in that owned session. The sidebar shows
+read-only baseline/proposed material, directions, feedback, evidence and Chinese.
+Ordinary linked and unlinked tasks keep their existing paper behavior and general
+Agent tools. Snapshot ownership persists across restart without replaying a model
+call or creating another document authority. DSH controls whether a child is live;
+the plugin does not resume a disposed child through ordinary Session routing.
 
 The shared Host calls DSH's formal `spawn` provider with the exact live parent,
 caller delivery and a child-scoped output schema. DSH owns Agent/session creation,
@@ -74,13 +102,32 @@ The first structured-output contract check caught DSH's unsupported `minItems`
 keyword before any model call. The actual application validator enforces located,
 non-empty findings after capture using DSH's supported schema subset.
 
-The correction passes type checking, build and 58 owner/SDK checks. Its direct
+The first correction passed type checking, build and 58 owner/SDK checks. Its direct
 regressions cover all unfinished/failed states, Chinese
 correction/version changes and replacement, unchanged English, actual partial/full
 acceptance of bilingual candidates, and disposal rejection followed by a native
-retry with no retained process handle. These remain owner/SDK checks; actual C
-model validation is paused for the correction's independent contract review.
+retry with no retained process handle. Those three independently reproduced defects
+were rechecked and closed.
 
-Installed C Host/Client, real material investigation, fresh child history/output,
-meaningful argument/evidence/bilingual findings, cancellation and resource exit are
-still to be verified against the exact packaged candidate and independent PR review.
+The first actual C model path investigated the supplied material and saved one
+English/Chinese paragraph as a pending candidate, without accepting it. Its fresh
+reader read the material, then the paper tool returned the ordinary unlinked state
+instead of its own reading packet. The reader searched application storage and was
+stopped by supervision; no structured reading completed. The parent's aborted tool
+was a cancellation consequence, not a demonstrated output-contract regression.
+The original submitted direction had also been omitted from the reader input.
+Separate contract reproduction confirmed that replace/split operations could not
+compose a filled multi-paragraph first draft from the one empty selection. These
+three gaps drove the current correction; original inputs and failure evidence remain.
+
+The current correction passes type checking and 63 owner/SDK checks, including exact
+child ownership, frozen reads after parent changes/restart, read-only refusal,
+unchanged ordinary task behavior, verbatim scoped directions, multi-paragraph pending
+projection/acceptance, persisted identities, Chinese scope, undo/restoration and
+unchanged source conflict protection. These checks do not demonstrate a successful
+model reading or general writing quality. The actual installed Host/Remote check
+passes without model execution, including SDK blank-document creation, pending
+multi-paragraph proposal/acceptance and Chinese ranges. Same-profile upgrade/restart
+preserved the existing aggregate bytes. Stable packaged-contract review, live Client
+reading display and the minimal actual multi-paragraph writing/fresh-reading path
+remain open; further model execution is paused for independent contract review.

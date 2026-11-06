@@ -130,6 +130,16 @@ export function transformOperation(
   const block = validateDocumentRange(doc, operation.selection);
   const { node, position } = block;
   const transform = new Transform(doc);
+  if (operation.kind === "fill_draft") {
+    if (doc.childCount !== 1 || node.content.size !== 0
+      || operation.selection.from !== 0 || operation.selection.to !== 0)
+      throw new Error("Fill draft requires the exact empty selection of a single empty paragraph. Use ordinary operations for an existing body.");
+    return transform.replaceWith(position, position + node.nodeSize, operation.paragraphs.map((text, index) =>
+      documentSchema.node("paragraph", index === 0 ? node.attrs : {
+        id: randomUUID(), sourceIndex: null, heading: null,
+      }, documentSchema.text(text)),
+    ));
+  }
   if (operation.kind === "split") {
     if (operation.selection.from !== operation.selection.to)
       throw new Error("Choose a cursor position for the paragraph split.");

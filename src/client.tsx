@@ -14,12 +14,13 @@ import type {
 import type { z } from "zod";
 import type { paperView, previewAcceptance, compareRevision } from "./model.js";
 import { remoteInfo } from "./remote.js";
-import type { readingViews } from "./reading.js";
+import type { readingPacket, readingViews } from "./reading.js";
 
 type PaperView = ReturnType<typeof paperView> & { readings: ReturnType<typeof readingViews> };
 type View = {
   paper: PaperView | null;
   available: { id: string; name: string }[];
+  reading?: ReturnType<typeof readingPacket>;
 };
 type Reply = View & {
   base64?: string;
@@ -123,6 +124,12 @@ const en = {
   readingSource: "Independent session source",
   readingScope: "Reviewed candidate groups",
   bodyOnlyReading: "This reading covers the accepted body without pending candidates.",
+  frozenReading: "Frozen reading material",
+  frozenReadingScope: "This session reads the saved candidate combination. Make paper decisions in the writing task.",
+  baselineBody: "Baseline body",
+  candidateBody: "Proposed body",
+  submittedDirections: "Submitted user directions",
+  draftParagraphs: "Draft paragraphs",
   unfinishedReading: "This reading has no completed valid result yet.",
   bilingualChanged: "The following Chinese input changed and needs a bilingual recheck; unchanged source evidence is retained.",
   sourceEvidenceRetained: "The source-language body still matches the completed reading. This does not cover changed Chinese wording.",
@@ -241,6 +248,12 @@ const zh: typeof en = {
   readingSource: "独立会话来源",
   readingScope: "本次覆盖的候选组",
   bodyOnlyReading: "本次仅审读已接收正文，不含待处理候选。",
+  frozenReading: "冻结审读材料",
+  frozenReadingScope: "此会话只读已保存的候选组合。请在写作任务中决定是否接受修改。",
+  baselineBody: "基准正文",
+  candidateBody: "候选正文",
+  submittedDirections: "用户已提交方向",
+  draftParagraphs: "首稿段落",
   unfinishedReading: "本次审读尚无已完成的有效结果。",
   bilingualChanged: "下列中文输入已变，需要复核双语含义；未受影响的原文证据仍保留。",
   sourceEvidenceRetained: "主语言正文仍与已完成审读一致；此结论不覆盖改变后的中文措辞。",
@@ -310,6 +323,34 @@ function Diff({ parts }: { parts: { kind: string; text: string }[] }) {
       )}
     </div>
   );
+}
+function FrozenReading({ packet, t }: { packet: ReturnType<typeof readingPacket>; t: Props["t"] }) {
+  return <article className="pw-review">
+    <h2>{t("frozenReading")}</h2>
+    <p>{t("frozenReadingScope")}</p>
+    <p className="pw-muted">{t("revision")} {packet.sourceRevision}</p>
+    <h3>{t("readingGoal")}</h3><p>{packet.goal}</p>
+    <h3>{t("brief")}</h3><p>{packet.brief}</p>
+    <h3>{t("readingEvidence")}</h3><p>{packet.evidence}</p>
+    {!!packet.directions.length && <><h3>{t("submittedDirections")}</h3>{packet.directions.map(direction =>
+      <blockquote key={direction.batchId}><small>{t("revision")} {direction.revision}</small><p>{direction.direction}</p></blockquote>,
+    )}</>}
+    {!!packet.feedback.length && <><h3>{t("linkedFeedback")}</h3>{packet.feedback.map(feedback =>
+      <blockquote key={feedback.id}>{feedback.comment}</blockquote>,
+    )}</>}
+    {packet.warnings.map((warning, index) => <p className="pw-muted" key={index}>{warning}</p>)}
+    <details><summary>{t("baselineBody")}</summary>{packet.baselineBlocks.map(block =>
+      <p className="pw-source" key={block.id}>{block.text}</p>,
+    )}</details>
+    <h3>{t("candidateBody")}</h3>
+    {packet.candidateBlocks.map(block => <div key={block.id} className="pw-pair">
+      <p className="pw-source">{block.text}</p>
+      <div>{packet.candidateTranslations.filter(translation => translation.state === "current"
+        && translation.mappedSources[0]?.blockId === block.id).map(translation =>
+        <blockquote key={translation.id}>{translation.text}</blockquote>,
+      )}</div>
+    </div>)}
+  </article>;
 }
 function Workbench({ sessionId, call, observe, t }: Props) {
   const [view, setView] = React.useState<View>();
@@ -564,7 +605,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     <section className="paper-workbench" aria-label={t("title")}>
       <style>{`.paper-workbench{height:100%;display:flex;flex-direction:column;box-sizing:border-box;color:inherit;font:14px/1.6 inherit;--pw-line:color-mix(in srgb,currentColor 15%,transparent);--pw-soft:color-mix(in srgb,currentColor 4%,transparent)}.paper-workbench *{box-sizing:border-box}.paper-workbench button,.paper-workbench select,.paper-workbench textarea{font:inherit;color:inherit;border:1px solid var(--pw-line);border-radius:7px;background:transparent;padding:6px 10px;max-width:100%}.paper-workbench button{cursor:pointer}.paper-workbench button:disabled{opacity:.45;cursor:default}.paper-workbench button:focus-visible,.paper-workbench textarea:focus-visible,.paper-workbench select:focus-visible,.paper-workbench article:focus-visible{outline:2px solid #688bb8;outline-offset:2px}.paper-workbench .pw-head{padding:14px 16px 8px;border-bottom:1px solid var(--pw-line)}.paper-workbench .pw-scroll{overflow:auto;flex:1;padding:8px 16px 24px}.paper-workbench .pw-actions{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:10px 0}.paper-workbench .pw-tabs button[aria-selected=true]{background:var(--pw-soft);font-weight:600}.paper-workbench label{display:block;margin:9px 0}.paper-workbench textarea{display:block;width:100%;min-height:76px}.paper-workbench article{border:1px solid var(--pw-line);border-radius:9px;padding:12px;margin:12px 0}.paper-workbench .pw-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.paper-workbench .pw-source{font:16px/1.8 Georgia,'Times New Roman',serif;white-space:pre-wrap}.paper-workbench .pw-chinese,.paper-workbench .pw-diff{white-space:pre-wrap;overflow-wrap:anywhere}.paper-workbench .pw-muted{opacity:.65;font-size:12px}.paper-workbench .pw-error{border:1px solid #ad5858;border-radius:8px;padding:10px;white-space:pre-wrap}.paper-workbench .pw-review{border:1px solid #688bb8;padding:12px;border-radius:9px;background:var(--pw-soft)}.paper-workbench ins{background:#66b88922;text-decoration:underline;text-decoration-thickness:2px}.paper-workbench del{background:#ce686822;text-decoration:line-through}.paper-workbench blockquote{margin:8px 0;padding-left:12px;border-left:3px solid #8296b4;white-space:pre-wrap}.paper-workbench h2{font-size:17px;margin:4px 0}.paper-workbench h3{font-size:14px;margin:10px 0}.paper-workbench .pw-primary{border-color:#688bb8;font-weight:600}.paper-workbench .pw-tag{display:inline-block;border:1px solid var(--pw-line);border-radius:4px;padding:0 5px;font-size:11px;margin-right:5px}.paper-workbench .pw-stale{opacity:.65}.paper-workbench summary{cursor:pointer}`}</style>
       <header className="pw-head">
-        <h2>{paper?.name ?? t("title")}</h2>
+        <h2>{paper?.name ?? view?.reading?.paper.name ?? t("title")}</h2>
         <div className="pw-actions">
           <span className="pw-muted" role="status">
             {view ? (connected ? t("live") : t("offline")) : t("loading")}
@@ -607,13 +648,14 @@ function Workbench({ sessionId, call, observe, t }: Props) {
             {error}
           </p>
         )}
-        {!paper && view && (
+        {view?.reading && <FrozenReading packet={view.reading} t={t} />}
+        {!paper && view && !view.reading && (
           <>
             <h2>{t("empty")}</h2>
             <p>{t("scope")}</p>
           </>
         )}
-        <details open={!paper}>
+        {!view?.reading && <details open={!paper}>
           <summary>
             {t("upload")} / {t("link")} / {t("createDraft")}
           </summary>
@@ -665,7 +707,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
               </button>
             </div>
           )}
-        </details>
+        </details>}
         {paper && (
           <>
             {paper.warnings.map((warning, i) => (
@@ -1116,7 +1158,9 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                     {candidate.operations.map((operation, i) => (
                       <div key={i}>
                         <span className="pw-muted">
-                          {operation.kind === "replace"
+                          {operation.kind === "fill_draft"
+                            ? `${t("draftParagraphs")}: ${operation.paragraphs.length}`
+                            : operation.kind === "replace"
                             ? t("source")
                             : t("structural")}{" "}
                           · {t("revision")} {operation.selection.revision}
@@ -1125,7 +1169,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                       </div>
                     ))}
                     {candidate.translations.map((tr, i) => (
-                      <blockquote key={i}>{tr.text}</blockquote>
+                      <blockquote key={i}>{tr.paragraphIndexes && <small>{t("draftParagraphs")}: {tr.paragraphIndexes.map(index => index + 1).join(", ")}</small>}<p>{tr.text}</p></blockquote>
                     ))}
                     {!!candidate.feedbackIds.length && (
                       <p className="pw-muted">

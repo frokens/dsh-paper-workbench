@@ -4,6 +4,7 @@ import {
   operationSchema,
   selectionSchema,
   readingOutputSchema,
+  candidateTranslationSchema,
 } from "./contracts.js";
 
 const diffSchema = z.array(
@@ -18,12 +19,7 @@ export const candidateSchema = z.object({
   dependsOn: z.array(z.string()),
   status: z.enum(["pending", "accepted", "rejected", "undone"]),
   diffs: z.array(diffSchema),
-  translations: z.array(
-    z.object({
-      operationIndexes: z.array(z.number().int().nonnegative()),
-      text: z.string(),
-    }),
-  ),
+  translations: z.array(candidateTranslationSchema),
 });
 export const historySchema = z.object({
   revision: z.number().int().positive(),
@@ -80,6 +76,12 @@ export const readingSchema = z.object({
       target: feedbackTargetSchema,
       comment: z.string(),
     })),
+    directions: z.array(z.object({
+      batchId: z.string(),
+      revision: z.number().int().nonnegative(),
+      feedbackIds: z.array(z.string()),
+      direction: z.string(),
+    })).optional(),
     translations: z.array(translationViewSchema),
     candidateTranslations: z.array(translationViewSchema),
     brief: z.string(),

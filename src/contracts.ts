@@ -23,6 +23,17 @@ export const operationSchema = z.discriminatedUnion("kind", [
   }),
   z.object({ kind: z.literal("split"), selection: selectionSchema }),
   z.object({
+    kind: z.literal("fill_draft"),
+    selection: selectionSchema,
+    paragraphs: z.array(z.string().min(1).max(100000).refine(
+      text => !!text.trim() && !/[\r\n]/.test(text),
+      "Supply separate non-empty paragraphs without embedded paragraph breaks.",
+    )).min(2).max(100).refine(
+      paragraphs => paragraphs.reduce((length, text) => length + text.length, 0) <= 4_000_000,
+      "The draft exceeds four million characters.",
+    ),
+  }),
+  z.object({
     kind: z.literal("merge"),
     selection: selectionSchema,
     next: selectionSchema,
@@ -71,6 +82,11 @@ export const readingOutputSchema = z.strictObject({
   })),
   limits: z.array(z.string()),
 });
+export const candidateTranslationSchema = z.object({
+  operationIndexes: z.array(z.number().int().nonnegative()).min(1).max(100),
+  paragraphIndexes: z.array(z.number().int().nonnegative()).min(1).max(100).optional(),
+  text: z.string().min(1).max(100000),
+});
 export const proposeRequest = z.object({
   action: z.literal("propose"),
   requestId: z.string().min(1).max(200),
@@ -78,18 +94,7 @@ export const proposeRequest = z.object({
   reason: z.string().min(1).max(10000),
   feedbackIds: z.array(z.string()).max(100).default([]),
   dependsOn: z.array(z.string()).max(100).default([]),
-  translations: z
-    .array(
-      z.object({
-        operationIndexes: z
-          .array(z.number().int().nonnegative())
-          .min(1)
-          .max(100),
-        text: z.string().min(1).max(100000),
-      }),
-    )
-    .max(100)
-    .default([]),
+  translations: z.array(candidateTranslationSchema).max(100).default([]),
 });
 export const translationSelectionSchema = z.object({
   translationId: z.string(),

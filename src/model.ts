@@ -294,6 +294,8 @@ function operationDiff(paper: Paper, operation: Operation) {
     block = validateDocumentRange(source, operation.selection);
   if (operation.kind === "replace")
     return textDiff(operation.selection.quote, operation.replacement);
+  if (operation.kind === "fill_draft")
+    return textDiff(operation.selection.quote, operation.paragraphs.join("\n"));
   if (operation.kind === "split")
     return textDiff(
       block.node.textContent,
@@ -343,13 +345,21 @@ export function propose(
   for (const id of request.feedbackIds)
     if (!paper.feedback.some((f) => f.id === id))
       throw new Error("The linked feedback does not exist.");
-  for (const translation of request.translations)
+  for (const translation of request.translations) {
     if (
       new Set(translation.operationIndexes).size !==
         translation.operationIndexes.length ||
       translation.operationIndexes.some((i) => i >= request.operations.length)
     )
       throw new Error("A candidate translation refers to a missing operation.");
+    if (translation.paragraphIndexes) {
+      const operation = request.operations[translation.operationIndexes[0]];
+      if (translation.operationIndexes.length !== 1 || operation.kind !== "fill_draft"
+        || new Set(translation.paragraphIndexes).size !== translation.paragraphIndexes.length
+        || translation.paragraphIndexes.some(index => index >= operation.paragraphs.length))
+        throw new Error("Paragraph indexes must select real paragraphs of one fill_draft operation.");
+    }
+  }
   if (
     paper.feedback.some(
       (f) =>
@@ -427,6 +437,16 @@ function planAcceptance(paper: Paper, requested: string[] | "all") {
         const resolved = resolveOperation(paper, operation, combined),
           block = validateDocumentRange(trial.doc, resolved.selection);
         const applied = transformOperation(trial.doc, resolved);
+        if (operation.kind === "fill_draft") {
+          for (const step of applied.steps) trial.step(step);
+          const paragraphs: { from: number; to: number; step: number }[] = [];
+          trial.doc.forEach((node, position) => paragraphs.push({
+            from: position + 1, to: position + 1 + node.content.size,
+            step: transform.steps.length + trial.steps.length,
+          }));
+          ranges.push(paragraphs);
+          continue;
+        }
         const start =
           block.position +
           1 +
@@ -539,7 +559,9 @@ function applyAcceptance(paper: Paper, plan: ReturnType<typeof planAcceptance>) 
     const candidate = paper.candidates.find((c) => c.id === id)!;
     for (const translation of candidate.translations) {
       const sources = translation.operationIndexes.flatMap((index) =>
-        plan.results.get(id)![index].flatMap((range) => {
+        plan.results.get(id)![index].filter((_, paragraphIndex) =>
+          !translation.paragraphIndexes || translation.paragraphIndexes.includes(paragraphIndex),
+        ).flatMap((range) => {
           const mapped = mapRange(range.from, range.to, plan.transform.mapping.slice(range.step), true);
           return selectionsForRange(plan.transform.doc, mapped.from, mapped.to, next);
         }),

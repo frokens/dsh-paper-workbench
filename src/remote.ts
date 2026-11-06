@@ -29,7 +29,7 @@ export const remoteInfo = createTypertRemoteInfo(
         service: "paperWorkbench",
         invocation: { kind: "direct" },
         description:
-          "Perform a human sidebar action on the paper explicitly linked to this ordinary task.",
+          "Perform a human sidebar action for this task; an owned independent reader can only read its frozen packet.",
         parameters: [
           {
             name: "agent",
@@ -58,7 +58,7 @@ export const remoteInfo = createTypertRemoteInfo(
         mode: "stream",
         invocation: { kind: "direct" },
         description:
-          "Observe committed paper state for this ordinary task through the DSH Remote stream.",
+          "Observe committed paper state or the owned reader's frozen packet through the DSH Remote stream.",
         parameters: [
           {
             name: "agent",

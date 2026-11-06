@@ -308,6 +308,20 @@ test(
     const written = await accept(await proposeOperation({ kind: "replace", selection: draft.paper.blocks[0].selection, replacement: "The result remains unverified." }, "Use only the supplied facts."));
     const draftedExport = await action({ action: "export", tracked: true });
     assert.equal(engine({ action: "inspect", base64: draftedExport.base64, revisionMode: "accept" }).blocks[0].text, written.paper.blocks[0].text);
+    const multi = await action({ action: "create", name: "Multi-paragraph draft.docx", brief: "Explain the roles, feedback and evidence limit." });
+    const paragraphs = ["The Planner selects the action.", "The Worker executes and reports the result.", "The result remains unverified."];
+    const multiPending = await action({ action: "propose", requestId: crypto.randomUUID(),
+      operations: [{ kind: "fill_draft", selection: multi.paper.blocks[0].selection, paragraphs }],
+      reason: "Write a real multi-paragraph first draft from the supplied facts.",
+      feedbackIds: [multi.paper.feedback[0].id],
+      translations: paragraphs.map((_, index) => ({ operationIndexes: [0], paragraphIndexes: [index], text: ["规划者选择操作。", "执行者执行并报告结果。", "结果仍未经验证。"][index] })),
+    });
+    assert.equal(multiPending.paper.revision, 0);
+    assert.equal(multiPending.paper.blocks[0].text, "");
+    const multiAccepted = await accept(multiPending);
+    assert.deepEqual(multiAccepted.paper.blocks.map(block => block.text), paragraphs);
+    assert.deepEqual(multiAccepted.paper.translations.map(translation => translation.mappedSources.map(source => source.blockId)), multiAccepted.paper.blocks.map(block => [block.id]));
+    await assert.rejects(action({ action: "export", tracked: true }), /splits and merges/);
     const after = await rpc("session/events", {
       request: {
         address: { kind: "session", sessionId: agentId },

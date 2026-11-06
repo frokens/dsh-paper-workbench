@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createPaper, importDocument, paperView, propose, decide, decideMany, addFeedback, documentAt, schema, requestTranslation, completeTranslation, correctTranslation } from "../src/model.js";
+import { createPaper, importDocument, paperView, propose, decide, decideMany, addFeedback, createBatch, documentAt, schema, requestTranslation, completeTranslation, correctTranslation } from "../src/model.js";
 import { proposeRequest, readingRequest } from "../src/contracts.js";
 import { paperSchema } from "../src/records.js";
-import { prepareReading, readingBlocks, readingViews, updateReading, validateReadingOutput } from "../src/reading.js";
+import { prepareReading, readingBlocks, readingPacket, readingPrompt, readingViews, updateReading, validateReadingOutput } from "../src/reading.js";
 import { Node as PMNode } from "prosemirror-model";
 
 function fixture() {
@@ -16,6 +16,45 @@ const request = readingRequest.parse({ action: "read_independently", requestId: 
 function completed(prepared: ReturnType<typeof prepareReading>) {
   return updateReading(prepared.paper, prepared.reading.id, { status: "completed", output: { interpretation: { problem: "Roles and evidence", mechanism: "Selection precedes execution", feedbackRole: "Preserve conditions" }, findings: [], limits: ["Synthetic evidence only"] } });
 }
+
+test("reading freezes actual submitted directions with their scope and source instead of replacing them with the author's goal", () => {
+  let paper = fixture();
+  paper = addFeedback(paper, { requestId: "f", target: { kind: "source", selections: [paperView(paper).blocks[0].selection] }, comment: "Explain the selection and feedback path." });
+  const feedbackId = paper.feedback[0].id, direction = "Write from materials.md; keep the confirmed sentence. Do not investigate Host code, engineering drivers, logs, configuration or credentials. After proposing, request one reader; do not accept or rewrite.";
+  paper = createBatch(paper, { requestId: "batch", feedbackIds: [feedbackId], direction }, "task");
+  paper = addFeedback(paper, { requestId: "unrelated", target: { kind: "source", selections: [paperView(paper).blocks[2].selection] }, comment: "A separate future task." });
+  paper = createBatch(paper, { requestId: "other-batch", feedbackIds: [paper.feedback[1].id], direction: "Separate unselected feedback scope." }, "task");
+  paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "p", operations: [{ kind: "replace", selection: paperView(paper).blocks[0].selection, replacement: "The Planner selects the action." }], reason: "Clarify selection.", feedbackIds: [feedbackId] }));
+  const prepared = prepareReading(paper, { ...request, goal: "Author-supplied shorter reading goal." }, "task");
+  assert.deepEqual(prepared.reading.material.directions, [{ batchId: paper.batches[0].id, revision: 0, feedbackIds: [feedbackId], direction }]);
+  const original = JSON.stringify(readingPacket(paper, prepared.reading));
+  const later = { ...prepared.paper, batches: prepared.paper.batches.map(batch => ({ ...batch, direction: "A later changed direction.", feedbackIds: [] })) };
+  assert.equal(JSON.stringify(readingPacket(later, later.readings[0])), original);
+  const prompt = readingPrompt(later, later.readings[0]);
+  assert.ok(prompt.includes(direction));
+  assert.ok(prompt.includes("Author-supplied shorter reading goal."));
+  assert.ok(prompt.includes("steps addressed to the writer"));
+  assert.ok(!prompt.includes("A later changed direction."));
+  assert.equal(prepareReading(paper, { ...request, requestId: "body", candidateIds: [] }, "task").reading.material.directions!.length, 2, "A whole-body reading retains the paper's submitted goal scopes.");
+});
+
+test("a multi-paragraph bilingual candidate uses the same reading packet and actual acceptance owner", () => {
+  let paper = createPaper({ id: "blank", name: "New draft", originalBase64: "", sourceBase64: "", warnings: [], document: importDocument([{ sourceIndex: 0, text: "", editable: true, style: null, runs: [], reason: null }]) });
+  paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "draft", operations: [{ kind: "fill_draft", selection: paperView(paper).blocks[0].selection, paragraphs: ["The Planner selects.", "The Worker executes.", "The result is unverified."] }], reason: "Keep responsibilities and evidence distinct.", translations: [
+    { operationIndexes: [0], paragraphIndexes: [0], text: "规划者选择。" }, { operationIndexes: [0], paragraphIndexes: [1], text: "执行者执行。" }, { operationIndexes: [0], paragraphIndexes: [2], text: "结果未经验证。" },
+  ] }));
+  const prepared = prepareReading(paper, request, "task"), packet = readingPacket(paper, prepared.reading);
+  assert.equal(packet.readOnly, true);
+  assert.equal(packet.baselineBlocks.length, 1);
+  assert.equal(packet.candidateBlocks.length, 3);
+  assert.deepEqual(packet.candidateTranslations.map(translation => translation.mappedSources.map(source => source.blockId)), packet.candidateBlocks.map(block => [block.id]));
+  paper = completed(prepared);
+  assert.equal(readingViews(paper)[0].combinationMatches, true);
+  paper = decide(paper, paper.candidates[0].id, "accepted");
+  assert.equal(readingViews(paper)[0].combinationMatches, true);
+  assert.equal(readingViews(paper)[0].currentBodyReviewed, true);
+  assert.deepEqual(readingPacket(paper, paper.readings[0]), packet);
+});
 
 test("reading material uses the actual candidate projection, full surrounding source and linked feedback without mutating the primary body", () => {
   let paper = fixture();
