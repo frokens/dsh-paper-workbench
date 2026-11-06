@@ -1,4 +1,4 @@
-import { diffChars } from "diff";
+import { diffArrays, wordsWithSpaceDiff } from "diff";
 import type { z } from "zod";
 import { documentAt, mapSelection, propose, addFeedback, type Paper } from "./model.js";
 import { documentReturnSchema, type ReturnedBlock } from "./records.js";
@@ -20,43 +20,121 @@ export function recordDocumentReturn(paper: Paper, raw: unknown): Paper {
   return { ...paper, documentReturns: [...paper.documentReturns, returned] };
 }
 
-function textChanges(before: string, after: string) {
-  const changes: { from: number; to: number; before: string; after: string }[] = [];
-  let position = 0, pending: typeof changes[number] | undefined;
-  if (before === after) return changes;
-  if (before.length + after.length > 200000) return undefined;
-  const parts = diffChars(before, after, { timeout: 200, maxEditLength: 20000 });
-  if (!parts) return undefined;
+type SpanPair = { from: number; to: number; returnedFrom: number; returnedTo: number };
+type TextComparison = { equal: SpanPair[]; changes: (SpanPair & { before: string; after: string })[]; problem?: string };
+
+function compareText(before: string, after: string, deadline: number): TextComparison {
+  if (before === after) return { equal: [{ from: 0, to: before.length, returnedFrom: 0, returnedTo: after.length }], changes: [] };
+  const limited = () => ({ equal: [], changes: [], problem: "This paragraph exceeds the bounded source comparison. Select a smaller exact current range and review the original return." });
+  if (before.length + after.length > 200000 || performance.now() >= deadline) return limited();
+  const tokens = (text: string) => {
+    let offset = 0;
+    return wordsWithSpaceDiff.tokenize(text).flatMap(value => {
+      const from = offset; offset += value.length;
+      return value.trim() ? [{ text: value, from, to: offset }] : [];
+    });
+  };
+  const a = tokens(before), b = tokens(after), width = b.length + 1;
+  // jsdiff owns tokenization and the edit script. This bounded table checks the
+  // missing provenance property: whether every optimal content-token matching
+  // uses exactly the same source pairs. Edit ordering alone is not ambiguity.
+  if ((a.length + 1) * width > 4_000_000) return limited();
+  const parts = diffArrays(a.map(item => item.text), b.map(item => item.text),
+    { timeout: Math.max(1, deadline - performance.now()), maxEditLength: 20000 });
+  if (!parts || performance.now() >= deadline) return limited();
+  const matched: { old: number; returned: number }[] = [], canonical = new Int32Array(b.length).fill(-1);
+  let old = 0, returned = 0;
   for (const part of parts) {
-    if (!part.added && !part.removed) {
-      if (pending) { changes.push(pending); pending = undefined; }
-      position += part.value.length;
-    } else {
-      pending ??= { from: position, to: position, before: "", after: "" };
-      if (part.removed) { pending.before += part.value; position += part.value.length; pending.to = position; }
-      else pending.after += part.value;
+    if (part.added) returned += part.value.length;
+    else if (part.removed) old += part.value.length;
+    else for (let index = 0; index < part.value.length; index++) {
+      canonical[returned] = old; matched.push({ old: old++, returned: returned++ });
     }
   }
-  if (pending) changes.push(pending);
-  return changes;
+  // The cell bound limits min(a.length,b.length) below 2000, so UInt16 is exact.
+  const prefix = new Uint16Array((a.length + 1) * width);
+  for (let i = 0; i < a.length; i++) {
+    if (performance.now() >= deadline) return limited();
+    for (let j = 0; j < b.length; j++)
+      prefix[(i + 1) * width + j + 1] = a[i].text === b[j].text ? prefix[i * width + j] + 1
+        : Math.max(prefix[i * width + j + 1], prefix[(i + 1) * width + j]);
+  }
+  const longest = prefix[a.length * width + b.length];
+  if (longest !== matched.length) return limited();
+  let next = new Uint16Array(width), row = new Uint16Array(width);
+  for (let i = a.length - 1; i >= 0; i--) {
+    if (performance.now() >= deadline) return limited();
+    row[b.length] = 0;
+    for (let j = b.length - 1; j >= 0; j--) {
+      const same = a[i].text === b[j].text;
+      if (same && prefix[i * width + j] + 1 + next[j + 1] === longest && canonical[j] !== i)
+        return { equal: [], changes: [], problem: "Repeated wording has more than one possible source alignment. Verify an exact current text range manually; no returned change or old-source comment was relocated automatically." };
+      row[j] = same ? next[j + 1] + 1 : Math.max(next[j], row[j + 1]);
+    }
+    [next, row] = [row, next];
+  }
+  const result: TextComparison = { equal: [], changes: [] };
+  function span(from: number, to: number, returnedFrom: number, returnedTo: number) {
+    const pair = { from, to, returnedFrom, returnedTo }, oldText = before.slice(from, to), newText = after.slice(returnedFrom, returnedTo);
+    if (oldText !== newText) result.changes.push({ ...pair, before: oldText, after: newText });
+    else {
+      const previous = result.equal.at(-1);
+      if (previous?.to === from && previous.returnedTo === returnedFrom) { previous.to = to; previous.returnedTo = returnedTo; }
+      else result.equal.push(pair);
+    }
+  }
+  let from = 0, returnedFrom = 0;
+  for (const pair of matched) {
+    const left = a[pair.old], right = b[pair.returned];
+    // Whitespace and rewritten wording form a complete gap between proven
+    // content anchors; sliding spaces are never used as source identity.
+    span(from, left.from, returnedFrom, right.from);
+    span(left.from, left.to, right.from, right.to);
+    from = left.to; returnedFrom = right.to;
+  }
+  span(from, before.length, returnedFrom, after.length);
+  return result;
 }
 
-function unchangedReturnRange(before: string, after: string, from: number, to: number) {
-  if (before === after) return { from, to };
-  if (before.length + after.length > 200000) throw new Error("The comment needs a smaller, explicit source comparison.");
-  const parts = diffChars(before, after, { timeout: 200, maxEditLength: 20000 });
-  if (!parts) throw new Error("The comment source comparison exceeded its bounded scope.");
-  let oldPosition = 0, newPosition = 0;
-  const candidates: { from: number; to: number }[] = [];
-  for (const part of parts) {
-    if (!part.added && !part.removed && from >= newPosition && to <= newPosition + part.value.length)
-      candidates.push({ from: oldPosition + from - newPosition, to: oldPosition + to - newPosition });
-    if (!part.added) oldPosition += part.value.length;
-    if (!part.removed) newPosition += part.value.length;
-  }
+function unchangedReturnRange(comparison: TextComparison, from: number, to: number) {
+  if (comparison.problem) throw new Error(comparison.problem);
+  const candidates = comparison.equal.filter(pair => from >= pair.returnedFrom && to <= pair.returnedTo)
+    .map(pair => ({ from: pair.from + from - pair.returnedFrom, to: pair.from + to - pair.returnedFrom }));
   const distinct = candidates.filter((item, index) => candidates.findIndex(other => other.from === item.from && other.to === item.to) === index);
   if (distinct.length !== 1) throw new Error("This comment refers to returned wording that is not yet in the current source. Review the returned text or its paragraph alignment first.");
   return distinct[0];
+}
+
+function nativeFormats(block: ReturnedBlock, from: number, to: number) {
+  let position = 0;
+  return block.runs.flatMap(run => {
+    const start = position; position += run.text.length;
+    const length = Math.min(to, position) - Math.max(from, start);
+    return length > 0 ? [{ length, properties: run.nativeFormat }] : [];
+  });
+}
+
+function nativeFormattingDiffers(before: ReturnedBlock, after: ReturnedBlock, comparison: TextComparison) {
+  if (before.paragraphFormat !== after.paragraphFormat) return true;
+  for (const pair of comparison.equal) {
+    const a = nativeFormats(before, pair.from, pair.to), b = nativeFormats(after, pair.returnedFrom, pair.returnedTo);
+    let i = 0, j = 0, left = 0, right = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i].properties !== b[j].properties) return true;
+      const length = Math.min(a[i].length - left, b[j].length - right);
+      left += length; right += length;
+      if (left === a[i].length) { i++; left = 0; }
+      if (right === b[j].length) { j++; right = 0; }
+    }
+    if (i !== a.length || j !== b.length) return true;
+  }
+  for (const change of comparison.changes) {
+    if (!change.before.trim() || !change.after.trim()) continue;
+    const sequence = (block: ReturnedBlock, from: number, to: number) => nativeFormats(block, from, to)
+      .map(item => item.properties).filter((value, index, values) => index === 0 || value !== values[index - 1]);
+    if (JSON.stringify(sequence(before, change.from, change.to)) !== JSON.stringify(sequence(after, change.returnedFrom, change.returnedTo))) return true;
+  }
+  return false;
 }
 
 /** E is the immutable delivered body. B only defines the Word rejection projection. */
@@ -103,17 +181,18 @@ export function compareReturn(paper: Paper, returnId: string, mappings: Mappings
   const formatChanges: { blockId: string; diagnostic: string }[] = [];
   const unCompared: { blockId: string; returnedIndex: number; diagnostic: string }[] = [];
   const deadline = performance.now() + 2000;
+  const comparisons = new Map<number, TextComparison>();
   for (const block of returned.blocks) {
     const blockId = aligned.get(block.sourceIndex), original = blockId ? source.get(blockId) : undefined;
     if (!original || !blockId) continue;
     const currentNode = [...current.content.content].find(node => node.attrs.id === blockId && node.type.name === "paragraph");
+    const comparison = compareText(original.text, block.text, Math.min(deadline, performance.now() + 200));
+    comparisons.set(block.sourceIndex, comparison);
     const expected = deliveredBlocks?.find(item => item.nativeId === delivery.anchors.find(anchor => anchor.blockId === blockId)?.nativeId);
-    if (expected && (expected.paragraphFormat !== block.paragraphFormat
-      || block.runs.some(run => !expected.runs.some(original => original.nativeFormat === run.nativeFormat))))
+    if (expected && nativeFormattingDiffers(expected, block, comparison))
       formatChanges.push({ blockId, diagnostic: "The returned native formatting differs. Text candidates retain the current source formatting; inspect the original returned DOCX for those format changes." });
-    const parts = performance.now() < deadline ? textChanges(original.text, block.text) : undefined;
-    if (!parts) { unCompared.push({ blockId, returnedIndex: block.sourceIndex, diagnostic: "This paragraph exceeds the bounded automatic text comparison. Review or narrow it explicitly; no candidate was created." }); continue; }
-    parts.forEach((part, index) => {
+    if (comparison.problem) { unCompared.push({ blockId, returnedIndex: block.sourceIndex, diagnostic: comparison.problem }); continue; }
+    comparison.changes.forEach((part, index) => {
       const selection = { ...original.selection, from: part.from, to: part.to, quote: part.before };
       const change: typeof changes[number] = { id: `${blockId}:${index}`, blockId, returnedIndex: block.sourceIndex,
         source: selection, before: part.before, after: part.after, status: "ready" };
@@ -145,7 +224,8 @@ export function compareReturn(paper: Paper, returnId: string, mappings: Mappings
         if (node?.textContent === block.text) sources.push({ ...original.selection, revision: paper.revision,
           from: range.from, to: range.to, quote: block.text.slice(range.from, range.to) });
         else {
-          const unchanged = unchangedReturnRange(original.text, block.text, range.from, range.to);
+          const comparison = comparisons.get(block.sourceIndex) ?? compareText(original.text, block.text, Math.min(deadline, performance.now() + 200));
+          const unchanged = unchangedReturnRange(comparison, range.from, range.to);
           sources.push(mapSelection(paper, { ...original.selection, ...unchanged, quote: original.text.slice(unchanged.from, unchanged.to) }));
         }
       }

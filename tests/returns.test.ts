@@ -44,6 +44,17 @@ function proposal(paper: Paper, id = "return", mappings: { sourceIndex: number; 
   return proposeReturnRequest.parse({ action: "propose_return", requestId: "return-proposal", returnId: id, mappings,
     expectedRevision: paper.revision, textOnly: true, changeIds: comparison.changes.map(change => change.id) });
 }
+function editRange(paper: Paper, from: number, to: number, replacement: string) {
+  const source = paperView(paper).blocks[0].selection;
+  const next = propose(paper, proposeRequest.parse({ action: "propose", requestId: crypto.randomUUID(), reason: "Synthetic exact source edit.",
+    operations: [{ kind: "replace", selection: { ...source, from, to, quote: source.quote.slice(from, to) }, replacement }] }));
+  return decide(next, next.candidates.at(-1)!.id, "accepted");
+}
+function deliver(paper: Paper) {
+  const output = engine({ action: "export", base64: paper.sourceBase64, tracked: false, ...wordProjection(paper), delivery: { id: "delivery", paperId: paper.id } });
+  return { output, paper: recordDocumentDelivery(paper, { id: "delivery", revision: paper.revision, baselineRevision: 0, variant: "clean", format: "docx", includeReasons: false,
+    name: "delivered.docx", base64: output.base64, bytes: Buffer.byteLength(output.base64, "base64"), anchors: output.anchors, translations: [], warnings: [] }) };
+}
 
 test("SDK return projections compare against actual delivered E, never repropose B-to-E changes or overwrite continued P", () => {
   const { paper, original, output } = fixture();
@@ -136,4 +147,74 @@ test("returned comment text enters existing feedback only at an exact current so
       assert.equal(inspected.blocks[range.sourceIndex].text.slice(range.from, range.to), "chooses");
     }
   }
+});
+
+test("repeated returned wording cannot choose a different occurrence for text or comment provenance, with either equal or different native formats", () => {
+  for (const formatted of [false, true]) {
+    const created = engine(formatted ? { action: "fixture", fixture: "repeated-format" } : { action: "create", paragraphs: ["X X"] });
+    const { paper, output } = deliver(from(created.base64));
+    const remote = editRange(paper, 0, 2, ""), id = paperView(paper).blocks[0].id;
+    const file = engine({ action: "export", base64: remote.sourceBase64, tracked: false, ...wordProjection(remote), delivery: { id: "delivery", paperId: paper.id },
+      comments: [{ blockIds: [id], selections: [{ blockId: id, from: 0, to: 1 }], text: "Keep the actual surviving occurrence." }] });
+    const current = returned(editRange(paper, 0, 1, "Y"), file.base64);
+    const comparison = compareReturn(current, "return", [], engine({ action: "inspect", base64: output.base64 }).blocks);
+    assert.deepEqual(comparison.changes, []);
+    assert.match(comparison.unCompared[0].diagnostic, /more than one possible source alignment/);
+    assert.equal(comparison.comments[0].state, "unresolved");
+    assert.deepEqual(comparison.comments[0].sources, []);
+    assert.throws(() => proposeReturnChanges(current, proposeReturnRequest.parse({ action: "propose_return", requestId: "ambiguous",
+      returnId: "return", expectedRevision: current.revision, mappings: [], changeIds: [`${id}:0`], textOnly: true })), /conflict-free/);
+    const noContinuation = returned(paper, file.base64);
+    assert.equal(compareReturn(noContinuation, "return").comments[0].state, "unresolved", "The repeated comment cannot silently attach to the first E occurrence either.");
+    assert.throws(() => copyReturnComments(noContinuation, copyReturnCommentsRequest.parse({ action: "copy_return_comments", requestId: "ambiguous-copy", returnId: "return",
+      commentIds: [comparison.comments[0].id], mappings: [], expectedRevision: 0, textOnly: true })), /exact current source/);
+    assert.equal(paperView(current).blocks[0].text, "Y X");
+    assert.equal(current.candidates.some(candidate => candidate.returnedFrom), false);
+  }
+});
+
+test("native formats are compared at their actual text spans, detecting removal and reassignment while ignoring equivalent run boundaries", () => {
+  const created = engine({ action: "fixture", fixture: "repeated-format" });
+  const { paper, output } = deliver(from(created.base64)), expected = engine({ action: "inspect", base64: output.base64 }).blocks;
+  const plain = editRange(editRange(paper, 0, 2, ""), 1, 1, " X");
+  assert.equal(paperView(plain).blocks[0].text, "X X");
+  const plainFile = engine({ action: "export", base64: plain.sourceBase64, tracked: false, ...wordProjection(plain), delivery: { id: "delivery", paperId: paper.id } });
+  const comparison = compareReturn(returned(paper, plainFile.base64), "return", [], expected);
+  assert.deepEqual(comparison.changes, []);
+  assert.equal(comparison.formatChanges.length, 1, "Removing a format already present elsewhere is still a real format change.");
+  const projection = wordProjection(paper);
+  const swapped = projection.flow.map(event => event.kind === "text" && event.styleFrom?.sourceIndex === 0
+    ? { ...event, styleFrom: { sourceIndex: 0, offset: event.styleFrom.offset === 0 ? 2 : 0 } } : event);
+  const swapFile = engine({ action: "export", base64: paper.sourceBase64, tracked: false, flow: swapped, delivery: { id: "delivery", paperId: paper.id } });
+  assert.equal(compareReturn(returned(paper, swapFile.base64), "return", [], expected).formatChanges.length, 1, "The same set of formats assigned to different spans is reported.");
+  const split = projection.flow.flatMap(event => event.kind === "text" && event.text.length > 1
+    ? [{ ...event, text: event.text.slice(0, 1) }, { ...event, text: event.text.slice(1), styleFrom: event.styleFrom && { ...event.styleFrom, offset: event.styleFrom.offset + 1 } }] : [event]);
+  const splitFile = engine({ action: "export", base64: paper.sourceBase64, tracked: false, flow: split, delivery: { id: "delivery", paperId: paper.id } });
+  assert.deepEqual(compareReturn(returned(paper, splitFile.base64), "return", [], expected).formatChanges, [], "Equivalent native properties survive a different run segmentation without a false warning.");
+  assert.deepEqual(compareReturn(returned(paper, output.base64), "return", [], expected).formatChanges, []);
+});
+
+test("known paragraph boundaries and unique content gaps preserve exact Unicode and whitespace without treating edit ordering as ambiguous", () => {
+  for (const [before, after] of [["alpha beta", "gamma delta"], ["", "🧪 New result."], ["😀 alpha\u00a0 beta!", "😀 gamma\u00a0 beta!"]]) {
+    const created = engine({ action: "create", paragraphs: [before] }), { paper, output } = deliver(from(created.base64));
+    const remote = editRange(paper, 0, before.length, after);
+    const raw = engine({ action: "export", base64: remote.sourceBase64, tracked: false, ...wordProjection(remote), delivery: { id: "delivery", paperId: paper.id } });
+    const current = returned(paper, raw.base64), comparison = compareReturn(current, "return", [], engine({ action: "inspect", base64: output.base64 }).blocks);
+    assert.deepEqual(comparison.unCompared, []);
+    assert.ok(comparison.changes.length > 0 && comparison.changes.every(change => change.status === "ready"));
+    assert.deepEqual(comparison.formatChanges, []);
+    const pending = proposeReturnChanges(current, proposal(current));
+    assert.equal(paperView(decide(pending, pending.candidates.at(-1)!.id, "accepted")).blocks[0].text, after);
+  }
+});
+
+test("an over-limit paragraph is explicit and does not prevent an unrelated paragraph from being compared", () => {
+  const long = Array.from({ length: 2200 }, (_, index) => `term${index}`).join(" ");
+  const { paper } = deliver(from(engine({ action: "create", paragraphs: [long, "The result remains unverified."] }).base64));
+  const remote = change(change(paper, 0, `${long} added`), 1, "The outcome remains unverified.");
+  const raw = engine({ action: "export", base64: remote.sourceBase64, tracked: false, ...wordProjection(remote), delivery: { id: "delivery", paperId: paper.id } });
+  const comparison = compareReturn(returned(paper, raw.base64), "return");
+  assert.equal(comparison.unCompared.length, 1);
+  assert.match(comparison.unCompared[0].diagnostic, /bounded source comparison/);
+  assert.ok(comparison.changes.length && comparison.changes.every(change => change.blockId === paperView(paper).blocks[1].id && change.status === "ready"));
 });
