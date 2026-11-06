@@ -15,6 +15,7 @@ import type { z } from "zod";
 import type { paperView, previewAcceptance, compareRevision } from "./model.js";
 import { remoteInfo } from "./remote.js";
 import type { readingPacket, readingViews } from "./reading.js";
+import type { compareReturn } from "./returns.js";
 
 type PaperView = ReturnType<typeof paperView> & { readings: ReturnType<typeof readingViews> };
 type View = {
@@ -27,6 +28,7 @@ type Reply = View & {
   name?: string;
   preview?: ReturnType<typeof previewAcceptance>;
   comparison?: ReturnType<typeof compareRevision>;
+  returnComparison?: ReturnType<typeof compareReturn>;
 };
 type Picked =
   | { kind: "source"; value: Selection }
@@ -51,8 +53,10 @@ const en = {
   live: "Saved changes are live",
   offline: "Connection ended. Refresh to reconnect.",
   empty: "No paper is linked to this task.",
-  scope: "Import a DOCX or link an existing paper in this conversation.",
-  upload: "Import DOCX",
+  scope: "Import DOCX or Markdown, or link an existing paper in this conversation.",
+  upload: "Import DOCX / Markdown",
+  markdownFolder: "Choose Markdown folder", primaryMarkdown: "Main Markdown file", markdownResources: "Resource files and paths relative to the Markdown",
+  importMarkdown: "Import this Markdown source", originalSource: "Download original source",
   link: "Link paper",
   choose: "Choose a paper",
   revisionMode: "Existing Word revisions",
@@ -143,6 +147,23 @@ const en = {
     "Word revisions compare the accepted body with the imported baseline. Workbench acceptance keeps that comparison.",
   exportTracked: "Export tracked DOCX",
   exportClean: "Export clean DOCX",
+  documents: "Document delivery",
+  comparisonBaseline: "Word comparison baseline",
+  comparisonHelp: "Rejecting all Word revisions restores this version. A returned file is compared with the body actually delivered and the current paper.",
+  variant: "Working copy",
+  cleanCopy: "Clean", trackedCopy: "Native revisions", bilingualCopy: "English and Chinese",
+  includeReasons: "Add change reasons as paragraph comments",
+  exportFile: "Export file", deliveryHistory: "Delivered files", downloadAgain: "Download again",
+  pdfCopy: "PDF is a static reading copy. Use DOCX to accept or reject native Word revisions.",
+  returnedFiles: "Returned Word files", returnDelivery: "Delivered file being returned", uploadReturn: "Import returned DOCX",
+  compareReturn: "Compare returned file", originalReturn: "Download original return", returnProjection: "Revisions inside this returned file",
+  returnVersions: "Word baseline / delivered body / current body", manualAlignment: "Verify paragraph alignment",
+  chooseParagraph: "Choose its delivered paragraph", updateReturn: "Update comparison", returnBefore: "Delivered wording", returnAfter: "Returned wording",
+  proposeReturn: "Save selected text changes as a candidate", textOnlyReturn: "Text candidates keep the current formatting and paragraph order. The original returned DOCX is retained for format and structural changes.",
+  noReturnChanges: "No new text change is ready in the aligned paragraphs. Check unresolved locations below.",
+  returnComments: "Comments in the returned file", noDelivery: "Export an English clean or tracked DOCX before comparing its return.",
+  returnStatus_ready: "Ready to propose", returnStatus_conflict: "Overlapping local change",
+  returnStatus_already_applied: "Already in the current body", returnStatus_wrong_delivery: "Wrong delivered file",
   unsupported: "Preserved read only",
   cancel: "Cancel request",
   busy: "Saving…",
@@ -177,8 +198,10 @@ const zh: typeof en = {
   live: "已保存的修改实时同步",
   offline: "连接已结束，请刷新重连。",
   empty: "当前任务尚未关联论文。",
-  scope: "在当前对话中导入 DOCX 或关联已有论文。",
-  upload: "导入 DOCX",
+  scope: "在当前对话中导入 DOCX 或 Markdown，或关联已有论文。",
+  upload: "导入 DOCX／Markdown",
+  markdownFolder: "选择 Markdown 文件夹", primaryMarkdown: "主 Markdown 文件", markdownResources: "资源文件及其相对 Markdown 的路径",
+  importMarkdown: "导入此 Markdown 稿件", originalSource: "下载原始文件",
   link: "关联论文",
   choose: "选择论文",
   revisionMode: "原有 Word 修订",
@@ -267,6 +290,23 @@ const zh: typeof en = {
     "Word 修订比较已接受正文与导入基准。在工作台接受后，导出仍保留差异。",
   exportTracked: "导出修订 DOCX",
   exportClean: "导出干净 DOCX",
+  documents: "文档交付",
+  comparisonBaseline: "Word 比较基线",
+  comparisonHelp: "在 Word 中拒绝全部修订会还原到此版本。返稿会与实际交付正文及当前正文比较。",
+  variant: "稿件类型",
+  cleanCopy: "干净稿", trackedCopy: "原生修订稿", bilingualCopy: "中英对照稿",
+  includeReasons: "将修改理由附为段落批注",
+  exportFile: "导出文件", deliveryHistory: "已交付文件", downloadAgain: "重新下载",
+  pdfCopy: "PDF 是静态阅读副本；接受或拒绝 Word 原生修订请使用 DOCX。",
+  returnedFiles: "Word 返稿", returnDelivery: "返稿对应的已交付文件", uploadReturn: "导入返稿 DOCX",
+  compareReturn: "对照返稿", originalReturn: "下载原始返稿", returnProjection: "返稿内部的 Word 修订",
+  returnVersions: "Word 比较基线／交付正文／当前正文", manualAlignment: "核对段落对应",
+  chooseParagraph: "选择对应的交付段落", updateReturn: "更新对照", returnBefore: "交付时文字", returnAfter: "返稿文字",
+  proposeReturn: "将所选文字变化保存为候选", textOnlyReturn: "文字候选保留当前格式和段落顺序。格式及结构变化请核对保留的原始返稿。",
+  noReturnChanges: "已对应的段落中暂无可直接提议的新文字变化，请检查下方待核对的位置。",
+  returnComments: "返稿中的批注", noDelivery: "先导出英文干净或修订 DOCX，再比较对应返稿。",
+  returnStatus_ready: "可保存为候选", returnStatus_conflict: "与本地修改重叠",
+  returnStatus_already_applied: "当前正文已包含", returnStatus_wrong_delivery: "交付文件不匹配",
   unsupported: "原样保留且只读",
   cancel: "取消本次请求",
   busy: "保存中…",
@@ -300,7 +340,8 @@ function download(base64: string, name: string) {
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
   const url = URL.createObjectURL(
     new Blob([bytes], {
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      type: name.toLowerCase().endsWith(".pdf") ? "application/pdf" : /\.docx$/i.test(name)
+        ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : /\.(md|markdown)$/i.test(name) ? "text/markdown;charset=utf-8" : "application/octet-stream",
     }),
   );
   const anchor = document.createElement("a");
@@ -308,6 +349,18 @@ function download(base64: string, name: string) {
   anchor.download = name;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function fileBase64(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 8192) binary += String.fromCharCode(...bytes.subarray(index, index + 8192));
+  return btoa(binary);
+}
+function relativeResource(primary: File, resource: File) {
+  const source = (primary.webkitRelativePath || primary.name).split("/").slice(0, -1);
+  const target = (resource.webkitRelativePath || resource.name).split("/");
+  while (source.length && target.length && source[0] === target[0]) { source.shift(); target.shift(); }
+  return [...source.map(() => ".."), ...target].join("/");
 }
 function Diff({ parts }: { parts: { kind: string; text: string }[] }) {
   return (
@@ -375,6 +428,16 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     [newBrief, setNewBrief] = React.useState(""),
     [readingGoal, setReadingGoal] = React.useState(""),
     [readingEvidence, setReadingEvidence] = React.useState("");
+  const [exportVariant, setExportVariant] = React.useState<"clean" | "tracked" | "bilingual">("tracked"),
+    [exportFormat, setExportFormat] = React.useState<"docx" | "pdf">("docx"),
+    [includeReasons, setIncludeReasons] = React.useState(true);
+  const [returnDeliveryId, setReturnDeliveryId] = React.useState(""), [returnMode, setReturnMode] = React.useState(""),
+    [returnedComparison, setReturnedComparison] = React.useState<Reply["returnComparison"]>(),
+    [returnMappings, setReturnMappings] = React.useState<{ sourceIndex: number; blockId: string }[]>([]),
+    [selectedReturns, setSelectedReturns] = React.useState<string[]>([]);
+  const [importFiles, setImportFiles] = React.useState<File[]>([]), [primaryIndex, setPrimaryIndex] = React.useState(0),
+    [resourcePaths, setResourcePaths] = React.useState<Record<number, string>>({}),
+    [resourceIncluded, setResourceIncluded] = React.useState<Record<number, boolean>>({});
   const controller = React.useRef<AbortController | undefined>(undefined),
     body = React.useRef<HTMLDivElement>(null);
   const paper = view?.paper;
@@ -407,6 +470,8 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     setComparison(undefined);
     setReadingGoal("");
     setReadingEvidence("");
+    setReturnedComparison(undefined); setReturnMappings([]); setSelectedReturns([]); setReturnDeliveryId("");
+    setImportFiles([]); setResourcePaths({}); setResourceIncluded({});
     return () => controller.current?.abort();
   }, [sessionId]);
   const previous = React.useRef<string | undefined>(undefined);
@@ -416,6 +481,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
       setPicked(undefined);
       setPreview(undefined);
       setComparison(undefined);
+      setReturnedComparison(undefined); setSelectedReturns([]);
     }
     previous.current = version;
   }, [paper?.id, paper?.revision]);
@@ -432,6 +498,11 @@ function Workbench({ sessionId, call, observe, t }: Props) {
       if (response.base64) download(response.base64, response.name!);
       if (response.preview) setPreview(response.preview);
       if (response.comparison) setComparison(response.comparison);
+      if (response.returnComparison) {
+        setReturnedComparison(response.returnComparison);
+        setReturnMappings(response.returnComparison.mappings);
+        setSelectedReturns([]);
+      }
       return response;
     } catch (e) {
       if (!active.signal.aborted)
@@ -516,16 +587,41 @@ function Workbench({ sessionId, call, observe, t }: Props) {
       setError("DOCX exceeds 16 MiB.");
       return;
     }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 8192)
-      binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
     await run({
       action: "import",
       name: file.name,
-      base64: btoa(binary),
+      format: "docx",
+      base64: await fileBase64(file),
       ...(mode ? { revisionMode: mode } : {}),
     });
+  }
+  function stageFiles(files: File[]) {
+    if (files.length === 1 && /\.docx$/i.test(files[0].name)) { void upload(files[0]); return; }
+    const primary = files.findIndex(file => /\.(md|markdown)$/i.test(file.name));
+    if (primary < 0) { setError("Choose one DOCX or a Markdown source with its resource files."); return; }
+    setImportFiles(files); setPrimaryIndex(primary); setResourcePaths({});
+    setResourceIncluded(Object.fromEntries(files.map((file, index) => [index, !file.webkitRelativePath || !/\.json$/i.test(file.name)])));
+  }
+  async function uploadMarkdown() {
+    const primary = importFiles[primaryIndex];
+    if (!primary) return;
+    const resources = importFiles.map((file, index) => ({ file, index })).filter(({ file, index }) => index !== primaryIndex
+      && resourceIncluded[index] !== false && /\.(png|jpe?g|gif|svg|webp|bmp|tiff?|bib|csl|json)$/i.test(file.name));
+    if (primary.size > 4 * 1024 * 1024 || resources.length > 256 || resources.reduce((sum, item) => sum + item.file.size, 0) > 16 * 1024 * 1024) {
+      setError("Markdown is limited to 4 MiB, with at most 256 resource files totaling 16 MiB."); return;
+    }
+    if (await run({ action: "import", format: "markdown", name: primary.name, base64: await fileBase64(primary),
+      resources: await Promise.all(resources.map(async ({ file, index }) => ({ path: resourcePaths[index] ?? relativeResource(primary, file), base64: await fileBase64(file) }))) }))
+      setImportFiles([]);
+  }
+  async function uploadReturned(file: File) {
+    if (!paper) return;
+    if (file.size > 16 * 1024 * 1024) { setError("DOCX exceeds 16 MiB."); return; }
+    const eligible = paper.documentDeliveries.filter(delivery => delivery.format === "docx" && delivery.variant !== "bilingual");
+    const deliveryId = eligible.find(delivery => delivery.id === returnDeliveryId)?.id ?? eligible.at(-1)?.id;
+    if (!deliveryId) { setError(t("noDelivery")); return; }
+    await run({ action: "import_return", requestId: crypto.randomUUID(), deliveryId, name: file.name,
+      base64: await fileBase64(file), ...(returnMode ? { revisionMode: returnMode } : {}) });
   }
   function locate(ids: string[]) {
     setTab("reading");
@@ -677,14 +773,30 @@ function Workbench({ sessionId, call, observe, t }: Props) {
             <input
               type="file"
               aria-label={t("upload")}
-              accept=".docx"
+              accept=".docx,.md,.markdown,.png,.jpg,.jpeg,.gif,.svg,.webp,.bmp,.tif,.tiff,.bib,.csl,.json"
+              multiple
               disabled={busy}
               onChange={(e) => {
-                if (e.target.files?.[0]) void upload(e.target.files[0]);
+                if (e.target.files?.length) stageFiles(Array.from(e.target.files));
                 e.target.value = "";
               }}
             />
           </label>
+          <label>{t("markdownFolder")}<input type="file" multiple {...{ webkitdirectory: "" }} disabled={busy}
+            onChange={event => { if (event.target.files?.length) stageFiles(Array.from(event.target.files)); event.target.value = ""; }} /></label>
+          {!!importFiles.length && <section>
+            <label>{t("primaryMarkdown")}<select value={primaryIndex} onChange={event => { setPrimaryIndex(Number(event.target.value)); setResourcePaths({}); }}>
+              {importFiles.map((file, index) => /\.(md|markdown)$/i.test(file.name) && <option key={index} value={index}>{file.webkitRelativePath || file.name}</option>)}
+            </select></label>
+            <details><summary>{t("markdownResources")}</summary>
+              {importFiles.map((file, index) => index !== primaryIndex && /\.(png|jpe?g|gif|svg|webp|bmp|tiff?|bib|csl|json)$/i.test(file.name) && <label key={index}>
+                <input type="checkbox" checked={resourceIncluded[index] !== false} onChange={event => setResourceIncluded({ ...resourceIncluded, [index]: event.target.checked })} />{file.name}
+                <input aria-label={file.name} value={resourcePaths[index] ?? relativeResource(importFiles[primaryIndex], file)}
+                  onChange={event => setResourcePaths({ ...resourcePaths, [index]: event.target.value })} />
+              </label>)}
+            </details>
+            <button disabled={busy} onClick={() => void uploadMarkdown()}>{t("importMarkdown")}</button>
+          </section>}
           {!!view?.available.length && (
             <div className="pw-actions">
               <select
@@ -1440,24 +1552,86 @@ function Workbench({ sessionId, call, observe, t }: Props) {
               </>
             )}
             <details>
-              <summary>
-                {t("exportTracked")} / {t("exportClean")}
-              </summary>
-              <p className="pw-muted">{t("baseline")}</p>
+              <summary>{t("documents")}</summary>
+              <button disabled={busy} onClick={() => void run({ action: "download_source" })}>{t("originalSource")}</button>
+              {paper.sourceResources.map(resource => <button key={resource.path} disabled={busy}
+                onClick={() => void run({ action: "download_source", resourcePath: resource.path })}>{resource.path}</button>)}
+              <label>{t("comparisonBaseline")}
+                <select aria-label={t("comparisonBaseline")} disabled={busy} value={paper.comparisonRevision}
+                  onChange={event => void run({ action: "set_baseline", revision: Number(event.target.value), expectedRevision: paper.revision })}>
+                  {Array.from({ length: paper.revision + 1 }, (_, revision) => <option key={revision} value={revision}>{t("revision")} {revision}</option>)}
+                </select>
+              </label>
+              <p className="pw-muted">{t("comparisonHelp")}</p>
               <div className="pw-actions">
-                <button
-                  disabled={busy || paper.wordExportNeedsRestore}
-                  onClick={() => void run({ action: "export", tracked: true })}
-                >
-                  {t("exportTracked")}
-                </button>
-                <button
-                  disabled={busy || paper.wordExportNeedsRestore}
-                  onClick={() => void run({ action: "export", tracked: false })}
-                >
-                  {t("exportClean")}
-                </button>
+                <select aria-label={t("variant")} value={exportVariant} onChange={event => setExportVariant(event.target.value as typeof exportVariant)}>
+                  <option value="clean">{t("cleanCopy")}</option><option value="tracked">{t("trackedCopy")}</option><option value="bilingual">{t("bilingualCopy")}</option>
+                </select>
+                <select aria-label="Format" value={exportFormat} onChange={event => setExportFormat(event.target.value as typeof exportFormat)}>
+                  <option value="docx">DOCX</option><option value="pdf">PDF</option>
+                </select>
+                <button disabled={busy || paper.wordExportNeedsRestore}
+                  onClick={() => void run({ action: "export", requestId: crypto.randomUUID(), variant: exportVariant, format: exportFormat,
+                    includeReasons, expectedRevision: paper.revision, baselineRevision: paper.comparisonRevision })}>{t("exportFile")}</button>
               </div>
+              <label><input type="checkbox" checked={includeReasons} onChange={event => setIncludeReasons(event.target.checked)} />{t("includeReasons")}</label>
+              {exportFormat === "pdf" && <p className="pw-muted">{t("pdfCopy")}</p>}
+              {!!paper.documentDeliveries.length && <h3>{t("deliveryHistory")}</h3>}
+              {paper.documentDeliveries.slice(-5).reverse().map(delivery => <article key={delivery.id}>
+                <p>{delivery.name}</p><p className="pw-muted">{t("revision")} {delivery.baselineRevision} → {delivery.revision} · {Math.ceil(delivery.bytes / 1024)} KiB</p>
+                <button disabled={busy} onClick={() => void run({ action: "download_delivery", deliveryId: delivery.id })}>{t("downloadAgain")}</button>
+                {delivery.warnings.map((warning, index) => <p key={index} className="pw-muted">{warning}</p>)}
+              </article>)}
+              <h3>{t("returnedFiles")}</h3>
+              <label>{t("returnDelivery")}<select value={paper.documentDeliveries.some(delivery => delivery.id === returnDeliveryId) ? returnDeliveryId : paper.documentDeliveries.filter(delivery => delivery.format === "docx" && delivery.variant !== "bilingual").at(-1)?.id ?? ""}
+                onChange={event => setReturnDeliveryId(event.target.value)}>
+                <option value="">{t("choose")}</option>
+                {paper.documentDeliveries.filter(delivery => delivery.format === "docx" && delivery.variant !== "bilingual").map(delivery => <option key={delivery.id} value={delivery.id}>{delivery.name} · {t("revision")} {delivery.revision}</option>)}
+              </select></label>
+              <label>{t("returnProjection")}<select value={returnMode} onChange={event => setReturnMode(event.target.value)}>
+                <option value="">{t("requireChoice")}</option><option value="accept">{t("acceptExisting")}</option><option value="reject">{t("rejectExisting")}</option>
+              </select></label>
+              <label>{t("uploadReturn")}<input type="file" accept=".docx" disabled={busy || !paper.documentDeliveries.some(delivery => delivery.format === "docx" && delivery.variant !== "bilingual")}
+                onChange={event => { if (event.target.files?.[0]) void uploadReturned(event.target.files[0]); event.target.value = ""; }} /></label>
+              {paper.documentReturns.map(returned => <article key={returned.id}>
+                <p>{returned.name}</p><div className="pw-actions">
+                  <button disabled={busy} onClick={() => void run({ action: "compare_return", returnId: returned.id, mappings: [] })}>{t("compareReturn")}</button>
+                  <button disabled={busy} onClick={() => void run({ action: "download_return", returnId: returned.id })}>{t("originalReturn")}</button>
+                </div>
+              </article>)}
+              {returnedComparison && <section className="pw-review">
+                <h3>{t("compareReturn")}</h3>
+                <p>{t("returnVersions")}: {returnedComparison.baselineRevision} / {returnedComparison.deliveredRevision} / {returnedComparison.currentRevision}</p>
+                <p className="pw-muted">{t("textOnlyReturn")}</p>
+                {returnedComparison.warnings.map((warning, index) => <p key={index} className="pw-muted">{warning}</p>)}
+                {!returnedComparison.changes.length && <p>{t("noReturnChanges")}</p>}
+                {returnedComparison.changes.map(change => <article key={change.id}>
+                  <label><input type="checkbox" disabled={change.status !== "ready" || busy} checked={selectedReturns.includes(change.id)}
+                    onChange={event => setSelectedReturns(event.target.checked ? [...selectedReturns, change.id] : selectedReturns.filter(id => id !== change.id))} />{t(`returnStatus_${change.status}`)}</label>
+                  <p><strong>{t("returnBefore")}</strong></p><p><del>{change.before || "∅"}</del></p>
+                  <p><strong>{t("returnAfter")}</strong></p><p><ins>{change.after || "∅"}</ins></p>
+                  {change.diagnostic && <p>{change.diagnostic}</p>}
+                </article>)}
+                <button disabled={busy || !selectedReturns.length || selectedReturns.length > 100 || returnedComparison.currentRevision !== paper.revision}
+                  onClick={() => void run({ action: "propose_return", requestId: crypto.randomUUID(), returnId: returnedComparison.returnId,
+                    mappings: returnedComparison.mappings, changeIds: selectedReturns, expectedRevision: returnedComparison.currentRevision, textOnly: true })}>{t("proposeReturn")}</button>
+                {returnedComparison.formatChanges.map(item => <p key={item.blockId}>{item.diagnostic}</p>)}
+                {returnedComparison.unCompared.map(item => <p key={item.blockId}>{item.diagnostic}</p>)}
+                {returnedComparison.unmapped.map(item => <p key={item.sourceIndex}>{item.diagnostic}: {item.text}</p>)}
+                {returnedComparison.missing.map(item => <p key={item.blockId}>{t("returnBefore")}: {item.text}</p>)}
+                <details><summary>{t("manualAlignment")}</summary>
+                  {returnedComparison.returnedParagraphs.map(paragraph => <label key={paragraph.sourceIndex}>{paragraph.text}
+                    <select value={returnMappings.find(item => item.sourceIndex === paragraph.sourceIndex)?.blockId ?? paragraph.blockId ?? ""}
+                      onChange={event => setReturnMappings([...returnMappings.filter(item => item.sourceIndex !== paragraph.sourceIndex),
+                        ...(event.target.value ? [{ sourceIndex: paragraph.sourceIndex, blockId: event.target.value }] : [])])}>
+                      <option value="">{t("chooseParagraph")}</option>
+                      {returnedComparison.sourceParagraphs.map(source => <option key={source.blockId} value={source.blockId}>{source.text.slice(0, 150)}</option>)}
+                    </select></label>)}
+                  <button disabled={busy} onClick={() => void run({ action: "compare_return", returnId: returnedComparison.returnId, mappings: returnMappings })}>{t("updateReturn")}</button>
+                </details>
+                {!!returnedComparison.comments.length && <h4>{t("returnComments")}</h4>}
+                {returnedComparison.comments.map(comment => <article key={comment.id}><p>{comment.text}</p>{comment.locations.map((location, index) => <blockquote key={index}>{location.quote}</blockquote>)}</article>)}
+              </section>}
             </details>
           </>
         )}

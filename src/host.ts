@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { FileSystemSkillProvider } from "@deepseek-ai/dsh-skill-filesystem";
@@ -9,6 +10,7 @@ import {
   type KvTable,
 } from "@deepseek-ai/dsh-storage-domain";
 import type {} from "@deepseek-ai/dsh-subprocess";
+import { OfficeSourceKey } from "@deepseek-ai/dsh-office-to-pdf";
 import {
   Remote,
   RemoteError,
@@ -22,14 +24,22 @@ import type {} from "@deepseek-ai/dsh-api-session-controller";
 import type { SessionRequestId } from "@deepseek-ai/dsh-api-session-controller/types";
 import type { SessionId } from "@deepseek-ai/dsh-session/types";
 import { z } from "zod";
-import { agentRequest, uiRequest, readingOutputSchema, type UiRequest } from "./contracts.js";
+import { agentRequest, uiRequest, documentExportRequest, readingOutputSchema, type UiRequest } from "./contracts.js";
 import { remoteInfo } from "./remote.js";
+import { wordProjection, wordComments } from "./word.js";
+import { bilingualProjection, existingDelivery, recordDocumentDelivery, selectComparison } from "./delivery.js";
+import { cleanPdf } from "./pdf.js";
+import { compareReturn, recordDocumentReturn, proposeReturnChanges } from "./returns.js";
+import { returnedBlockSchema } from "./records.js";
+import type { DocumentDelivery } from "./records.js";
 import { prepareReading, readingPrompt, readingPacket, updateReading, validateReadingOutput, readingViews } from "./reading.js";
 import {
   storedPaperSchema,
   createPaper,
   migratePaper,
   importDocument,
+  documentAt,
+  importWordComments,
   propose,
   decideMany,
   previewAcceptance,
@@ -45,10 +55,10 @@ import {
   deliveryPrompt,
   markDelivery,
   paperView,
-  exportParagraphs,
   type Paper,
   type StoredPaper,
   type ImportedBlock,
+  type ImportedWordComment,
 } from "./model.js";
 
 export const name = "paper-workbench";
@@ -60,17 +70,19 @@ export const inject = [
   "typert",
   "sessionController",
   "subagents",
+  "officeToPdf",
 ];
 export const paperDomainSpec = defineDomain({
   name: "paper_workbench",
-  version: 2,
-  compatibleVersions: [1],
+  version: 3,
+  compatibleVersions: [2, 1],
   tables: {
     papers: domainTable(storedPaperSchema),
     bindings: domainTable(z.object({ paperId: z.string() })),
   },
 });
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const packageVersion: string = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
 
 export class PaperWorkbench extends TypertRemoteService {
   private readonly lifetime = new AbortController();
@@ -276,13 +288,17 @@ export class PaperWorkbench extends TypertRemoteService {
       throw new Error(
         "This candidate package includes the document engine for macOS Apple silicon only. Other platforms are unverified.",
       );
+    return this.documentProcess([join(root, "runtime/osx-arm64/paper-docx")], request, signal);
+  }
+
+  private async documentProcess(argv: string[], request: object, signal: AbortSignal): Promise<Record<string, unknown>> {
     const bounded = AbortSignal.any([
       signal,
       this.lifetime.signal,
       AbortSignal.timeout(30000),
     ]);
     const processHandle = this.ctx.subprocess.spawn({
-      argv: [join(root, "runtime/osx-arm64/paper-docx")],
+      argv,
       cwd: root,
       signal: bounded,
       graceMs: 1000,
@@ -292,22 +308,151 @@ export class PaperWorkbench extends TypertRemoteService {
         stderr: { maxBytes: 8192 },
       },
     });
-    const done = processHandle.done;
-    this.requests.add(done);
-    try {
-      const outcome = await done;
-      bounded.throwIfAborted();
-      const output = processHandle.collected.stdout!.readFrom(0);
-      if (output.lossy)
-        throw new Error("Document engine response exceeded its limit.");
-      const response = JSON.parse(output.text);
-      if (!response.ok || outcome.exitCode !== 0)
-        throw new Error(response.error ?? "Document engine failed.");
-      return response.result;
-    } finally {
-      await processHandle.waitForExit();
-      this.requests.delete(done);
+    const work = (async () => {
+      try {
+        const outcome = await processHandle.done;
+        bounded.throwIfAborted();
+        const output = processHandle.collected.stdout!.readFrom(0);
+        if (output.lossy) throw new Error("Document engine response exceeded its limit.");
+        const response = JSON.parse(output.text);
+        if (!response.ok || outcome.exitCode !== 0) throw new Error(response.error ?? "Document engine failed.");
+        return response.result;
+      } finally { await processHandle.waitForExit(); }
+    })();
+    this.requests.add(work);
+    try { return await work; } finally { this.requests.delete(work); }
+  }
+
+  private async exportDocument(paper: Paper, request: z.infer<typeof documentExportRequest>, callerSignal: AbortSignal) {
+    const previous = existingDelivery(paper, request);
+    if (previous) return { base64: previous.base64, name: previous.name, deliveryId: previous.id, warnings: previous.warnings };
+    if (paper.revision !== request.expectedRevision) throw new Error("The paper changed. Review the export again.");
+    if (paper.comparisonRevision !== request.baselineRevision) throw new Error("The Word comparison baseline changed. Review the selected version before exporting.");
+    const signal = AbortSignal.any([callerSignal, this.lifetime.signal]);
+    signal.throwIfAborted();
+    const baselineRevision = paper.comparisonRevision;
+    const projection = wordProjection(paper, baselineRevision);
+    const comments = wordComments(paper, baselineRevision, paper.revision, request.includeReasons);
+    const bilingual = request.variant === "bilingual" ? bilingualProjection(paper) : undefined;
+    const translations = bilingual?.translations ?? [];
+    const generate = (readSignal: AbortSignal, maxOutputBytes = 16 * 1024 * 1024) => this.engine({ action: "export",
+      base64: paper.sourceBase64, tracked: request.variant === "tracked", ...projection,
+      comments: comments.comments, ...(bilingual ? { bilingual: bilingual.groups } : {}),
+      delivery: { id: request.requestId, paperId: paper.id }, maxOutputBytes,
+    }, readSignal);
+    const name = `${paper.name.replace(/\.(docx|md|markdown)$/i, "")}-${request.variant}.${request.format}`;
+    let base64: string, sourceDocxBase64: string | undefined;
+    let anchors: DocumentDelivery["anchors"] = [], pages: number | undefined, conversion: DocumentDelivery["conversion"];
+    const warnings = [...paper.warnings, ...comments.warnings];
+    if (request.format === "docx") {
+      const exported = await generate(signal);
+      base64 = exported.base64 as string; anchors = exported.anchors as DocumentDelivery["anchors"];
+    } else {
+      const version = JSON.stringify({ packageVersion, revision: paper.revision, baselineRevision, variant: request.variant,
+        includeReasons: request.includeReasons, translations });
+      const converted = await this.ctx.officeToPdf.convert({ extension: "docx", priority: "foreground", source: {
+        key: OfficeSourceKey(JSON.stringify({ domain: "paper_workbench", paperId: paper.id, deliveryId: request.requestId })), version,
+        read: async (readSignal, maxBytes) => {
+          const exported = await generate(readSignal, Math.min(16 * 1024 * 1024, maxBytes + 1));
+          readSignal.throwIfAborted();
+          sourceDocxBase64 = exported.base64 as string;
+          anchors = exported.anchors as DocumentDelivery["anchors"];
+          const bytes = Buffer.from(sourceDocxBase64, "base64");
+          if (bytes.byteLength > maxBytes) throw new Error("The exported Word source exceeds the reserved PDF conversion limit.");
+          return { bytes, version };
+        },
+      } }, signal);
+      const cleaned = await cleanPdf(converted.pdf, signal);
+      base64 = Buffer.from(cleaned.bytes).toString("base64"); pages = cleaned.pages;
+      conversion = { key: converted.cacheKey, generation: converted.generation, missingFonts: [...converted.missingFonts] };
+      if (converted.missingFonts.length) warnings.push(`The PDF source requests unavailable fonts: ${converted.missingFonts.join(", ")}. Review the rendered copy for substitutions.`);
     }
+    signal.throwIfAborted();
+    const delivery: DocumentDelivery = { id: request.requestId, revision: paper.revision, baselineRevision, variant: request.variant,
+      format: request.format, includeReasons: request.includeReasons, name, base64, bytes: Buffer.byteLength(base64, "base64"),
+      anchors, translations, warnings: [...new Set(warnings)], ...(sourceDocxBase64 ? { sourceDocxBase64 } : {}),
+      ...(pages === undefined ? {} : { pages }), ...(conversion ? { conversion } : {}) };
+    await this.papers.update(paper.id, stored => {
+      signal.throwIfAborted();
+      return recordDocumentDelivery(this.requireCurrent(stored), delivery);
+    });
+    const saved = this.current(paper.id).documentDeliveries.find(item => item.id === delivery.id)!;
+    return { base64: saved.base64, name: saved.name, deliveryId: saved.id, warnings: saved.warnings };
+  }
+
+  private async importSource(request: Extract<UiRequest, { action: "import" }>, sessionId: string, callerSignal: AbortSignal) {
+    const signal = AbortSignal.any([callerSignal, this.lifetime.signal]);
+    signal.throwIfAborted();
+    if (request.format === "docx" && request.resources.length) throw new Error("Resource files belong to a Markdown import. Choose one DOCX without extra files.");
+    const converted = request.format === "markdown" ? await this.documentProcess([process.execPath, join(root, "dist/markdown.mjs")],
+      { base64: request.base64, resources: request.resources }, signal) : undefined;
+    const sourceBase64 = converted ? (await this.engine({ action: "normalize", base64: converted.base64, generatedFonts: true }, signal)).base64 : request.base64;
+    const imported = await this.engine(
+      {
+        action: "inspect",
+        base64: sourceBase64,
+        revisionMode: request.revisionMode,
+      },
+      signal,
+    );
+    if (imported.hasRevisions && !request.revisionMode)
+      throw new Error(
+        "This DOCX contains existing Word revisions. Choose Accept existing revisions or Reject existing revisions before importing. The original is retained.",
+      );
+    const document = importDocument(imported.blocks as ImportedBlock[]);
+    const paper = importWordComments(createPaper({
+      id: randomUUID(),
+      name: request.name,
+      document,
+      originalBase64: request.base64,
+      sourceFormat: request.format,
+      sourceResources: request.resources,
+      sourceBase64: imported.normalizedBase64 as string,
+      warnings: [...(converted?.warnings as string[] ?? []), ...imported.warnings as string[]],
+    }), imported.nativeComments as ImportedWordComment[]);
+    signal.throwIfAborted();
+    await this.papers.put(paper.id, paper);
+    signal.throwIfAborted();
+    await this.bindings.put(sessionId, { paperId: paper.id });
+  }
+
+  private async importReturn(paper: Paper, request: Extract<UiRequest, { action: "import_return" }>, callerSignal: AbortSignal) {
+    const signal = AbortSignal.any([callerSignal, this.lifetime.signal]);
+    const delivery = paper.documentDeliveries.find(item => item.id === request.deliveryId);
+    if (!delivery || delivery.format !== "docx" || delivery.variant === "bilingual")
+      throw new Error("Choose an English clean or tracked DOCX delivery before uploading its returned file.");
+    const previous = paper.documentReturns.find(item => item.id === request.requestId);
+    if (previous) {
+      recordDocumentReturn(paper, { ...previous, deliveryId: request.deliveryId, originalBase64: request.base64,
+        name: request.name, revisionMode: request.revisionMode ?? "none" });
+      return;
+    }
+    const imported = await this.engine({ action: "inspect", base64: request.base64, revisionMode: request.revisionMode }, signal);
+    if (imported.hasRevisions && !request.revisionMode)
+      throw new Error("The returned DOCX contains unresolved Word revisions. Explicitly choose accept or reject for this return projection, then upload again. The original file was not changed.");
+    signal.throwIfAborted();
+    await this.papers.update(paper.id, stored => {
+      signal.throwIfAborted();
+      return recordDocumentReturn(this.requireCurrent(stored), { id: request.requestId, deliveryId: request.deliveryId,
+        name: request.name, originalBase64: request.base64, revisionMode: request.revisionMode ?? "none",
+        blocks: imported.blocks, nativeComments: imported.nativeComments,
+        deliveryMarkers: imported.deliveryMarkers, warnings: imported.warnings });
+    });
+  }
+
+  private async returnComparison(paper: Paper, request: { returnId: string; mappings: z.infer<typeof import("./contracts.js").returnMappingsSchema> }, signal: AbortSignal) {
+    const returned = paper.documentReturns.find(item => item.id === request.returnId);
+    if (!returned) throw new Error("The returned file was not found.");
+    const delivery = paper.documentDeliveries.find(item => item.id === returned.deliveryId)!;
+    const expected = await this.engine({ action: "inspect", base64: delivery.base64, revisionMode: "accept" }, signal);
+    const blocks = z.array(returnedBlockSchema).parse(expected.blocks);
+    const body = documentAt(paper, delivery.revision);
+    for (const anchor of delivery.anchors) {
+      const block = blocks.find(item => item.nativeId === anchor.nativeId);
+      if (!block || ![...body.content.content].some(node => node.attrs.id === anchor.blockId && node.textContent === block.text))
+        throw new Error("The stored delivered file no longer matches its exact working-body receipt.");
+    }
+    return compareReturn(paper, request.returnId, request.mappings, blocks);
   }
 
   async handle(
@@ -341,29 +486,9 @@ export class PaperWorkbench extends TypertRemoteService {
       return this.read(sessionId);
     }
     if (request.action === "import") {
-      const imported = await this.engine(
-        {
-          action: "inspect",
-          base64: request.base64,
-          revisionMode: request.revisionMode,
-        },
-        signal,
-      );
-      if (imported.hasRevisions && !request.revisionMode)
-        throw new Error(
-          "This DOCX contains existing Word revisions. Choose Accept existing revisions or Reject existing revisions before importing. The original is retained.",
-        );
-      const document = importDocument(imported.blocks as ImportedBlock[]);
-      const paper = createPaper({
-        id: randomUUID(),
-        name: request.name,
-        document,
-        originalBase64: request.base64,
-        sourceBase64: imported.normalizedBase64 as string,
-        warnings: imported.warnings as string[],
-      });
-      await this.papers.put(paper.id, paper);
-      await this.bindings.put(sessionId, { paperId: paper.id });
+      const importing = this.importSource(request, sessionId, signal);
+      this.requests.add(importing);
+      try { await importing; } finally { this.requests.delete(importing); }
       return this.read(sessionId);
     }
     if (request.action === "link") {
@@ -469,26 +594,43 @@ export class PaperWorkbench extends TypertRemoteService {
         comparison: compareRevision(paper, request.revision),
       };
     if (request.action === "export") {
-      const exported = await this.engine(
-        {
-          action: "export",
-          base64: paper.sourceBase64,
-          tracked: request.tracked,
-          paragraphs: exportParagraphs(paper),
-        },
-        signal,
-      );
-      return {
-        ...exported,
-        name: `${paper.name.replace(/\.docx$/i, "")}-${request.tracked ? "tracked" : "clean"}.docx`,
-        revision: paper.revision,
-        baseline: "Imported source after the explicit existing-revision choice",
-      };
+      const exporting = this.exportDocument(paper, request, signal);
+      this.requests.add(exporting);
+      try { return await exporting; } finally { this.requests.delete(exporting); }
+    }
+    if (request.action === "download_delivery") {
+      const delivery = paper.documentDeliveries.find(item => item.id === request.deliveryId);
+      if (!delivery) throw new Error("The immutable delivery was not found.");
+      return { base64: delivery.base64, name: delivery.name, deliveryId: delivery.id, warnings: delivery.warnings };
+    }
+    if (request.action === "import_return") {
+      const importing = this.importReturn(paper, request, signal);
+      this.requests.add(importing);
+      try { await importing; } finally { this.requests.delete(importing); }
+      const current = this.current(paper.id);
+      return { ...this.read(sessionId), returnComparison: await this.returnComparison(current, { returnId: request.requestId, mappings: [] }, signal) };
+    }
+    if (request.action === "compare_return")
+      return { ...this.read(sessionId), returnComparison: await this.returnComparison(paper, request, signal) };
+    if (request.action === "download_return") {
+      const returned = paper.documentReturns.find(item => item.id === request.returnId);
+      if (!returned) throw new Error("The original returned file was not found.");
+      return { base64: returned.originalBase64, name: returned.name };
+    }
+    if (request.action === "download_source") {
+      if (request.resourcePath === undefined) return { base64: paper.originalBase64, name: paper.name };
+      const resource = paper.sourceResources.find(item => item.path === request.resourcePath);
+      if (!resource) throw new Error("The original source resource was not found.");
+      return { base64: resource.base64, name: resource.path.split(/[\\/]/).at(-1)! };
     }
     await this.papers.update(paperId, (stored) => {
       signal.throwIfAborted();
       const current = this.requireCurrent(stored);
       switch (request.action) {
+        case "set_baseline":
+          return selectComparison(current, request.revision, request.expectedRevision);
+        case "propose_return":
+          return proposeReturnChanges(current, request);
         case "propose":
           return propose(current, request);
         case "decide":

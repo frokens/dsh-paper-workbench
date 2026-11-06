@@ -11,13 +11,14 @@
 A 批的有界代码切片已由 [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)
 合入；B 批双语、反馈和修订生命周期的有界代码与代表性原生路径由
 [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2) 合入，见[准确接收范围](docs/reference/bilingual-lifecycle-status.md)。
-C 批代码与代表路径待最终独立接收，见 [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)
+C 批代码与代表路径已获有界独立接收并合入，见 [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)
 及[实际证据与限制](docs/reference/research-reading-status.md)。真实 DSH 普通任务已完成三段英文与
 逐段中文候选、全新会话读者回读自己的冻结材料及结构化审读。候选仍待用户决定，审读意见须由作者
 判断，不表示一般写作质量或 Skill 效果。最终 Word 接受/拒绝、桌面接入、公开下载及界面收尾仍有未验项。
 尚未发布完整产品。下列完整体验仍是实施
 目标，不能视为已全部交付。当前职责、支持域和实际证据见
 [原生切片状态](docs/reference/native-slice-status.md)及实现 PR。
+D 批正在实现，见[交付与返稿工作进展](docs/reference/document-delivery-status.md)；该进展不是最终安装或 Word 接收。
 
 ## 目标体验
 

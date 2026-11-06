@@ -68,10 +68,14 @@
     "@types/react": "19.2.2",
     "diff": "8.0.2",
     "esbuild": "0.25.12",
+    "pdf-lib": "1.17.1",
     "prosemirror-model": "1.25.4",
     "prosemirror-transform": "1.10.5",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
     "zod": "4.4.3"
+  },
+  "dependencies": {
+    "pandoc-wasm": "1.1.0"
   }
 }

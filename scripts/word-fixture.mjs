@@ -1,3 +1,4 @@
+import { wordProjection } from "../src/word.ts";
 import { spawnSync } from "node:child_process";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -7,7 +8,6 @@ import {
   paperView,
   propose,
   decide,
-  exportParagraphs,
 } from "../src/model.ts";
 import { proposeRequest } from "../src/contracts.ts";
 
@@ -61,13 +61,13 @@ const tracked = engine({
   action: "export",
   base64: paper.sourceBase64,
   tracked: true,
-  paragraphs: exportParagraphs(paper),
+  flow: wordProjection(paper).flow,
 });
 const clean = engine({
   action: "export",
   base64: paper.sourceBase64,
   tracked: false,
-  paragraphs: exportParagraphs(paper),
+  flow: wordProjection(paper).flow,
 });
 if (process.argv[2] === "prepare") {
   await writeFile(

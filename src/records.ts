@@ -5,6 +5,11 @@ import {
   selectionSchema,
   readingOutputSchema,
   candidateTranslationSchema,
+  documentVariantSchema,
+  documentFormatSchema,
+  returnMappingsSchema,
+  sourceFormatSchema,
+  sourceResourceSchema,
 } from "./contracts.js";
 
 const diffSchema = z.array(
@@ -20,6 +25,8 @@ export const candidateSchema = z.object({
   status: z.enum(["pending", "accepted", "rejected", "undone"]),
   diffs: z.array(diffSchema),
   translations: z.array(candidateTranslationSchema),
+  returnedFrom: z.object({ returnId: z.string(), changeIds: z.array(z.string()), mappings: returnMappingsSchema,
+    sourceRevision: z.number().int().nonnegative() }).optional(),
 });
 export const historySchema = z.object({
   revision: z.number().int().positive(),
@@ -55,6 +62,34 @@ export const translationViewSchema = translationSchema.extend({
   state: z.enum(["current", "stale", "superseded"]),
   mappedSources: z.array(selectionSchema),
 });
+const feedbackSchema = z.object({
+  id: z.string(), requestId: z.string(), target: feedbackTargetSchema, comment: z.string(),
+  wordCommentId: z.string().optional(),
+});
+export const documentDeliverySchema = z.object({
+  id: z.string(), revision: z.number().int().nonnegative(), baselineRevision: z.number().int().nonnegative(),
+  variant: documentVariantSchema, format: documentFormatSchema, includeReasons: z.boolean(),
+  name: z.string(), base64: z.string().max(48_000_000), sourceDocxBase64: z.string().max(24_000_000).optional(),
+  bytes: z.number().int().nonnegative(), warnings: z.array(z.string()),
+  anchors: z.array(z.object({ blockId: z.string(), nativeId: z.string() })),
+  translations: z.array(z.object({ id: z.string(), version: z.number().int().positive() })),
+  pages: z.number().int().positive().optional(),
+  conversion: z.object({ key: z.string(), generation: z.string(), missingFonts: z.array(z.string()) }).optional(),
+});
+export type DocumentDelivery = z.infer<typeof documentDeliverySchema>;
+export const importedWordCommentSchema = z.object({ id: z.string(), text: z.string(), editable: z.boolean(),
+  ranges: z.array(z.object({ sourceIndex: z.number().int().nonnegative(), from: z.number().int().nonnegative(), to: z.number().int().nonnegative() })) });
+export const returnedBlockSchema = z.object({ sourceIndex: z.number().int().nonnegative(), nativeId: z.string().nullable(),
+  text: z.string(), editable: z.boolean(), style: z.string().nullable(), paragraphFormat: z.string(),
+  runs: z.array(z.object({ text: z.string(), bold: z.boolean(), italic: z.boolean(), nativeFormat: z.string() })), reason: z.string().nullable() });
+export const documentReturnSchema = z.object({ id: z.string(), deliveryId: z.string(), name: z.string(), originalBase64: z.string().max(24_000_000),
+  revisionMode: z.enum(["accept", "reject", "none"]), blocks: z.array(returnedBlockSchema),
+  nativeComments: z.array(importedWordCommentSchema), warnings: z.array(z.string()),
+  deliveryMarkers: z.array(z.object({ id: z.string().nullable(), paperId: z.string().nullable() })),
+});
+export type DocumentReturn = z.infer<typeof documentReturnSchema>;
+export type ReturnedBlock = z.infer<typeof returnedBlockSchema>;
+export type ImportedWordComment = z.infer<typeof importedWordCommentSchema>;
 export const readingSchema = z.object({
   id: z.string(),
   requestId: z.string(),
@@ -70,12 +105,7 @@ export const readingSchema = z.object({
     baselineDocument: z.json(),
     candidateDocument: z.json(),
     candidates: z.array(candidateSchema),
-    feedback: z.array(z.object({
-      id: z.string(),
-      requestId: z.string(),
-      target: feedbackTargetSchema,
-      comment: z.string(),
-    })),
+    feedback: z.array(feedbackSchema),
     directions: z.array(z.object({
       batchId: z.string(),
       revision: z.number().int().nonnegative(),
@@ -102,19 +132,17 @@ export const paperSchema = z.object({
   baseline: z.json(),
   originalBase64: z.string(),
   sourceBase64: z.string(),
+  sourceFormat: sourceFormatSchema.default("docx"),
+  sourceResources: z.array(sourceResourceSchema).default([]),
+  comparisonRevision: z.number().int().nonnegative().default(0),
+  documentDeliveries: z.array(documentDeliverySchema).default([]),
+  documentReturns: z.array(documentReturnSchema).default([]),
   warnings: z.array(z.string()),
   candidates: z.array(candidateSchema),
   decisions: z.array(decisionSchema),
   history: z.array(historySchema),
   readings: z.array(readingSchema).default([]),
-  feedback: z.array(
-    z.object({
-      id: z.string(),
-      requestId: z.string(),
-      target: feedbackTargetSchema,
-      comment: z.string(),
-    }),
-  ),
+  feedback: z.array(feedbackSchema),
   batches: z.array(
     z.object({
       id: z.string(),

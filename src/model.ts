@@ -20,9 +20,10 @@ import {
   bindNativeFormats,
   type ImportedBlock,
 } from "./operations.js";
-import { type Paper, type Candidate, type LegacyPaper } from "./records.js";
+import { type Paper, type Candidate, type LegacyPaper, type ImportedWordComment } from "./records.js";
 export { paperSchema, storedPaperSchema } from "./records.js";
 export type { Paper, Candidate, StoredPaper } from "./records.js";
+export type { ImportedWordComment } from "./records.js";
 export type { ImportedBlock } from "./operations.js";
 export { schema };
 export const importDocument = (blocks: ImportedBlock[]) =>
@@ -33,7 +34,7 @@ export function createPaper(
   input: Pick<
     Paper,
     "id" | "name" | "document" | "originalBase64" | "sourceBase64" | "warnings"
-  > & { brief?: string },
+  > & { brief?: string; sourceFormat?: Paper["sourceFormat"]; sourceResources?: Paper["sourceResources"] },
 ): Paper {
   return {
     ...input,
@@ -48,6 +49,11 @@ export function createPaper(
     batches: [],
     translations: [],
     translationJobs: [],
+    comparisonRevision: 0,
+    documentDeliveries: [],
+    documentReturns: [],
+    sourceFormat: input.sourceFormat ?? "docx",
+    sourceResources: input.sourceResources ?? [],
   };
 }
 
@@ -166,12 +172,13 @@ function rangeMapping(
   }
   return mapping;
 }
-function mappingSince(paper: Paper, revision: number) {
+export function documentMapping(paper: Paper, revision: number) {
   return rangeMapping(historyRange(paper, revision));
 }
-function needsExplicitRestore(paper: Paper, mapping = mappingSince(paper, 0)) {
+export function needsExplicitRestore(paper: Paper, baselineRevision = 0) {
+  const mapping = documentMapping(paper, baselineRevision);
   let offset = 0;
-  for (const entry of paper.history) {
+  for (const entry of paper.history.slice(baselineRevision)) {
     if (
       entry.kind === "restore" &&
       !entry.inverseOf &&
@@ -248,7 +255,7 @@ export function mapSelection(
     documentAt(paper, selection.revision),
     selection,
   );
-  const mapping = mappingSince(paper, selection.revision);
+  const mapping = documentMapping(paper, selection.revision);
   if (target) mapping.appendMapping(target.mapping);
   const { from, to } = mapRange(
     original.position + 1 + selection.from,
@@ -658,7 +665,7 @@ export function undoDecision(
     const entry = paper.history.find(
       (h) => h.revision === decision.editRevision,
     )!;
-    let mapping = mappingSince(paper, entry.revision);
+    let mapping = documentMapping(paper, entry.revision);
     const transform = new Transform(documentAt(paper, paper.revision));
     const originalUndo = new Transform(documentAt(paper, entry.revision));
     for (const json of entry.inverseSteps) {
@@ -896,6 +903,22 @@ export function addFeedback(
     ...paper,
     feedback: [...paper.feedback, { id: randomUUID(), ...request }],
   };
+}
+export function importWordComments(paper: Paper, comments: ImportedWordComment[]): Paper {
+  const blocks = new Map<number, PMNode>();
+  documentAt(paper, paper.revision).forEach(node => { if (node.type.name === "paragraph") blocks.set(node.attrs.sourceIndex, node); });
+  for (const comment of comments.filter(item => item.editable)) {
+    const selections: Selection[] = comment.ranges.map(range => {
+      const block = blocks.get(range.sourceIndex);
+      if (!block) throw new Error("A Word comment no longer has its exact source paragraph.");
+      return { paperId: paper.id, revision: paper.revision, blockId: block.attrs.id,
+        from: range.from, to: range.to, quote: block.textContent.slice(range.from, range.to) };
+    });
+    if (!selections.length) throw new Error("A Word comment has no supported source range.");
+    paper = addFeedback(paper, { requestId: `word:${comment.id}`, target: { kind: "source", selections }, comment: comment.text });
+    paper = { ...paper, feedback: paper.feedback.map(item => item.requestId === `word:${comment.id}` ? { ...item, wordCommentId: comment.id } : item) };
+  }
+  return paper;
 }
 export function createBatch(
   paper: Paper,
@@ -1226,7 +1249,12 @@ export function paperView(paper: Paper) {
     brief: paper.brief,
     revision: paper.revision,
     warnings: paper.warnings,
-    wordExportNeedsRestore: needsExplicitRestore(paper),
+    wordExportNeedsRestore: needsExplicitRestore(paper, paper.comparisonRevision),
+    comparisonRevision: paper.comparisonRevision,
+    documentDeliveries: paper.documentDeliveries.map(({ base64: _bytes, sourceDocxBase64: _source, anchors: _anchors, ...delivery }) => delivery),
+    documentReturns: paper.documentReturns.map(({ id, deliveryId, name, revisionMode, warnings }) => ({ id, deliveryId, name, revisionMode, warnings })),
+    sourceFormat: paper.sourceFormat,
+    sourceResources: paper.sourceResources.map(resource => ({ path: resource.path })),
     blocks,
     candidates: paper.candidates.map((candidate) => {
       const plan =
@@ -1328,120 +1356,4 @@ export function migratePaper(
       "The previous paper cannot be upgraded without changing its accepted content or decisions.",
     );
   return paper;
-}
-
-export function exportParagraphs(paper: Paper) {
-  const historyMapping = mappingSince(paper, 0);
-  if (needsExplicitRestore(paper, historyMapping))
-    throw new Error(
-      "An earlier restoration has no precise Word comparison. In History, select the intended historical revision and restore it explicitly before exporting. The existing body and history are retained.",
-    );
-  const baseline = PMNode.fromJSON(schema, paper.baseline),
-    current = documentAt(paper, paper.revision);
-  const beforeBlocks: PMNode[] = [],
-    afterBlocks: PMNode[] = [];
-  baseline.forEach((node) => beforeBlocks.push(node));
-  current.forEach((node) => afterBlocks.push(node));
-  if (
-    beforeBlocks.length !== afterBlocks.length ||
-    beforeBlocks.some(
-      (node, i) =>
-        node.type !== afterBlocks[i].type ||
-        node.attrs.id !== afterBlocks[i].attrs.id ||
-        node.attrs.sourceIndex !== afterBlocks[i].attrs.sourceIndex,
-    )
-  )
-    throw new Error(
-      "Word export for paragraph splits and merges is not implemented yet. The accepted paper and history are retained. Undo the structural edit or export after the structural adapter is available.",
-    );
-  const mapping = new Mapping(),
-    cuts = new Set<number>();
-  historyMapping.maps.forEach((map, index) => {
-    const inverse = mapping.invert();
-    map.forEach((from, to) => {
-      cuts.add(inverse.map(from, 1));
-      cuts.add(inverse.map(to, -1));
-    });
-    const mirror = historyMapping.getMirror(index);
-    mapping.appendMap(
-      map,
-      mirror !== undefined && mirror < index ? mirror : undefined,
-    );
-  });
-  type Segment =
-    | { kind: "equal" | "delete"; text: string }
-    | { kind: "insert"; text: string; styleFrom: number | null };
-  const paragraphs: {
-    sourceIndex: number;
-    before: string;
-    segments: Segment[];
-  }[] = [];
-  baseline.forEach((original, position) => {
-    const final = findDocumentBlock(current, original.attrs.id);
-    if (original.type.name !== "paragraph") {
-      if (!original.eq(final.node))
-        throw new Error("A preserved object changed unexpectedly.");
-      return;
-    }
-    const start = position + 1,
-      end = start + original.content.size;
-    const points = [
-      start,
-      ...[...cuts].filter((p) => p > start && p < end).sort((a, b) => a - b),
-      end,
-    ];
-    let oldCursor = start,
-      newCursor = final.position + 1;
-    const segments: Segment[] = [];
-    function gap(oldEnd: number, newEnd: number) {
-      if (oldEnd > oldCursor)
-        segments.push({
-          kind: "delete",
-          text: baseline.textBetween(oldCursor, oldEnd),
-        });
-      if (newEnd > newCursor)
-        current.slice(newCursor, newEnd).content.forEach((node) => {
-          const source = node.marks.find(
-            (mark) => mark.type === schema.marks.nativeFormat,
-          );
-          if (
-            !node.isText ||
-            (source && source.attrs.sourceIndex !== original.attrs.sourceIndex)
-          )
-            throw new Error(
-              "A Word run has a cross-paragraph style source that this adapter cannot project.",
-            );
-          segments.push({
-            kind: "insert",
-            text: node.text!,
-            styleFrom: source?.attrs.offset ?? null,
-          });
-        });
-    }
-    for (let i = 1; i < points.length; i++) {
-      const from = mapping.mapResult(points[i - 1], 1),
-        to = mapping.mapResult(points[i], -1);
-      if (
-        from.deleted ||
-        to.deleted ||
-        to.pos - from.pos !== points[i] - points[i - 1]
-      )
-        continue;
-      gap(points[i - 1], from.pos);
-      segments.push({
-        kind: "equal",
-        text: baseline.textBetween(points[i - 1], points[i]),
-      });
-      oldCursor = points[i];
-      newCursor = to.pos;
-    }
-    gap(end, final.position + 1 + final.node.content.size);
-    if (segments.some((part) => part.kind !== "equal"))
-      paragraphs.push({
-        sourceIndex: original.attrs.sourceIndex,
-        before: original.textContent,
-        segments,
-      });
-  });
-  return paragraphs;
 }

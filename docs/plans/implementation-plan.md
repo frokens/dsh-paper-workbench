@@ -124,8 +124,8 @@ Host/Client/工具/Skills、重启恢复、升级保全、卸载退出；Word �
 | --- | --- | --- |
 | A | 有界代码切片已合入，完整出口仍未接收 | [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)；[实际证据及未验项](../reference/native-slice-status.md) |
 | B | 有界代码与代表原生路径已接收，最终界面收尾开放 | [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2)；[实际职责及待验项](../reference/bilingual-lifecycle-status.md) |
-| C | 代码和代表路径待最终独立接收，完整产品仍开放 | [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)；[实际证据与限制](../reference/research-reading-status.md) |
-| D | 未开始 | 待格式与返稿证据 |
+| C | 代码和代表路径已获有界独立接收并合入，完整产品仍开放 | [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)；[实际证据与限制](../reference/research-reading-status.md) |
+| D | 实现中，尚未独立接收 | [当前工作进展与未验边界](../reference/document-delivery-status.md) |
 | E | 未开始 | 待真实用户安装及最终接收 |
 
 维护状态只引用真实 PR 和结果，不在本文件堆积轮次日志。
