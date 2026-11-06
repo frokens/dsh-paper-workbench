@@ -46,6 +46,13 @@ matrix belongs to later format validation. Read all import diagnostics. Bilingua
 views, independent reading, mentor three-way returns and PDF are not implemented
 in this candidate.
 
+Developer-only Word fixtures can be generated with
+`npm run fixture:word -- prepare <new-test-directory>`. The command refuses to
+overwrite existing files. Open the tracked fixture in Microsoft Word, save separate
+accepted and rejected copies, then use
+`npm run fixture:word -- verify <same-test-directory>` to inspect those files. The
+verification command does not perform or establish the Word UI actions itself.
+
 Word acceptance has partial real-client evidence; the final export's two client
 paths, Desktop activation and public download remain unverified. See the
 [native slice evidence](reference/native-slice-status.md).

@@ -1,6 +1,6 @@
 {
   "name": "dsh-paper-workbench",
-  "version": "0.1.0-alpha.7",
+  "version": "0.1.0-alpha.8",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -56,6 +56,7 @@
     "package": "node scripts/package.mjs",
     "typecheck": "tsc --noEmit",
     "test:host": "node --test tests/dsh-host.test.mjs",
+    "fixture:word": "tsx scripts/word-fixture.mjs",
     "test": "tsx --test tests/*.test.ts"
   },
   "devDependencies": {

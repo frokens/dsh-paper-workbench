@@ -25,7 +25,7 @@ static class Program
             using var request = JsonDocument.Parse(input.ToArray());
             var r = request.RootElement;
             var action = r.GetProperty("action").GetString();
-            object result = action == "fixture" ? Fixture() : Process(r);
+            object result = action == "fixture" ? Fixture(r.TryGetProperty("fixture", out var f) ? f.GetString() : null) : Process(r);
             Console.WriteLine(JsonSerializer.Serialize(new { ok = true, result }, Json));
             return 0;
         }
@@ -52,11 +52,12 @@ static class Program
         var body = document.Body ?? throw new Exception("Missing Word body.");
         if (body.ChildElements.Count > 5000) throw new Exception("DOCX exceeds 5000 top-level blocks.");
         var mode = request.TryGetProperty("revisionMode", out var m) ? m.GetString() : null;
-        bool revisions = body.Descendants().Any(e => e is W.InsertedRun or W.DeletedRun || e.LocalName.EndsWith("Change") || e.LocalName.StartsWith("move"));
+        var revisionElements = body.Descendants().Where(IsRevision).ToArray();
+        bool revisions = revisionElements.Length != 0;
+        if (revisionElements.Any(e => e is not W.InsertedRun && e is not W.DeletedRun))
+            throw new Exception("This file has structural or formatting revisions. Resolve them in Word first; the original file is unchanged.");
         if (mode is "accept" or "reject")
         {
-            if (body.Descendants().Any(e => (e.LocalName.EndsWith("Change") || e.LocalName.StartsWith("move")) && e is not W.InsertedRun && e is not W.DeletedRun))
-                throw new Exception("This file has structural or formatting revisions. Resolve them in Word first; the original file is unchanged.");
             Settle(body, mode == "accept");
         }
 
@@ -76,7 +77,6 @@ static class Program
                     throw new Exception("Export diff does not cover the exact source.");
                 bool tracked = request.GetProperty("tracked").GetBoolean();
                 int offset = 0;
-                int? deletedStart = null;
                 foreach (var child in p.ChildElements.Where(e => e is not W.ParagraphProperties).ToArray()) child.Remove();
                 int revisionId = 0;
                 foreach (var segment in segments)
@@ -86,17 +86,22 @@ static class Program
                     if (kind == "insert")
                     {
                         var insertion = new W.Run(new W.Text(text) { Space = SpaceProcessingModeValues.Preserve });
-                        var style = StyleAt(original, deletedStart ?? offset);
-                        if (style != null) insertion.PrependChild(style);
+                        var styleSource = segment.GetProperty("styleFrom");
+                        if (styleSource.ValueKind != JsonValueKind.Null)
+                        {
+                            int styleFrom = styleSource.GetInt32();
+                            if (styleFrom < 0 || styleFrom > originalText.Length) throw new Exception("Insertion style source is outside the original paragraph.");
+                            var style = StyleAt(original, styleFrom);
+                            if (style != null) insertion.PrependChild(style);
+                        }
                         if (tracked) p.Append(new W.InsertedRun(insertion) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
                         else p.Append(insertion);
                     }
                     else
                     {
                         var runs = Slice(original, offset, text.Length, kind == "delete" && tracked);
-                        if (kind == "equal") { foreach (var run in runs) p.Append(run); deletedStart = null; }
-                        else if (kind == "delete" && tracked) { p.Append(new W.DeletedRun(runs) { Id = (index * 100000 + revisionId++).ToString(), Author = "" }); deletedStart = offset; }
-                        else if (kind == "delete") deletedStart = offset;
+                        if (kind == "equal") { foreach (var run in runs) p.Append(run); }
+                        else if (kind == "delete" && tracked) p.Append(new W.DeletedRun(runs) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
                         else if (kind != "delete") throw new Exception("Unknown diff segment.");
                         offset += text.Length;
                     }
@@ -131,8 +136,11 @@ static class Program
         return new { blocks, warnings, hasRevisions = revisions, normalizedBase64 = Convert.ToBase64String(stream.ToArray()) };
     }
 
+    static bool IsRevision(OpenXmlElement e) => e is W.TrackChangeType or W.RunTrackChangeType
+        || e.LocalName.EndsWith("Change", StringComparison.Ordinal) || e.LocalName.StartsWith("move", StringComparison.Ordinal);
+
     static bool Editable(W.Paragraph p) => p.ChildElements.All(e => e is W.ParagraphProperties || e is W.Run r && r.ChildElements.All(c => c is W.RunProperties or W.Text))
-        && !p.Descendants().Any(e => e.LocalName.EndsWith("Change"));
+        && !p.Descendants().Any(IsRevision);
 
     record SourceRun(W.Run Run, string Text);
 
@@ -210,7 +218,7 @@ static class Program
         return Convert.ToBase64String(output.ToArray());
     }
 
-    static object Fixture()
+    static object Fixture(string? variant)
     {
         using var stream = new MemoryStream();
         using (var doc = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true))
@@ -222,6 +230,13 @@ static class Program
                 new W.Paragraph(new W.Run(new W.RunProperties(new W.Bold()), new W.Text("The result remains unverified."))),
                 new W.Paragraph(new W.Run(new W.Text("The ") { Space = SpaceProcessingModeValues.Preserve }), new W.Run(new W.RunProperties(new W.Bold()), new W.Text("model")), new W.Run(new W.Text(" proposes a change.") { Space = SpaceProcessingModeValues.Preserve })),
                 new W.SectionProperties(new W.PageSize { Width = 11906, Height = 16838 }, new W.PageMargin { Top = 1440, Bottom = 1440, Left = 1440, Right = 1440 })));
+            if (variant == "repeated-format")
+                main.Document.Body!.ReplaceChild(new W.Paragraph(
+                    new W.Run(new W.RunProperties(new W.Bold()), new W.Text("X ") { Space = SpaceProcessingModeValues.Preserve }),
+                    new W.Run(new W.Text("X"))), main.Document.Body.Elements<W.Paragraph>().First());
+            if (variant == "paragraph-mark")
+                main.Document.Body!.Elements<W.Paragraph>().First().ParagraphProperties!.Append(
+                    new W.ParagraphMarkRunProperties(new W.Inserted { Id = "12", Author = "" }));
             ClearMetadata(doc);
             main.Document.Save();
         }

@@ -20,6 +20,11 @@ acceptance. The implementation plan and product goals remain in force.
   The self contained macOS arm64 runtime is packaged; users need no .NET SDK.
 - Clean and tracked DOCX export compare accepted text with the immutable import
   baseline. Workbench acceptance does not erase Word revisions against that baseline.
+- Export replays the existing accepted decisions through the same ProseMirror
+  replacement operation and uses its actual position maps. A transient format
+  projection records inserted runs' native style sources, verifies it reproduces
+  the authoritative body, and is discarded. It is never a second editable or
+  persisted document. Equal text elsewhere cannot take the selected text's place.
 
 ## Current support boundary
 
@@ -47,9 +52,13 @@ selection; B owns mapping unaffected selections and semantic applicability.
 On macOS arm64 with Node 25.9.0 and DSH 0.2.2-rc.1:
 
 - Type checking and the Host/Client build pass.
-- Seven focused tests cover exact repeated-text selection, untouched context and
+- Fourteen focused tests cover exact repeated-text selection, untouched context and
   emphasis, idempotence, stale range refusal, rejection, SDK native tracked changes,
   clean export, mixed-format replacement and engine accept/reject round trips.
+  Regression cases include deletion of the first formatted duplicate, repeated
+  replacement and overlapping later edits, same text with changed surviving style,
+  return to the baseline, insertion after clearing text, and unsupported paragraph
+  mark revisions under default/accept/reject import requests.
 - The first test run exposed ProseMirror required-node generation with required
   identity attributes. The document schema now allows an empty root while the import
   operation explicitly rejects a document without body blocks. The focused rerun passes.
@@ -96,6 +105,15 @@ On macOS arm64 with Node 25.9.0 and DSH 0.2.2-rc.1:
   plugin/Remote/UI withdrawal; a new native model turn was not run while uninstalled.
 
 ## Failures retained and remaining evidence
+
+The first independent PR review rejected the earlier candidate for two reproduced
+defects. Whole-paragraph export diff could align to a different repeated word and
+copy its wrong style; export now uses the accepted operation's actual mappings and
+run-style provenance. The existing-revision guard also missed paragraph-mark
+insertions. SDK track-change element types now identify these as unsupported
+structural revisions and refuse processing before import under all three modes.
+Both original failing regressions were retained and reproduced before correction.
+These corrections require independent re-review; passing owner tests is not acceptance.
 
 Early real-host failures exposed an invalid storage domain name, stale modules
 until restart, missing Client injection dependencies and an incorrect canonical

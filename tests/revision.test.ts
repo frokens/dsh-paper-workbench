@@ -95,3 +95,108 @@ test('mixed-format replacements preserve unchanged emphasis and inherit the remo
   const formatted = engine({ action: 'inspect', base64: exported.base64 });
   assert.equal(formatted.blocks[3].runs.filter((r: { bold: boolean }) => r.bold).map((r: { text: string }) => r.text).join(''), 'planner');
 });
+
+function formattedSource(): Paper {
+  const fixture = engine({ action: 'fixture', fixture: 'repeated-format' });
+  const imported = engine({ action: 'inspect', base64: fixture.base64 });
+  const document = importDocument(imported.blocks);
+  return { id: 'repeated', name: 'repeated.docx', revision: 0, document, baseline: document,
+    sourceBase64: imported.normalizedBase64, originalBase64: fixture.base64, warnings: imported.warnings, candidates: [], decisions: [] };
+}
+
+function acceptRange(paper: Paper, from: number, to: number, replacement: string): Paper {
+  const block = paperView(paper).blocks[0];
+  const proposed = propose(paper, { action: 'propose', requestId: `edit-${paper.revision}`, selection: { ...block.selection, from, to, quote: block.text.slice(from, to) }, replacement, reason: 'Check exact edit provenance.' });
+  return decide(proposed, proposed.candidates.at(-1)!.id, 'accepted');
+}
+
+test('deleting the first formatted duplicate preserves the second source run and exact native deletion range', () => {
+  const source = formattedSource(), paper = acceptRange(source, 0, 2, '');
+  assert.deepEqual(paperView(paper).blocks[0].runs, [{ text: 'X', marks: [] }]);
+  const paragraphs = exportParagraphs(paper);
+  assert.deepEqual(paragraphs[0].segments, [{ kind: 'delete', text: 'X ' }, { kind: 'equal', text: 'X' }]);
+  for (const tracked of [false, true]) {
+    const exported = engine({ action: 'export', base64: paper.sourceBase64, tracked, paragraphs });
+    const final = engine({ action: 'inspect', base64: exported.base64, ...(tracked ? { revisionMode: 'accept' } : {}) });
+    assert.equal(final.blocks[0].text, 'X');
+    assert.equal(final.blocks[0].runs.some((r: { bold: boolean }) => r.bold), false);
+    if (tracked) {
+      const rejected = engine({ action: 'inspect', base64: exported.base64, revisionMode: 'reject' });
+      assert.equal(rejected.blocks[0].text, 'X X');
+      assert.deepEqual(styledCharacters(rejected.blocks[0].runs), styledCharacters(importedRuns(source)));
+    }
+  }
+});
+
+function importedRuns(paper: Paper) { return engine({ action: 'inspect', base64: paper.sourceBase64 }).blocks[0].runs; }
+function styledCharacters(runs: { text: string; bold: boolean; italic: boolean }[]) {
+  return runs.flatMap(run => [...run.text].map(text => ({ text, bold: run.bold, italic: run.italic })));
+}
+
+test('first-duplicate replacement and later edits retain their actual run styles across clean and tracked exports', () => {
+  const source = formattedSource();
+  let paper = acceptRange(source, 0, 1, 'Z');
+  paper = acceptRange(paper, 2, 3, 'Y');
+  paper = acceptRange(paper, 0, 1, 'Q');
+  for (const tracked of [false, true]) {
+    const exported = engine({ action: 'export', base64: paper.sourceBase64, tracked, paragraphs: exportParagraphs(paper) });
+    const final = engine({ action: 'inspect', base64: exported.base64, ...(tracked ? { revisionMode: 'accept' } : {}) });
+    assert.equal(final.blocks[0].text, 'Q Y');
+    assert.equal(final.blocks[0].runs.filter((r: { bold: boolean }) => r.bold).map((r: { text: string }) => r.text).join(''), 'Q ');
+    if (tracked) assert.deepEqual(styledCharacters(engine({ action: 'inspect', base64: exported.base64, revisionMode: 'reject' }).blocks[0].runs), styledCharacters(importedRuns(source)));
+  }
+});
+
+test('same final text with a different surviving style still exports the actual delete and insertion', () => {
+  const source = formattedSource();
+  let paper = acceptRange(source, 0, 2, '');
+  paper = acceptRange(paper, 0, 0, 'X ');
+  assert.equal(paperView(paper).blocks[0].text, paperView(source).blocks[0].text);
+  assert.equal(paperView(paper).blocks[0].runs.some(r => r.marks.includes('bold')), false);
+  for (const tracked of [false, true]) {
+    const exported = engine({ action: 'export', base64: paper.sourceBase64, tracked, paragraphs: exportParagraphs(paper) });
+    const final = engine({ action: 'inspect', base64: exported.base64, ...(tracked ? { revisionMode: 'accept' } : {}) });
+    assert.equal(final.blocks[0].text, 'X X');
+    assert.equal(final.blocks[0].runs.some((r: { bold: boolean }) => r.bold), false);
+    if (tracked) assert.deepEqual(styledCharacters(engine({ action: 'inspect', base64: exported.base64, revisionMode: 'reject' }).blocks[0].runs), styledCharacters(importedRuns(source)));
+  }
+});
+
+test('restoring the exact baseline text and marks leaves the original paragraph untouched on export', () => {
+  const source = formattedSource();
+  let paper = acceptRange(source, 0, 1, 'Z');
+  paper = acceptRange(paper, 0, 1, 'X');
+  assert.deepEqual(paper.document, source.document);
+  assert.deepEqual(exportParagraphs(paper), []);
+  assert.equal(paper.decisions.length, 2);
+});
+
+test('typing after clearing a paragraph uses its default style rather than a deleted run style', () => {
+  const source = formattedSource();
+  let paper = acceptRange(source, 0, 3, '');
+  paper = acceptRange(paper, 0, 0, 'Fresh');
+  const exported = engine({ action: 'export', base64: paper.sourceBase64, tracked: true, paragraphs: exportParagraphs(paper) });
+  const final = engine({ action: 'inspect', base64: exported.base64, revisionMode: 'accept' });
+  assert.equal(final.blocks[0].text, 'Fresh');
+  assert.equal(final.blocks[0].runs.some((r: { bold: boolean }) => r.bold), false);
+  assert.deepEqual(styledCharacters(engine({ action: 'inspect', base64: exported.base64, revisionMode: 'reject' }).blocks[0].runs), styledCharacters(importedRuns(source)));
+});
+
+test('edits inside an earlier insertion and across its source boundary retain the correct style', () => {
+  const source = formattedSource();
+  let paper = acceptRange(source, 0, 1, 'Long');
+  paper = acceptRange(paper, 1, 3, 'oo');
+  paper = acceptRange(paper, 2, 6, 'text');
+  assert.equal(paperView(paper).blocks[0].text, 'Lotext');
+  const exported = engine({ action: 'export', base64: paper.sourceBase64, tracked: true, paragraphs: exportParagraphs(paper) });
+  const final = engine({ action: 'inspect', base64: exported.base64, revisionMode: 'accept' });
+  assert.equal(final.blocks[0].text, 'Lotext');
+  assert.equal(final.blocks[0].runs.every((r: { bold: boolean }) => r.bold), true);
+  assert.deepEqual(styledCharacters(engine({ action: 'inspect', base64: exported.base64, revisionMode: 'reject' }).blocks[0].runs), styledCharacters(importedRuns(source)));
+});
+
+test('paragraph-mark revisions are refused before import, including explicit acceptance and rejection', () => {
+  const fixture = engine({ action: 'fixture', fixture: 'paragraph-mark' });
+  for (const revisionMode of [undefined, 'accept', 'reject'])
+    assert.throws(() => engine({ action: 'inspect', base64: fixture.base64, revisionMode }), /structural or formatting revisions.*Word/);
+});

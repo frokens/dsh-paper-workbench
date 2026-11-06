@@ -38,7 +38,22 @@ test('installed DSH Host shares durable actions without adding command messages 
   assert.equal(original.blocks[1].text, block.text);
   const reread = await action({ action: 'read' });
   assert.equal(reread.paper.decisions.length, 1);
+  const structural = engine({ action: 'fixture', fixture: 'paragraph-mark' });
+  for (const revisionMode of [undefined, 'accept', 'reject'])
+    await assert.rejects(action({ action: 'import', name: 'Unsupported revisions.docx', base64: structural.base64, revisionMode }), /structural or formatting revisions.*Word/);
+  assert.equal((await action({ action: 'read' })).paper.id, reread.paper.id, 'Failed imports must preserve the linked paper.');
+  const repeated = engine({ action: 'fixture', fixture: 'repeated-format' });
+  const duplicate = await action({ action: 'import', name: 'Repeated source.docx', base64: repeated.base64 });
+  const exact = duplicate.paper.blocks[0].selection;
+  const deletion = await action({ action: 'propose', requestId: crypto.randomUUID(), selection: { ...exact, from: 0, to: 2, quote: 'X ' }, replacement: '', reason: 'Delete the selected first duplicate only.' });
+  await action({ action: 'decide', candidateId: deletion.paper.candidates[0].id, decision: 'accepted' });
+  for (const tracked of [false, true]) {
+    const download = await action({ action: 'export', tracked });
+    const final = engine({ action: 'inspect', base64: download.base64, ...(tracked ? { revisionMode: 'accept' } : {}) });
+    assert.equal(final.blocks[0].text, 'X');
+    assert.equal(final.blocks[0].runs.some(r => r.bold), false);
+  }
   const after = await rpc('session/events', { request: { address: { kind: 'session', sessionId: agentId }, maxMessages: 20 } });
   assert.equal(after.cursor, before.cursor, 'Sidebar data operations must not write internal payloads into chat.');
-  console.log('Validated one ordinary session, exact proposal/decision, native DOCX and unchanged chat cursor; no model call.');
+  console.log('Validated one ordinary session, exact proposals/decisions, both review regressions, native DOCX and unchanged chat cursor; no model call.');
 });
