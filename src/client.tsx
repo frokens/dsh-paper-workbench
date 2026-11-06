@@ -16,6 +16,7 @@ import type { paperView, previewAcceptance, compareRevision } from "./model.js";
 import { remoteInfo } from "./remote.js";
 import type { readingPacket, readingViews } from "./reading.js";
 import type { compareReturn } from "./returns.js";
+import type { OfficeFontSettings } from "./office-fonts.js";
 
 type PaperView = ReturnType<typeof paperView> & { readings: ReturnType<typeof readingViews> };
 type View = {
@@ -29,6 +30,7 @@ type Reply = View & {
   preview?: ReturnType<typeof previewAcceptance>;
   comparison?: ReturnType<typeof compareRevision>;
   returnComparison?: ReturnType<typeof compareReturn>;
+  pdfFonts?: OfficeFontSettings;
 };
 type Picked =
   | { kind: "source"; value: Selection }
@@ -155,6 +157,12 @@ const en = {
   includeReasons: "Add change reasons as paragraph comments",
   exportFile: "Export file", deliveryHistory: "Delivered files", downloadAgain: "Download again",
   pdfCopy: "PDF is a static reading copy. Use DOCX to accept or reject native Word revisions.",
+  pdfFonts: "PDF font settings", readPdfFonts: "Read current font settings", fontAutomatic: "Automatic font discovery",
+  fontFolders: "Font folders (one absolute path per line)", fontListed: "Use the listed font folders", testedFonts: "Use tested system folders",
+  fontShared: "These folders apply to all Office PDF previews in this DSH profile. A folder list replaces automatic Office font discovery; missing fonts may be substituted. Fallback preferences and other settings are kept.",
+  fontNotes: "Saving rewrites the Office configuration block. Comments inside that settings block may be lost. Closing this form without applying keeps the current settings.",
+  fontApply: "Apply shared font settings", fontClose: "Close font settings", fontReadAgain: "Applying starts a shared settings save. If the request is cancelled or the connection reloads, read the current settings to confirm the result.",
+  fontCurrent: "Current font folders", fontFallbacks: "Retained fallback preferences",
   returnedFiles: "Returned Word files", returnDelivery: "Delivered file being returned", uploadReturn: "Import returned DOCX",
   compareReturn: "Compare returned file", originalReturn: "Download original return", returnProjection: "Revisions inside this returned file",
   returnVersions: "Word baseline / delivered body / current body", manualAlignment: "Verify paragraph alignment",
@@ -299,6 +307,12 @@ const zh: typeof en = {
   includeReasons: "将修改理由附为段落批注",
   exportFile: "导出文件", deliveryHistory: "已交付文件", downloadAgain: "重新下载",
   pdfCopy: "PDF 是静态阅读副本；接受或拒绝 Word 原生修订请使用 DOCX。",
+  pdfFonts: "PDF 字体设置", readPdfFonts: "读取当前字体设置", fontAutomatic: "自动发现字体",
+  fontFolders: "字体文件夹（每行一个绝对路径）", fontListed: "使用下列字体文件夹", testedFonts: "填入已验证的系统字体文件夹",
+  fontShared: "这些文件夹适用于当前 DSH 配置的所有 Office PDF 预览。指定文件夹会替代自动发现 Office 字体，缺失字体可能被替代；已有回退字体偏好及其他设置会保留。",
+  fontNotes: "保存会重写 Office 配置块，该设置块内部的说明注释可能不保留。关闭表单而不应用，会保持当前设置。",
+  fontApply: "应用共享字体设置", fontClose: "关闭字体设置", fontReadAgain: "应用会开始保存共享设置；若取消等待或连接重载，请再次读取当前设置确认结果。",
+  fontCurrent: "当前字体文件夹", fontFallbacks: "保留的回退字体偏好",
   returnedFiles: "Word 返稿", returnDelivery: "返稿对应的已交付文件", uploadReturn: "导入返稿 DOCX",
   compareReturn: "对照返稿", originalReturn: "下载原始返稿", returnProjection: "返稿内部的 Word 修订",
   returnVersions: "Word 比较基线／交付正文／当前正文", manualAlignment: "核对段落对应",
@@ -437,12 +451,16 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     [returnedComparison, setReturnedComparison] = React.useState<Reply["returnComparison"]>(),
     [returnMappings, setReturnMappings] = React.useState<{ sourceIndex: number; blockId: string }[]>([]),
     [selectedReturns, setSelectedReturns] = React.useState<string[]>([]);
+  const [pdfFonts, setPdfFonts] = React.useState<OfficeFontSettings>(),
+    [fontAutomatic, setFontAutomatic] = React.useState(true),
+    [fontFolders, setFontFolders] = React.useState("");
   const [importFiles, setImportFiles] = React.useState<File[]>([]), [primaryIndex, setPrimaryIndex] = React.useState(0),
     [resourcePaths, setResourcePaths] = React.useState<Record<number, string>>({}),
     [resourceIncluded, setResourceIncluded] = React.useState<Record<number, boolean>>({});
   const controller = React.useRef<AbortController | undefined>(undefined),
     body = React.useRef<HTMLDivElement>(null);
   const paper = view?.paper;
+  const fontDraftDirectories = fontAutomatic ? null : fontFolders.split(/\r?\n/).filter(path => !!path.trim());
   React.useEffect(() => {
     const stream = new AbortController();
     setConnected(false);
@@ -473,6 +491,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     setReadingGoal("");
     setReadingEvidence("");
     setReturnedComparison(undefined); setReturnMappings([]); setSelectedReturns([]); setReturnDeliveryId("");
+    setPdfFonts(undefined); setFontFolders(""); setFontAutomatic(true);
     setImportFiles([]); setResourcePaths({}); setResourceIncluded({});
     return () => controller.current?.abort();
   }, [sessionId]);
@@ -504,6 +523,11 @@ function Workbench({ sessionId, call, observe, t }: Props) {
         setReturnedComparison(response.returnComparison);
         setReturnMappings(response.returnComparison.mappings);
         setSelectedReturns([]);
+      }
+      if (response.pdfFonts) {
+        setPdfFonts(response.pdfFonts);
+        setFontAutomatic(response.pdfFonts.directories === null);
+        setFontFolders((response.pdfFonts.directories ?? response.pdfFonts.systemDirectories).join("\n"));
       }
       return response;
     } catch (e) {
@@ -1577,7 +1601,29 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                     includeReasons, expectedRevision: paper.revision, baselineRevision: paper.comparisonRevision })}>{t("exportFile")}</button>
               </div>
               <label><input type="checkbox" checked={includeReasons} onChange={event => setIncludeReasons(event.target.checked)} />{t("includeReasons")}</label>
-              {exportFormat === "pdf" && <p className="pw-muted">{t("pdfCopy")}</p>}
+              {exportFormat === "pdf" && <>
+                <p className="pw-muted">{t("pdfCopy")}</p>
+                <details><summary>{t("pdfFonts")}</summary>
+                  <button disabled={busy} onClick={() => void run({ action: "pdf_font_settings" })}>{t("readPdfFonts")}</button>
+                  {pdfFonts && <>
+                    {pdfFonts.diagnostic && <p role="alert">{pdfFonts.diagnostic}</p>}
+                    <p>{t("fontCurrent")}: {pdfFonts.directories === null ? t("fontAutomatic") : pdfFonts.directories.join(", ")}</p>
+                    <p className="pw-muted">{t("fontShared")}</p><p className="pw-muted">{t("fontNotes")}</p>
+                    {!!pdfFonts.fallbacks?.length && <p className="pw-muted">{t("fontFallbacks")}: {pdfFonts.fallbacks.map(group => group.join(" → ")).join("; ")}</p>}
+                    <label><input type="checkbox" disabled={busy || !pdfFonts.canEdit} checked={fontAutomatic} onChange={event => setFontAutomatic(event.target.checked)} />{t("fontAutomatic")}</label>
+                    {!fontAutomatic && <label>{t("fontFolders")}<textarea disabled={busy || !pdfFonts.canEdit} maxLength={128000} value={fontFolders} onChange={event => setFontFolders(event.target.value)} /></label>}
+                    {!!pdfFonts.systemDirectories.length && <button disabled={busy || !pdfFonts.canEdit}
+                      onClick={() => { setFontAutomatic(false); setFontFolders(pdfFonts.systemDirectories.join("\n")); }}>{t("testedFonts")}</button>}
+                    <p className="pw-muted">{t("fontReadAgain")}</p>
+                    <div className="pw-actions">
+                      <button disabled={busy || !pdfFonts.canEdit || !fontAutomatic && !fontFolders.trim() || JSON.stringify(fontDraftDirectories) === JSON.stringify(pdfFonts.directories)}
+                        onClick={() => void run({ action: "configure_pdf_fonts", directories: fontDraftDirectories,
+                          expectedDirectories: pdfFonts.directories, sharedPreviews: true })}>{t("fontApply")}</button>
+                      <button disabled={busy} onClick={() => setPdfFonts(undefined)}>{t("fontClose")}</button>
+                    </div>
+                  </>}
+                </details>
+              </>}
               {!!paper.documentDeliveries.length && <h3>{t("deliveryHistory")}</h3>}
               {paper.documentDeliveries.slice(-5).reverse().map(delivery => <article key={delivery.id}>
                 <p>{delivery.name}</p><p className="pw-muted">{t("revision")} {delivery.baselineRevision} → {delivery.revision} · {Math.ceil(delivery.bytes / 1024)} KiB</p>

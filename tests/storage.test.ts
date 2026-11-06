@@ -763,3 +763,50 @@ test("translation send, native read and native completion return lossless JSON t
     await rm(root, { recursive: true });
   }
 });
+
+test("shared font configuration refuses active paper writes and its owning configuration action can finish across Paper close", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-font-reload-")), host = await open(root);
+  try {
+    await seed(host);
+    const original = await host.invoke({ action: "read" });
+    const entry = { options: { name: "@deepseek-ai/dsh-office-to-pdf", config: { timeoutMs: 60000, fontDirectories: ["/Existing"] } }, fiber: { state: 2 } };
+    let edits = 0;
+    host.ctx.provide("configEditor", { entries: () => [entry], edit: async (_entry: unknown, change: (current: object) => object) => {
+      const next = change(entry.options.config);
+      // Dependency reload closes Paper while ConfigEditor is still applying.
+      await host.service.close();
+      entry.options.config = next as typeof entry.options.config; edits++;
+    } } as never);
+    const held = host.hold();
+    const saving = host.invoke({ action: "feedback", requestId: "held-feedback", target: { kind: "source", selections: [original.paper.blocks[0].selection] }, comment: "Keep this durable feedback." });
+    await held.started;
+    const request = { action: "configure_pdf_fonts", directories: ["/System/Library/Fonts", "/Library/Fonts"], expectedDirectories: ["/Existing"], sharedPreviews: true };
+    await assert.rejects(host.invoke(request), /Finish or cancel active paper/);
+    assert.equal(edits, 0);
+    held.release(); await saving;
+    const configured = await host.service.handle(request, "task", true, AbortSignal.timeout(2000)) as { pdfFonts: { directories: string[] } };
+    assert.deepEqual(configured.pdfFonts.directories, request.directories); assert.equal(edits, 1);
+    const saved = host.domain.table("papers").get("paper");
+    assert.ok(saved && "feedback" in saved); assert.equal(saved.feedback.length, 1);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("an admitted global font edit prevents new paper mutations while its existing owner applies the configuration", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-font-admission-")), host = await open(root);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  try {
+    await seed(host);
+    const entry = { options: { name: "@deepseek-ai/dsh-office-to-pdf", config: { fontDirectories: ["/Existing"] } }, fiber: { state: 2 } };
+    let entered!: () => void; const started = new Promise<void>(resolve => { entered = resolve; });
+    host.ctx.provide("configEditor", { entries: () => [entry], edit: async (_entry: unknown, change: (current: object) => object) => {
+      const next = change(entry.options.config); entered(); await gate; entry.options.config = next as typeof entry.options.config;
+    } } as never);
+    const applying = host.invoke({ action: "configure_pdf_fonts", directories: ["/Library/Fonts"], expectedDirectories: ["/Existing"], sharedPreviews: true });
+    await started;
+    const current = await host.invoke({ action: "read" });
+    await assert.rejects(host.invoke({ action: "feedback", requestId: "late", target: { kind: "source", selections: [current.paper.blocks[0].selection] }, comment: "Not admitted during reload." }), /settings are being applied/);
+    release(); await applying;
+    assert.deepEqual((await host.invoke({ action: "read" })).paper.feedback, []);
+  } finally { release(); await host.close(); await rm(root, { recursive: true }); }
+});

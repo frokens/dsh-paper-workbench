@@ -80,9 +80,19 @@ PDF uses DSH's shared Office provider and font configuration. The plugin neither
 replaces shared font settings nor starts another converter. On the test machine,
 default font discovery reproduced a blocked worker; explicit system-font directory
 configuration converted bounded fixtures. This does not fix or establish default
-scan/cancellation behavior. A user-facing supported configuration and installed PDF
-acceptance remain open. Shared font changes affect other previews and may exclude
-Office fonts. Check missing-font warnings and rendered pages before sharing.
+scan/cancellation behavior. In **Document delivery**, choose PDF and open **PDF font
+settings**. Read the existing folders, review the shared-preview and configuration
+notes, and choose the folders before explicitly applying. **Use tested system
+folders** only fills the draft; **Apply shared font settings** saves it through DSH.
+Closing without applying keeps the existing settings. Existing fallback preferences
+and other raw settings are retained. Saving may remove comments inside the target
+Office settings block. If a request is cancelled or the connection reloads during
+application, read the current settings again before retrying.
+
+This configuration uses DSH's existing provider and editor. It does not repair the
+default font scan or its graceful exit. Shared changes affect other previews and
+may exclude Office fonts. Installed PDF/reload/cancellation acceptance remains open;
+check missing-font warnings and rendered pages before sharing.
 
 ## Data, updates and removal
 

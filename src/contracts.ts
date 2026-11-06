@@ -70,6 +70,10 @@ export const copyReturnCommentsRequest = z.object({ action: z.literal("copy_retu
   returnId: z.string(), mappings: returnMappingsSchema.default([]), commentIds: z.array(z.string()).min(1).max(100),
   expectedRevision: z.number().int().nonnegative(), textOnly: z.literal(true),
 });
+const fontDirectoriesSchema = z.array(z.string().min(1).max(2000)).min(1).max(64).nullable();
+export const configurePdfFontsRequest = z.object({ action: z.literal("configure_pdf_fonts"),
+  directories: fontDirectoriesSchema, expectedDirectories: z.array(z.string()).max(64).nullable(), sharedPreviews: z.literal(true),
+});
 export const createRequest = z.object({
   action: z.literal("create"),
   name: z.string().min(1).max(250),
@@ -235,6 +239,8 @@ export const uiRequest = z.discriminatedUnion("action", [
   compareReturnRequest,
   proposeReturnRequest,
   copyReturnCommentsRequest,
+  z.object({ action: z.literal("pdf_font_settings") }),
+  configurePdfFontsRequest,
   documentExportRequest,
 ]);
 export type UiRequest = z.infer<typeof uiRequest>;

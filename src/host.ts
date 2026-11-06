@@ -29,6 +29,7 @@ import { remoteInfo } from "./remote.js";
 import { wordProjection, wordComments } from "./word.js";
 import { bilingualProjection, existingDelivery, recordDocumentDelivery, selectComparison } from "./delivery.js";
 import { cleanPdf } from "./pdf.js";
+import { readOfficeFonts, configureOfficeFonts } from "./office-fonts.js";
 import { compareReturn, recordDocumentReturn, proposeReturnChanges, copyReturnComments } from "./returns.js";
 import { returnedBlockSchema } from "./records.js";
 import type { DocumentDelivery } from "./records.js";
@@ -71,6 +72,7 @@ export const inject = [
   "sessionController",
   "subagents",
   "officeToPdf",
+  "configEditor",
 ];
 export const paperDomainSpec = defineDomain({
   name: "paper_workbench",
@@ -87,6 +89,7 @@ const packageVersion: string = JSON.parse(readFileSync(join(root, "package.json"
 export class PaperWorkbench extends TypertRemoteService {
   private readonly lifetime = new AbortController();
   private readonly requests = new Set<Promise<unknown>>();
+  private changingFonts = false;
   private initialization?: Promise<void>;
   private readonly sends = new Map<string, Promise<void>>();
   private readonly readingRuns = new Map<string, {
@@ -463,10 +466,33 @@ export class PaperWorkbench extends TypertRemoteService {
     agent?: Agent,
   ): Promise<object> {
     const request = human ? uiRequest.parse(raw) : agentRequest.parse(raw);
+    const work = this.perform(request, sessionId, human, signal, agent);
+    // ConfigEditor owns this action across the dependent Paper service's
+    // reload. Joining it from close() would make the two owners await each other.
+    if (request.action === "configure_pdf_fonts") return work;
+    this.requests.add(work);
+    try { return await work; } finally { this.requests.delete(work); }
+  }
+
+  private async perform(
+    request: z.infer<typeof uiRequest> | z.infer<typeof agentRequest>,
+    sessionId: string,
+    human: boolean,
+    signal: AbortSignal,
+    agent?: Agent,
+  ): Promise<object> {
     await this.initialize();
     signal.throwIfAborted();
     if (this.ownedReading(sessionId) && request.action !== "read")
       throw new Error("This independent reading exposes its frozen material read only. Use read for the packet and the scoped structured_output tool for findings.");
+    if (request.action === "pdf_font_settings") return { pdfFonts: readOfficeFonts(this.ctx) };
+    if (this.changingFonts && request.action !== "read") throw new Error("The shared PDF font settings are being applied. Read the current settings after reloading finishes.");
+    if (request.action === "configure_pdf_fonts") {
+      if (this.requests.size || this.readingRuns.size) throw new Error("Finish or cancel active paper document operations and independent readings before changing the shared PDF font settings.");
+      this.changingFonts = true;
+      try { return { pdfFonts: await configureOfficeFonts(this.ctx, request, signal) }; }
+      finally { this.changingFonts = false; }
+    }
     if (request.action === "create") {
       if (!human && this.bindings.get(sessionId))
         throw new Error("This task already has a paper. Revise it or ask the user to start another draft in the sidebar.");
