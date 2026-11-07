@@ -18,7 +18,9 @@ E 的主语言选择、公开分发和最终验收在 [PR #5](https://github.com
 [有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)，
 候选仍待用户决定，不能扩称整稿质量或中英文同步修订通过。
 
-实际 Microsoft Word 接受/拒绝及导师返稿、Mac 桌面侧栏、字体表单、默认字体发现和最终界面仍有未验项。
+三组合成案例的六份 Microsoft Word 原生接受/拒绝结果已获[有界接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)，
+覆盖对应文本、段落和直接格式；有效命名样式与真实版面仍待核验。导师批注返稿未完成，
+Mac 已观察到原生会话窗口，但插件安装和侧栏仍待实际验证。字体表单、默认字体发现和最终界面也仍开放。
 支持组合及证据边界见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)、
 [接入矩阵](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/dsh-integration.md)和
 [交付与返稿状态](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/document-delivery-status.md)。下列完整体验仍是目标，不能视为全部交付。

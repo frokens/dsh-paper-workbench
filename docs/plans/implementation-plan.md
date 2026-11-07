@@ -126,7 +126,7 @@ Host/Client/工具/Skills、重启恢复、升级保全、卸载退出；Word �
 | B | 有界代码与代表原生路径已接收，最终界面收尾开放 | [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2)；[实际职责及待验项](../reference/bilingual-lifecycle-status.md) |
 | C | 代码和代表路径已获有界独立接收并合入，完整产品仍开放 | [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)；[实际证据与限制](../reference/research-reading-status.md) |
 | D | 代码及代表安装路径已获有界独立接收，完整出口仍开放 | [准确六向复审](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398)；[实际 Word 等未验边界](../reference/document-delivery-status.md) |
-| E | 主语言链、公开附件 API 安装及独立审改代表出口已获有界接收，整体未完成 | [公开预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)、[9 任务安装工程复现](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)、[中文局部修订与新读者复核](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)；真实 UI、Word、Desktop、字体和完整任务入口仍开放 |
+| E | 主语言链、公开附件 API 安装、独立审改和六份 Word 接受/拒绝代表结果已获有界接收，整体未完成 | [公开预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)、[9 任务安装工程复现](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)、[独立审改](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)、[Word/原生窗口实际范围](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)；真实返稿/版面/有效命名样式、Mac 插件侧栏、字体和完整任务入口仍开放 |
 
 维护状态只引用真实 PR 和结果，不在本文件堆积轮次日志。
 本次 D 接收依据验收标准允许缺少必验证据时接收有界代码批次的规则，不取消真实
@@ -134,3 +134,10 @@ Word、Desktop、全普通任务入口、字体表单实际交互或可见用户
 原生 API 独立安装，不能扩称全冷依赖或可见界面通过。alpha1 包固定实现提交 `46957f2`，
 本轮文档收敛不重打包、改版本或移动 tag。E 先完成剩余功能及
 验证，界面美化按用户要求放在功能验收之后。
+
+后续只补受影响的最小验收：先确认 Word 恢复和正式 UI/已连通文档接口可用，完成真实批注返稿
+及版面，再用真实定义的样式输入补一个命名样式代表例。Mac 按官方 app 自有宿主/profile 验证，
+不复制 Web 配置或凭据。保留本次异常和未保存状态，不自动重试失败的原生批注调用，不重复
+已接收的六份 Word 结果或模型案例；原生控制恢复前不发送前台事件。
+当前没有证据确认控制错误的原因或修复方法，不据此更改系统权限、安全设置或重建环境。
+若用户选择手工协助，由主控先确认正式界面可用，再只完成缺少的操作及保存证据。

@@ -78,14 +78,19 @@
 | Host 与 Skills | 实际加载安装包 Host，四项 Skill 路径匹配安装根；后续原生写作/审读的实际 Skill 正文和资源 base 匹配冻结包 |
 | 普通 Agent | 代表翻译、写作与新 fresh reader 路径已有实际结果；不替换主 Agent。已有/新建/恢复/非论文的全部可见侧栏入口及既有 MCP 使用矩阵尚未完成 |
 | 独立审改 | 真实意见绑定准确选区，中文删除候选和一位新读者复审获有界接收；两项 concern 与五项 limit 保留，受控稿英文投影为零，不代表整稿质量或双语同步通过 |
-| DOCX 与 PDF | 实际 SDK/已安装消费者的 clean、tracked、bilingual DOCX 及显式字体配置 PDF 已核；Microsoft Word 接受/拒绝与导师返稿仍未完成 |
+| DOCX 与 PDF | SDK/已安装消费者导出已核；另有六份 Word16.105 原生接受/拒绝的文本、段落和直接格式实证。有效命名样式、Word 真实版面与导师批注返稿仍未完成，两份 Word 原生布局 PDF 未执行 |
 | 字体与可见界面 | 显式系统字体目录路径有 PDF、取消及同 profile 重启证据；默认发现阻塞未修复，字体表单和最终界面仍待实际交互 |
 | 升级与卸载 | 原生 remove/install 及同数据恢复已有代表证据；不等于所有用户生命周期或可见安装流程通过 |
-| Mac 桌面应用 | 真实 Mac 侧栏与连接当前宿主的使用验收未完成；应用已安装不等于插件已验收 |
+| Mac 桌面应用 | 使用官方 Mac app 自有宿主/profile；已观察原生普通会话、聊天、主输入框和模型控件，控制接口无法进入插件页，插件安装/侧栏仍未核实；未修改模型或设置 |
 | Windows、Linux、Intel Mac | 当前发布包不声明支持，未验证 |
 
 独立审改的原始错误、明确恢复和语义边界见[主控复核](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)。
 上述范围均不取消真实 Word、Desktop 或完整 E 出口。
+
+[本轮原生客户端结论](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)
+区分已保存的六份 Word 结果、未保存返稿与原生控制阻塞。补批注时 Word 连接失效且进程退出，
+确切原因尚未确定；不据此判定插件缺陷，也不将未执行的布局或桌面侧栏算通过。下一步优先恢复
+正式 UI 或确认已连通的文档接口，不重复已通过且未受影响的六件或模型审改案例。
 
 本地开发只使用一份产品 checkout。为安装验收创建干净的可丢弃 DSH 测试 profile，
 隔离测试状态且保留用户正常 profile；该 profile 仅为安装环境，不复制产品源码。

@@ -151,3 +151,40 @@ data, model defaults and the existing UI target were preserved. Cached dependenc
 were present. No model call, visible installer interaction, Word or Desktop action
 is inferred from that check. The current [support matrix](dsh-integration.md#4-支持矩阵)
 retains the remaining delivery and frontend gates.
+
+## Actual Word results and remaining client gates
+
+The [independently checked Word16.105 window](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)
+produced six real accepted/rejected DOCX files from the teacher, paragraph
+split/merge and empty-to-three fixtures. Saved bytes matched their native action
+receipts. All six have the expected text/paragraph boundaries and no remaining
+revisions. The teacher and empty-to-three read-back format projections match.
+In the structure case, direct font families, color, size, indentation, line spacing,
+keepNext and bold survive; Word moves paragraph-after spacing and language to its
+defaults. Raw XML inequality alone is not format loss.
+
+The structure input has no styles.xml: its CustomBody name is an undefined
+reference. This fixture therefore provides no evidence for retaining or losing
+a real named style. Its original input and expected arrays remain unchanged.
+A separate one-style input with an actual style definition is prepared for the
+next bounded check; SDK/schema validation of that input is not Word acceptance.
+
+The teacher return was edited in Word memory, but its comment action failed and
+the return was not saved. A later native comment call lost its connection and
+Word's process exited. The exact cause is unresolved; this is not a confirmed
+plugin defect or a completed mentor-return test. This implementation task sent no
+reopen or recovery event and did not repeat the successful six files. A later
+read-only check found a new Word process; its cause and interactive health remain
+unknown. The native saved bytes and failed stages remain preserved.
+Application-filled raw properties stay with the audit originals; metadata-clean
+delivery derivatives remain a separate concern.
+
+The two Word-native layout PDFs were not executed after the stop. Word layout,
+real defined-style retention and the actual E/R/P return/comment path remain open.
+The existing comments/return owner will consume a genuinely saved return after
+the formal UI or an actually connected document interface is available. The same
+failed native comment automation is not retried to manufacture a result.
+The last Word document-connection inventory was empty. Neither that result nor
+the native window-control error establishes a system-permission fault or a
+verified repair. The next check needs a usable client and actual saved output;
+it does not require another model run or a changed runtime.

@@ -15,8 +15,10 @@ four research/writing Skills, display resources and required license notices.
 No source checkout, compilation, private registry or .NET SDK is required.
 
 The declared combination is **macOS Apple silicon, Node.js 24.9 or later, DSH
-0.2.2-rc.1 Web**. The package restricts its OS and CPU accordingly. Desktop and
-other combinations remain unverified.
+0.2.2-rc.1 Web**. The package restricts its OS and CPU accordingly. The official
+Mac application's own existing host/profile is the desktop acceptance route;
+its native conversation window has been observed, but plugin installation and
+the native sidebar remain unverified. Other combinations remain unverified.
 
 The [independent public-attachment check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)
 downloaded anonymously, installed through DSH's native API, matched all 40 package
