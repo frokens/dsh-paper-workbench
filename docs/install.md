@@ -1,20 +1,22 @@
-# Candidate installation
+# Test prerelease installation
 
 A–C and D's code/representative installed paths have received bounded independent
 acceptance; see the [D review](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
 The complete D/E exits remain open. The public test prerelease
-[0.5.0-alpha.1](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)
-is available; it is not a complete-product release. Its attachment is fixed to
-implementation commit `46957f2c4dc6b40433f6bbe5fef0ab23f230768f`. Later repository
-source and documentation do not rebuild or replace that attachment.
+[0.5.0-alpha.2](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
+is available, fixed to source `bad9ddf4e22b3873b2d565da9de3ea6c159698fb`.
+It is not a complete-product release. The archive received an
+[independent package check](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)
+and has actually been downloaded and installed. Its frozen predecessor alpha1,
+fixed to implementation `46957f2`, remains unchanged.
 
-The distinct **0.5.0-alpha.2 local review candidate** contains main-conversation
+The **0.5.0-alpha.2 prerelease** contains main-conversation
 file input, autosaved comments/one submission and automatic completed-turn reading,
 including the comment reconnect/version and frozen-goal repairs reviewed at
 [`26a020c`](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163).
-It is not publicly released or installed/accepted under the new native contract.
-Its source, archive and checksum receipt are handed off in the same PR for an
-independent package check before installation. The alpha1 release stays unchanged.
+Publication and API installation do not establish the complete native interaction.
+The package's status documents are its packaging-time snapshot; later release and
+runtime facts are recorded here, in the Release and in the same PR without repacking.
 
 ## Package and dependency
 
@@ -27,14 +29,18 @@ The declared combination is **macOS Apple silicon, Node.js 24.9 or later, DSH
 Mac application's own existing host/profile is the desktop acceptance route.
 Its [alpha1 native installation/sidebar check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
 has bounded real evidence, including ordinary-task translation and fresh reading.
-That window used the old forms/manual trigger. The alpha2 candidate's main-chat
-input, comments and automatic-reading interaction awaits independent package
-and native checks; it is not contained in the frozen alpha1. Other combinations
-remain unverified.
+That window used the old forms/manual trigger. Alpha2's visible Mac interaction,
+complete ordinary-task matrix and first-draft path remain unverified. Native Web
+DOCX path import/translation, local edit, automatic fresh-reader structured output,
+explicit human decision and actual tracked download received
+[bounded independent acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)
+for one controlled case. Its question/limits remain; this is not paper-quality acceptance.
+The preceding Markdown reader was cancelled after system sleep and returned no
+structured result. Other platform combinations remain unverified.
 
-The [independent public-attachment check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)
+The [independent alpha2 public-attachment check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503)
 downloaded anonymously, installed through DSH's native API, matched all 40 package
-files and four installed Skill paths, and read nine ordinary tasks without changing
+files and four live Skill paths, and read ten ordinary tasks without changing
 their data, model defaults or the existing UI target. The dependency cache already
 existed. This is API installation evidence, not a visible-UI or completely cold
 installation test. See the [current support matrix](reference/dsh-integration.md#4-支持矩阵)
@@ -52,16 +58,13 @@ links. The plugin's own MIT license is unchanged.
 
 ## Formal entry
 
-The public links below install the frozen alpha1 and retain its old interaction.
-For alpha2 review, use the separately supplied
-`dsh-paper-workbench-0.5.0-alpha.2.tgz` and its exact checksum after the package
-check; no alpha2 public download is available or implied. The same formal DSH
-installation steps apply, but actual alpha2 installation remains unexecuted.
+The public links below install the frozen alpha2 archive already checked through
+the formal API. Alpha1 retains its older interaction and is not replaced in place.
 
-1. Download the [alpha1 tarball](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.1/dsh-paper-workbench-0.5.0-alpha.1.tgz)
-   and its [SHA256 file](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.1/dsh-paper-workbench-0.5.0-alpha.1.tgz.sha256).
-   The tarball is 32,932,855 bytes; its SHA256 is
-   `12931815a95dabbef926511a09a2b64521ee5f86b29dfdd7a49a3059e4a29464`.
+1. Download the [alpha2 tarball](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.2/dsh-paper-workbench-0.5.0-alpha.2.tgz)
+   and its [SHA256 file](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.2/dsh-paper-workbench-0.5.0-alpha.2.tgz.sha256).
+   The tarball is 32,939,556 bytes; its SHA256 is
+   `154a57dd06594054612179e72d027c5933051549c39e337a9e94bcaa48a99d44`.
 2. In DSH, open **Plugins**, then **Add plugin**.
 3. Enter the downloaded tarball's local file path and choose **Install**.
 4. Read the result. If DSH requests a restart, restart that same host/profile.
@@ -82,8 +85,8 @@ restart that profile. This failure does not replace an already linked paper.
 
 ## Documents and delivery
 
-This section describes the alpha2 candidate workflow, awaiting independent package
-and native checks. The frozen alpha1 retains its historical interaction.
+This section describes the published alpha2 workflow. Its complete visible/native
+acceptance remains open; the frozen alpha1 retains its historical interaction.
 
 State a different primary language in the main conversation when needed. English
 is the default and projects Chinese; an explicit Chinese primary projects English.
@@ -138,6 +141,10 @@ original return; the text-only proposal does not apply them. Supported comment t
 can be copied to feedback only at an exact current range. Rich comments remain in
 the original return.
 
+The plugin's own PDF export and representative-page text, bilingual font and
+pagination checks retain their independent acceptance scope. Reuse the valid
+configured-path evidence; they are not a new prerequisite for this DOCX sample.
+This is separate from the optional Microsoft Word SaveAs PDF extension.
 PDF uses DSH's shared Office provider and font configuration. The plugin neither
 replaces shared font settings nor starts another converter. On the test machine,
 default font discovery reproduced a blocked worker; explicit system-font directory
@@ -183,8 +190,11 @@ main-chat revisions use this same path; unrelated answers, translation-only jobs
 and the reader's own turn do not start more paper readers. Findings and limits are
 read only. A stopped/failed reading can retry its saved scope without goal/evidence
 forms. Only the user accepts/rejects; automatic reading is not automatic acceptance.
-The alpha2 candidate still needs independent package and native acceptance;
-the frozen public alpha1 retains its earlier interaction.
+Alpha2 package/public-install checks have completed; visible comments/one-submit
+interaction and the remaining native matrix still need their own actual checks.
+The controlled DOCX reader's completed output, separate authorized human decision
+and downloaded files retain their exact scope; the reader is not a scientific-quality
+pass. The frozen alpha1 retains its earlier interaction.
 
 Developer fixtures use `npm run fixture:word -- prepare <new-test-directory>` and
 refuse to overwrite files. Their strict client checks require actual Word-created

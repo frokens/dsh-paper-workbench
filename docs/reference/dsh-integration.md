@@ -7,16 +7,23 @@
 它是设计依据，不是本插件已安装、宿主全部行为已实测或未来版本兼容的证据。
 实施前记录实际安装的 DSH 发行版和相关包版本，核需要的导出与运行时 API。
 
-当前已公开测试预发布 [0.5.0-alpha.1](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)，
-固定实现提交 `46957f2c4dc6b40433f6bbe5fef0ab23f230768f`，不改写其包或移动 tag。
-独立审查者已匿名取得同一附件，经原生 remove/install API 复现安装，核对 40 个文件和四项 Skill
-来源，并确认 9 个普通任务、原数据及模型设置保留，见[实际安装证据](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)。
-该路径使用现有依赖缓存，没有点击可见安装界面；不能扩称全冷安装、完整任务入口或桌面验收。
+当前已公开测试预发布 [0.5.0-alpha.2](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)，
+固定源码 `bad9ddf4e22b3873b2d565da9de3ea6c159698fb`。主对话入口、批注与自动审读已获
+[有界代码复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163)及
+[独立包审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)。
+[实际公开安装](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503)匿名取得原附件，
+经正式 API 升级，40 文件与四项 live Skill 来源匹配，10 个普通任务、原数据及默认模型保留。
+另一已有配置宿主的同进程升级保留其原论文和关联；新增模块日志直接观察到该进程导入安装根 Host。
+这份直接观察仅适用于该宿主；前一公开安装窗口没有直接模块 URI 跟踪，不混为同一证据。
+两条路径均未新建环境、未重启，使用现有依赖缓存，不能扩称全冷安装或可见界面验收。
 
-本分支另备 `0.5.0-alpha.2` 本地候选，收纳主对话入口、批注与自动审读的新合同；
-`26a020c` 的[代码退修复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163)
-有界闭合，不代表候选包或新原生流程通过。alpha2 的准确源头、TGZ/字节/校验及四项 Skills
-由同一 PR 独立包审；当前不公开发布、不安装，也不把 alpha1 的安装来源当作 alpha2 证明。
+alpha2 原生 Agent 已通过路径导入并在同轮完成逐段中英对照和局部候选；受控 DOCX 案例的
+自动 fresh 读者实际加载安装包 Skill、读取冻结材料并保存结构化意见。意见、证据限度和用户
+接收分别判断。旧 Markdown 读者受系统休眠后的流超时与墙钟取消影响而无输出，原件保留，
+不报作产品性能超时。代表性 DOCX 下载闭环也已获
+[原稿/下载稿独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)，
+完整新交互、首稿和 Mac 可见操作仍需各自证据。
+历史 alpha1 原包/tag 与旧表单证据保持原范围。
 
 | 能力 | 已核入口 | 官方源码 |
 | --- | --- | --- |
@@ -63,7 +70,9 @@
 分发的前置，也不能在未发布时写可用的 npm 安装命令。
 
 准确附件和宿主正式安装步骤见[安装指南](../install.md)。原生 API 安装路径已有独立实证，
-可见界面的点击流程仍待观察。Git URL 的源码安装路径只能作为开发方案，不能替代已构建用户包。
+alpha1 的 Mac 正式安装页已有有界观察，alpha2 可见界面仍待验。Git URL 的源码安装路径只能
+作为开发方案，不能替代已构建用户包。包内状态文字冻结于打包交接时，后续状态以 Release、
+当前仓库与 PR 实证为准；文档变化不重打原包或移动 tag。
 
 发布包应包括 Host/Client 产物、所需静态资源、Skills/说明、许可和实际依赖；不包括
 密钥、开发者绝对路径、node_modules 整树、用户论文和测试运行数据。可选包作者等
@@ -84,12 +93,14 @@
 
 | 组合或能力 | 当前证据与限制 |
 | --- | --- |
-| macOS Apple silicon / Node 25.9 / DSH 0.2.2-rc.1 Web | alpha1 公开附件匿名下载及原生 API 安装已独立核验；声明最低 Node 24.9，不从一次实测推导所有版本 |
-| alpha2 本地候选 | 沿现有构建/打包流程准备独立版本，待准确包审、实际安装及新交互原生验证；未公开发布，不复用旧版安装通过结论 |
-| Host 与 Skills | alpha1 实际加载安装包 Host，四项 Skill 路径匹配安装根；后续原生写作/审读的实际 Skill 正文和资源 base 匹配冻结包；alpha2 安装来源尚待核 |
+| macOS Apple silicon / Node 25.9 / DSH 0.2.2-rc.1 Web | alpha2 公开附件匿名下载、正式 API 升级及原有普通任务读取已独立核验；声明最低 Node 24.9，不从一次实测推导所有版本 |
+| alpha2 测试预发布 | 固定 bad9ddf / 32,939,556 字节 / 40 文件，独立包审、公开及实际安装已完成；完整新交互与产品仍未接收，alpha1 原件不变 |
+| Host 与 Skills | 两个既有 Web 宿主的安装文件与四项 live Skill 路径已核；其中已有配置宿主有同进程新增 Host 导入日志，实际 Skill 正文与资源 base 匹配冻结 alpha2；不把另一宿主的来源推断冒称直接缓存观察 |
 | 普通 Agent | 代表翻译、写作与新 fresh reader 路径已有实际结果；不替换主 Agent。已有/新建/恢复/非论文的全部可见侧栏入口及既有 MCP 使用矩阵尚未完成 |
-| 独立审改 | 真实意见绑定准确选区，中文删除候选和一位新读者复审获有界接收；两项 concern 与五项 limit 保留，受控稿英文投影为零，不代表整稿质量或双语同步通过 |
-| DOCX 与 PDF | SDK/已安装消费者导出已核；当前主对话 DOCX 输入→用户确认→真实下载与文本/批注对照仍需准确新流程证据。六份 Word16.105 原生接受/拒绝保留原文本、段落和直接格式范围；命名样式、真实版面、导师批注返稿和两份未执行的 Word 布局 PDF 为扩展未验 |
+| 独立审改 | 历史中文删除与复审保留原 concern/limit；alpha2 受控 DOCX 系统自动 fresh 审读已实际完成并存储1项 question/5项 limits。其候选与整稿质量、用户决定分别评核，旧 Markdown 取消记录不改写 |
+| DOCX 文件闭环 | alpha2 主对话 DOCX 路径导入、同轮双语/局部候选、自动 fresh 结果、唯一人类决定和实际 tracked 下载已获[有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)；原/新增批注锚点、唯一词插入、原件/重复下载、最终属性均已核，不代表 Word 实机或任意版式 |
+| 插件 PDF | 配置字体路径的真实导出、代表页文本/CJK/对象、取消及重启证据继续适用；默认字体发现和完整字体表单交互未解决。此出口独立于 Word SaveAs PDF 和本次 DOCX 样例 |
+| Word 客户端扩展 | 六份 Word16.105 接受/拒绝保留原文本、段落和直接格式范围；命名样式、真实版面、导师批注返稿和两份未执行的 Word 布局 PDF 为扩展未验 |
 | 字体与可见界面 | 显式系统字体目录路径有 PDF、取消及同 profile 重启证据；默认发现阻塞未修复，字体表单和最终界面仍待实际交互 |
 | 升级与卸载 | 原生 remove/install 及同数据恢复已有代表证据；不等于所有用户生命周期或可见安装流程通过 |
 | Mac 桌面应用 | 官方 app 自有宿主/profile 已从正式插件页安装公开 alpha1，40 文件匹配，普通任务侧栏、翻译/候选/真实 fresh reader 有界实证；新主对话入口/自动审读交互、接受拒绝、重启及关闭侧栏自动展开仍待验 |
@@ -107,7 +118,8 @@ DOCX、原/新增批注及锚点、真实文本差异、原件保全和可选属
 
 随后 [Mac 正向原生证据与交互差量](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
 保留旧表单/手工触发的准确范围，以及实际读者发现的候选译文覆盖问题。当前分支改为主对话输入、
-Word 式批注和系统自动审读；现有原生结果不改记为新交互验收，新包与实际相关模型/界面验证仍需补齐。
+Word 式批注和系统自动审读。alpha2 包审、安装及代表自动审读结果已有新证据，完整可见交互
+仍待核，旧表单/手工触发的结果不改记为新交互验收。
 
 本地开发只使用一份产品 checkout。为安装验收创建干净的可丢弃 DSH 测试 profile，
 隔离测试状态且保留用户正常 profile；该 profile 仅为安装环境，不复制产品源码。

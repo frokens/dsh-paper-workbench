@@ -4,8 +4,9 @@ Status: bounded B code and its representative native path independently accepted
 in [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2), reviewed at
 `7936adcef50222002a5284130d6f9cc07a770afd` and merged as `f398f95`.
 Accepted package: 0.2.0-alpha.3. The original A package and synthetic Word files are retained;
-the remaining Word return/layout and complete Desktop checks are not replaced by
-these changes. Later bounded Word and native Mac evidence is recorded in the
+complex Word return/layout checks remain extensions. The current minimum file loop
+has separate bounded evidence; complete Desktop workflow remains open. Later Word/Mac and
+published alpha2 evidence is recorded in the
 [current delivery status](document-delivery-status.md#current-e-prerelease-consumers)
 and [support matrix](dsh-integration.md#4-支持矩阵).
 
@@ -26,6 +27,14 @@ attempt; it does not reset the task's comment state. An older observation cannot
 roll back an acknowledged save version or overwrite dirty/in-flight text. Current
 saved anchors remain highlighted; stale locations are not guessed. Earlier B/alpha1 evidence below covers the
 old separate-save/send workflow, not native acceptance of the new interaction.
+Published alpha2 has independent package/public-install checks and an actual
+current native DOCX import, same-turn paragraph Chinese, local candidate and
+completed automatic reader. Its computed edit adds only `observed ` while the
+paired Chinese covers that complete changed sentence; unaffected paragraph
+translations are retained. The subsequent explicit human decision and actual
+tracked download received [bounded independent file acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046).
+This evidence does not establish visible comment
+autosave/one-submit interaction or whole-paper bilingual quality.
 
 One storageDomain aggregate holds the editable ProseMirror body, immutable import
 baseline and original package, actual steps/inverse steps, candidates, decisions,

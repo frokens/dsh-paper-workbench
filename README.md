@@ -8,25 +8,34 @@
 
 ## 当前状态
 
-当前提供 [0.5.0-alpha.1 测试预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)，
-安装包固定对应实现提交 `46957f2`，不改写该包或 tag。A–D 的有界代码批次已合入，
-E 在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 继续。本分支的 `0.5.0-alpha.2` 是独立本地候选，
-包含主对话文档入口、Word 式批注、系统自动独立审读及保存/审读目标修正；代码在 `26a020c`
-获得[有界独立复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163)。
-alpha2 尚未公开发布、安装或经新合同原生验收，仍待独立包审，完整产品尚未接收。
+当前提供 [0.5.0-alpha.2 测试预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)，
+原包固定源码 `bad9ddf`。主对话文档入口、Word 式批注、系统自动独立审读及保存/审读目标修正已获
+[有界代码复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163)和
+[独立包审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)。A–D 的有界代码批次已合入，
+E 在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 继续，完整产品尚未接收。
 
-独立核验已从公开附件匿名下载，经 DSH 原生安装接口安装，并确认 9 个普通任务可读、安装文件与原包一致、
-原数据及模型设置保留。随后 [Mac 原生窗口实证](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
-验证公开 alpha1 的正式插件页安装、普通任务侧栏、翻译、候选和真实新读者。它使用旧表单及手工触发流程，
+alpha2 已[匿名下载并经正式安装接口升级](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503)：
+40 个文件和四项 live Skill 路径对应原包，10 个已有普通任务可读，原数据及默认模型保留。
+已有模型配置的 Web 测试宿主也已同进程升级；原生主消息实际完成路径导入、同轮逐段中英对照和局部候选，
+系统自动 fresh 读者已加载安装包 Skill 与准确材料。旧 Markdown 读者因电脑休眠后的流超时与墙钟取消而无输出；
+后续受控 DOCX 的自动审读、明确人类决定和真实文件下载/对照已获
+[有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)；读者的问题和限度保留，不能扩称整稿质量或完整新交互接收。
+新侧栏可见操作、首稿与完整任务入口仍需各自证据。安装使用现有依赖缓存，未声称全冷安装。
+
+历史 [alpha1](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1) 原包与 tag 保持原件。
+[Mac 原生窗口实证](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
+验证其正式插件页安装、普通任务侧栏、翻译、候选和真实新读者。它使用旧表单及手工触发流程，
 不能改记为新交互通过；接受/拒绝、重启恢复和关闭侧栏后的自动展开仍待核验。
 真实普通 Agent 已完成代表翻译、写作和新的独立读者审改路径；中文局部删除获得
 [有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)，
-候选仍待用户决定，不能扩称整稿质量或中英文同步修订通过。
+该历史候选仍待用户决定，不能扩称整稿质量或中英文同步修订通过。
 
 三组合成案例的六份 Microsoft Word 原生接受/拒绝结果已获[有界接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)，
 覆盖对应文本、段落和直接格式，原失败和未保存返稿继续保留。本轮 Word 必选收敛为主对话上传/路径、
-用户确认改动、下载真实 DOCX，并能对照原稿/下载稿的文本与批注变化；该最小文件闭环仍需准确新流程证据。
+用户确认改动、下载真实 DOCX，并能对照原稿/下载稿的文本与批注变化；代表文件闭环已按
+[实际输入/下载稿及批注](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)完成独立核对。
 桌面 Word 自动化、有效命名样式、真实版面及复杂导师返稿为扩展验证，不阻塞这个最小目标。
+插件自身 PDF 导出与代表页文本、字体和分页核对仍独立验收，复用现有有效证据，不作为这次 Word 样例的新前置。
 Mac 新交互、默认字体发现和最终界面仍开放。原生读者发现一项实际候选译文的来源覆盖不足，
 原候选与意见保留待定，不能以中文显示正确代替来源语义核验。
 支持组合及证据边界见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)、
@@ -60,18 +69,18 @@ DSH 对话区或主聊天输入框。
 | [协作与审查](https://github.com/frokens/dsh-paper-workbench/blob/main/CONTRIBUTING.md) | 分支、Draft PR、独立审查、退修和合并 |
 | [工作规则](https://github.com/frokens/dsh-paper-workbench/blob/main/AGENTS.md) | 人与 Agent 均需遵守的稳定约束 |
 
-## 安装候选包
+## 安装测试包
 
 候选包包含已构建 Host/Client、文档运行时、Skill 和许可，通过 DSH 正式插件入口安装。
 已验证组合包括 DSH `0.2.2-rc.1` Web 和官方 Mac app 自有宿主/profile 的有界安装路径，
 均为 macOS Apple silicon；完整桌面流程及其余平台尚未验收。
 候选安装方式与限制见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)。
 
-从 [alpha1 预发布页](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)下载
-`dsh-paper-workbench-0.5.0-alpha.1.tgz` 和校验文件。在 DSH 的“插件 → 添加插件”输入下载文件路径并安装；使用者不需要
-克隆或编译源码。alpha1 保留其旧交互及已验范围；它不包含 alpha2 的交互变更。
-alpha2 本地候选文件为 `dsh-paper-workbench-0.5.0-alpha.2.tgz`，准确源码、字节与校验回执由同一 PR
-交接；没有公开 alpha2 下载地址。独立包审后才能推进其实际安装验证，不能把 alpha1 的安装结果移用。
+从 [alpha2 预发布页](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)下载
+`dsh-paper-workbench-0.5.0-alpha.2.tgz` 和校验文件。在 DSH 的“插件 → 添加插件”输入下载文件路径并安装；使用者不需要
+克隆或编译源码。原包为 32,939,556 字节 / 40 文件，SHA256 为
+`154a57dd06594054612179e72d027c5933051549c39e337a9e94bcaa48a99d44`。
+包内状态文档保留打包时的快照；后续发布与实测以 Release 和当前仓库/PR 记录为准，不重打原包或移动 tag。
 alpha2 新流程只从主对话接收文件引用和写作意图，默认英文配中文，明确要求中文主稿时才反转；
 侧栏批注自动保存、一次提交，写作完成后系统自动审读。接受/拒绝始终由用户决定。
 

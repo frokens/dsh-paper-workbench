@@ -5,12 +5,41 @@ independent acceptance in [PR #3](https://github.com/frokens/dsh-paper-workbench
 and merged in `163019e08c79c93b4a333a6e3a76cf2cb43fcdca`. The bounded A/B
 code and representative B native path are recorded separately. The C record below
 is retained with its original scope; the current E extension is described first.
-Complete Word return/layout, Desktop workflow and final sidebar usability remain
-open; later bounded Word and Mac results do not establish those complete exits.
+Complex Word return/layout remains an extension under the narrowed file scope.
+The representative minimum DOCX file loop now has its own independent evidence;
+Desktop workflow and final sidebar usability remain open. Earlier Word/Mac results retain their scope.
 
 ## Current E language and independent-revision scope
 
-The public [0.5.0-alpha.1 test candidate](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)
+The current public [0.5.0-alpha.2 prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
+is fixed to `bad9ddf`, [package-reviewed](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)
+and [actually downloaded/installed](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503).
+All 40 installed files and four live Skill paths matched. A configured Web host's
+same-process upgrade and later actual Skill/body-base receipts establish that
+run's source; no completely cold or visible alpha2 Mac installation is inferred.
+
+One current native DOCX message imported the four-paragraph synthetic input,
+completed its paragraph Chinese and proposed a pending whole-sentence operation
+whose computed diff inserts only `observed `. One automatic fresh reader retrieved
+the exact frozen packet and returned actual scoped structured output, persisted
+with the Reading: one located question about absent observation context and five
+limits, including comment/export/format boundaries. Its Chinese covers the complete
+changed sentence; other paragraph projections are retained. After independent
+assessment, an explicitly authorized control-side human decision accepted this
+exact synthetic candidate and a real tracked DOCX was exported/downloaded. Both
+the automatic reading and file loop received
+[bounded independent acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046).
+The question and limits remain; this is not whole-paper quality or full visible
+interaction acceptance, and the reader did not accept its own suggestion.
+
+The earlier alpha2 Markdown reader is retained as cancelled without output. System
+power evidence records a long sleep; a stream-idle timeout/core retry schedule on
+wake preceded observer wall-clock cancellation. It does not prove fifteen minutes
+of active reading or a plugin performance timeout. The later DOCX batch used
+utility-bound idle-sleep prevention, matching wall/monotonic timings and actual
+assertion release; the old failure was not rewritten or silently retried.
+
+The earlier public [0.5.0-alpha.1 test candidate](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)
 is fixed to implementation `46957f2`. New/imported Papers explicitly choose English
 or Chinese primary text, defaulting to English; the paired translation and frozen
 reader packet derive from that single fact. Linking retains the existing choice.
@@ -107,10 +136,10 @@ saved scope and needs no goal/evidence form.
 Unrelated turns and owned readers never trigger this process. Translation-only
 jobs do not separately launch scientific readers; paired candidate translations
 are always frozen and baseline changes retain their existing applicability checks.
-The user alone decides acceptance. The distinct local `0.5.0-alpha.2` candidate
-contains this changed entry/trigger and the reconnect/version/frozen-goal repairs.
-Independent package and native checks remain necessary; it is not publicly released,
-and the historical fresh-reader evidence does not validate its automatic trigger.
+The user alone decides acceptance. Published `0.5.0-alpha.2` contains this changed
+entry/trigger and reconnect/version/frozen-goal repairs. Its package/public-install
+checks and representative automatic DOCX reading now have their own actual evidence;
+historical manual-reader evidence is not relabeled as an automatic-trigger check.
 
 The exact owned child can retrieve this same frozen packet through the formal
 paper `read` action. The Host resolves its existing `Paper.readings.childId`, not
@@ -130,8 +159,10 @@ supplied baseline/candidate blocks and identify related candidates, issues,
 impact, evidence and suggestions. Completion is not a quality pass or acceptance.
 
 The paper aggregate retains exact source revision, requested/resolved candidate
-scope, immutable input, child identity, status and result. Retries reuse the same
-reading record without another child. Cancellation addresses the owned activation;
+scope, immutable input, child identity, status and result. Repeating the same request
+is idempotent. Explicit retry of a stopped Reading creates a replacement Reading
+and fresh child with the saved scope/lineage, retaining the old result; it does not
+resume a disposed child. Cancellation addresses the owned activation;
 late terminal evidence is retained without publishing a cancelled verdict. Native
 caller cancellation and Host teardown release their child. Restart marks unfinished
 work interrupted and requires an explicit new request rather than replaying a
