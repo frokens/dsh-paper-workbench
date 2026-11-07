@@ -56,9 +56,9 @@ alpha3 加入待定候选的中英选区批注、继续修订、侧栏阅读层�
 插件自身 PDF 导出与代表页文本、字体和分页核对仍独立验收，复用现有有效证据，不作为这次 Word 样例的新前置。
 Mac 完整点击矩阵、默认字体发现和最终界面仍开放。原生读者发现一项实际候选译文的来源覆盖不足，
 原候选与意见保留待定，不能以中文显示正确代替来源语义核验。
-支持组合及证据边界见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)、
-[接入矩阵](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/dsh-integration.md)和
-[交付与返稿状态](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/document-delivery-status.md)。下列完整体验仍是目标，不能视为全部交付。
+支持组合及证据边界见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/docs/install.md)、
+[接入矩阵](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/docs/reference/dsh-integration.md)和
+[交付与返稿状态](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/docs/reference/document-delivery-status.md)。下列完整体验仍是目标，不能视为全部交付。
 
 ## 目标体验
 
@@ -79,20 +79,20 @@ DSH 对话区或主聊天输入框。
 
 | 文档 | 职责 |
 | --- | --- |
-| [产品设计](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/product-design.md) | 用户问题、使用流程、范围及不可破坏的产品行为 |
-| [架构设计](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/architecture.md) | 文档模型、状态、修订、翻译、审读及格式适配 |
-| [DSH 接入与分发](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/dsh-integration.md) | 已核源码扩展点、安装、发布包和真实运行要求 |
-| [验收标准](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/acceptance.md) | 工程、真实 DSH、Word 文件闭环及安装验收 |
-| [实施规划](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/plans/implementation-plan.md) | 依赖顺序、职责批次、出口和剩余目标 |
-| [协作与审查](https://github.com/frokens/dsh-paper-workbench/blob/main/CONTRIBUTING.md) | 分支、Draft PR、独立审查、退修和合并 |
-| [工作规则](https://github.com/frokens/dsh-paper-workbench/blob/main/AGENTS.md) | 人与 Agent 均需遵守的稳定约束 |
+| [产品设计](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/docs/reference/product-design.md) | 用户问题、使用流程、范围及不可破坏的产品行为 |
+| [架构设计](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/docs/reference/architecture.md) | 文档模型、状态、修订、翻译、审读及格式适配 |
+| [DSH 接入与分发](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/docs/reference/dsh-integration.md) | 已核源码扩展点、安装、发布包和真实运行要求 |
+| [验收标准](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/docs/reference/acceptance.md) | 工程、真实 DSH、Word 文件闭环及安装验收 |
+| [实施规划](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/docs/plans/implementation-plan.md) | 依赖顺序、职责批次、出口和剩余目标 |
+| [协作与审查](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/CONTRIBUTING.md) | 分支、Draft PR、独立审查、退修和合并 |
+| [工作规则](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/AGENTS.md) | 人与 Agent 均需遵守的稳定约束 |
 
 ## 安装测试包
 
 候选包包含已构建 Host/Client、文档运行时、Skill 和许可，通过 DSH 正式插件入口安装。
 历史 alpha1/alpha2 的有界安装证据覆盖 DSH `0.2.2-rc.1` Web 和官方 Mac app 自有宿主/profile，
 均为 macOS Apple silicon；它们不证明 alpha3 实际加载、完整桌面流程或其余平台。
-候选安装方式与限制见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)。
+候选安装方式与限制见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/docs/install.md)。
 
 从 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 选择实际列出的 `v0.5.0-alpha.3`，
 下载 `dsh-paper-workbench-0.5.0-alpha.3.tgz` 和同名 `.sha256` 校验文件；未列出的版本不视为已分发。
@@ -123,6 +123,6 @@ npm run package
 
 ## 贡献与许可
 
-请先阅读 [CONTRIBUTING.md](https://github.com/frokens/dsh-paper-workbench/blob/main/CONTRIBUTING.md)。本仓库采用 [MIT License](https://github.com/frokens/dsh-paper-workbench/blob/main/LICENSE)。
+请先阅读 [CONTRIBUTING.md](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/CONTRIBUTING.md)。本仓库采用 [MIT License](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.3/LICENSE)。
 不得向公共仓库上传私人稿件、导师返稿、聊天截图、凭据或真实 API 密钥；回归样例
 使用合成文档或已核实可以再分发的材料，并保留第三方许可要求的署名。
