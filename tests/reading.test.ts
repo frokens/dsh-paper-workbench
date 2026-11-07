@@ -21,9 +21,10 @@ test("reading freezes actual submitted directions with their scope and source in
   let paper = fixture();
   paper = addFeedback(paper, { requestId: "f", target: { kind: "source", selections: [paperView(paper).blocks[0].selection] }, comment: "Explain the selection and feedback path." });
   const feedbackId = paper.feedback[0].id, direction = "Write from materials.md; keep the confirmed sentence. Do not investigate Host code, engineering drivers, logs, configuration or credentials. After proposing, request one reader; do not accept or rewrite.";
-  paper = createBatch(paper, { requestId: "batch", feedbackIds: [feedbackId], direction }, "task");
+  paper = createBatch(paper, { requestId: "batch", feedbackIds: [feedbackId], feedbackVersions: [{ id: feedbackId, version: paper.feedback[0].version }], direction }, "task");
   paper = addFeedback(paper, { requestId: "unrelated", target: { kind: "source", selections: [paperView(paper).blocks[2].selection] }, comment: "A separate future task." });
-  paper = createBatch(paper, { requestId: "other-batch", feedbackIds: [paper.feedback[1].id], direction: "Separate unselected feedback scope." }, "task");
+  paper = createBatch(paper, { requestId: "other-batch", feedbackIds: [paper.feedback[1].id],
+    feedbackVersions: [{ id: paper.feedback[1].id, version: paper.feedback[1].version }], direction: "Separate unselected feedback scope." }, "task");
   paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "p", operations: [{ kind: "replace", selection: paperView(paper).blocks[0].selection, replacement: "The Planner selects the action." }], reason: "Clarify selection.", feedbackIds: [feedbackId] }));
   const prepared = prepareReading(paper, { ...request, goal: "Author-supplied shorter reading goal." }, "task");
   assert.deepEqual(prepared.reading.material.directions, [{ batchId: paper.batches[0].id, revision: 0, feedbackIds: [feedbackId], direction }]);

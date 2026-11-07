@@ -10,6 +10,7 @@ import {
   returnMappingsSchema,
   sourceFormatSchema,
   sourceResourceSchema,
+  paperLanguageSchema,
 } from "./contracts.js";
 
 const diffSchema = z.array(
@@ -25,6 +26,7 @@ export const candidateSchema = z.object({
   status: z.enum(["pending", "accepted", "rejected", "undone"]),
   diffs: z.array(diffSchema),
   translations: z.array(candidateTranslationSchema),
+  authoring: z.object({ sessionId: z.string(), turn: z.number().int().positive(), turnStartSeq: z.number().int().nonnegative() }).optional(),
   returnedFrom: z.object({ returnId: z.string(), changeIds: z.array(z.string()), mappings: returnMappingsSchema,
     sourceRevision: z.number().int().nonnegative() }).optional(),
 });
@@ -64,6 +66,7 @@ export const translationViewSchema = translationSchema.extend({
 });
 const feedbackSchema = z.object({
   id: z.string(), requestId: z.string(), target: feedbackTargetSchema, comment: z.string(),
+  version: z.number().int().positive().default(1), resolved: z.boolean().default(false), replyTo: z.string().optional(),
   wordCommentId: z.string().optional(),
   returnComment: z.object({ returnId: z.string(), commentId: z.string() }).optional(),
 });
@@ -102,6 +105,8 @@ export const readingSchema = z.object({
   goal: z.string(),
   evidence: z.string(),
   replaces: z.string().optional(),
+  automatic: z.object({ turn: z.number().int().positive(), turnStartSeq: z.number().int().nonnegative() }).optional(),
+  projectionUnavailable: z.literal(true).optional(),
   material: z.object({
     baselineDocument: z.json(),
     candidateDocument: z.json(),
@@ -116,6 +121,7 @@ export const readingSchema = z.object({
     translations: z.array(translationViewSchema),
     candidateTranslations: z.array(translationViewSchema),
     brief: z.string(),
+    primaryLanguage: paperLanguageSchema.default("en"),
     warnings: z.array(z.string()),
   }),
   status: z.enum(["queued", "running", "completed", "failed", "cancelled", "interrupted"]),
@@ -126,7 +132,9 @@ export const readingSchema = z.object({
 export type Reading = z.infer<typeof readingSchema>;
 export const paperSchema = z.object({
   id: z.string(),
+  creation: z.object({ sessionId: z.string(), requestId: z.string(), kind: z.enum(["create", "import"]), previousPaperId: z.string().nullable(), revisionMode: z.enum(["accept", "reject"]).optional() }).optional(),
   name: z.string(),
+  primaryLanguage: paperLanguageSchema.default("en"),
   brief: z.string().default(""),
   revision: z.number().int().nonnegative(),
   document: z.json(),
@@ -150,6 +158,7 @@ export const paperSchema = z.object({
       requestId: z.string(),
       feedbackIds: z.array(z.string()),
       direction: z.string(),
+      feedbackVersions: z.array(z.object({ id: z.string(), version: z.number().int().positive() })).optional(),
       revision: z.number().int().nonnegative(),
       ...deliverySchema,
     }),
@@ -170,7 +179,9 @@ export const paperSchema = z.object({
         "superseded",
         "stale",
       ]),
-      ...deliverySchema,
+      sessionId: z.string(),
+      delivery: z.enum(["ready", "sent"]).optional(),
+      error: z.string().optional(),
     }),
   ),
   translations: z.array(translationSchema),

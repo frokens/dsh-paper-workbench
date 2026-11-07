@@ -178,8 +178,10 @@ static partial class Program
         (before.ParagraphProperties?.OuterXml ?? "") == (after.ParagraphProperties?.OuterXml ?? "")
         && EquivalentRuns(before.Elements<W.Run>().Select(r => new SourceRun(r, r.InnerText)).ToArray(), after.Elements<W.Run>());
 
-    static void AppendBilingual(W.Body body, JsonElement supplied)
+    static void AppendBilingual(W.Body body, JsonElement supplied, string? translationLanguage)
     {
+        string language = translationLanguage switch { "en" => "en-US", "zh" => "zh-CN",
+            _ => throw new Exception("Choose the supported translation language for the bilingual output.") };
         var paragraphs = body.Elements<W.Paragraph>().Where(p => p.Annotation<WorkingParagraph>() != null)
             .ToDictionary(p => p.Annotation<WorkingParagraph>()!.BlockId);
         var covered = new HashSet<string>();
@@ -190,7 +192,7 @@ static partial class Program
                 throw new Exception("The bilingual output has missing or overlapping source paragraphs.");
             var paragraph = new W.Paragraph();
             var properties = new W.RunProperties(new W.RunFonts { Ascii = "Cambria", HighAnsi = "Cambria", EastAsia = "Songti SC" },
-                new W.Languages { Val = "zh-CN", EastAsia = "zh-CN" });
+                new W.Languages { Val = language, EastAsia = language });
             var lines = group.GetProperty("text").GetString()!.Split('\n');
             for (int index = 0; index < lines.Length; index++)
             {

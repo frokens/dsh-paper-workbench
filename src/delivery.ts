@@ -26,7 +26,7 @@ export function bilingualProjection(paper: Paper) {
       id: translation.id, version: translation.version, order: indexes[0] };
   }).sort((a, b) => a.order - b.order);
   if (covered.size !== blocks.length || !blocks.length)
-    throw new Error("A bilingual working copy needs a current translation of every editable source paragraph. Refresh missing or stale Chinese first.");
+    throw new Error("A bilingual working copy needs a current translation of every editable source paragraph. Refresh missing or stale translations first.");
   return {
     groups: bilingual.map(({ blockIds, text }) => ({ blockIds, text })),
     translations: bilingual.map(({ id, version }) => ({ id, version })),

@@ -88,6 +88,12 @@ DOCX 适配与原生修订、合成夹具和相关测试、实测安装说明/�
 
 依赖完整路径，安装分发从 A 起持续维护而非本批才开始。
 
+当前交互收敛仍在同一 PR：文档（含导师返稿）只从原生主对话附件/路径/链接进入，
+普通 Agent 复用正式文件能力与原导入/返稿 owner，侧栏不留配置表单；Word 式批注自动
+保存、一次提交。首稿、主聊天及反馈写作的完整候选在正式轮次完成点自动 fresh 审读，
+不逐次 propose 启动，不要求用户配置或手工点审读，不替用户决定。
+旧 alpha1 的安装、表单和手工触发实证保持原范围，新交互需准确新候选的原生验收。
+
 交付：已构建公开发布候选、必要 runtime/资源/许可、精确安装/升级/卸载与故障说明、
 支持矩阵、独立安装复现、实际 DSH 中的完整用户流程、课程评估材料与准确结论。
 
@@ -126,9 +132,22 @@ Host/Client/工具/Skills、重启恢复、升级保全、卸载退出；Word �
 | B | 有界代码与代表原生路径已接收，最终界面收尾开放 | [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2)；[实际职责及待验项](../reference/bilingual-lifecycle-status.md) |
 | C | 代码和代表路径已获有界独立接收并合入，完整产品仍开放 | [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)；[实际证据与限制](../reference/research-reading-status.md) |
 | D | 代码及代表安装路径已获有界独立接收，完整出口仍开放 | [准确六向复审](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398)；[实际 Word 等未验边界](../reference/document-delivery-status.md) |
-| E | 只读准备中，剩余功能与最终验收尚未完成 | 主语言选择、公开安装、实际完整流程及最终界面；D 的实际 Word 必验继续保留 |
+| E | 主语言链、公开附件安装、独立审改、六份 Word 结果及 Mac 原生代表流程已获有界接收，当前新交互与整体仍未接收 | [公开预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)、[9 任务安装工程复现](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)、[独立审改](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)、[Word 实际范围](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)、[Mac 原生正向证据](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)；主对话入口、Word 式批注、自动审读需新包原生验收，真实返稿/版面/命名样式、字体和完整任务入口仍开放 |
 
 维护状态只引用真实 PR 和结果，不在本文件堆积轮次日志。
 本次 D 接收依据验收标准允许缺少必验证据时接收有界代码批次的规则，不取消真实
-Word、Desktop、全普通任务入口、字体表单实际交互或公开安装。E 先完成剩余功能及
-验证，界面美化按用户要求放在功能验收之后。
+Word、完整 Desktop、全普通任务入口或字体表单实际交互。公开附件已匿名下载并经原生 API
+独立安装；Mac 的正式插件页安装和代表论文侧栏也已实际观察，不能扩称全冷依赖、完整流程
+或新交互通过。alpha1 包固定实现提交 `46957f2`，本轮代码变更不重打该包、改版本或移动 tag。
+E 先完成剩余功能及验证，界面美化按用户要求放在功能验收之后。
+
+后续先冻结同一 PR 的新交互代码，完成六向独立审查，再由主控安排新候选和最小原生验证：
+主对话附件/路径/链接进入同一后台、关闭侧栏后的正确展开、自动保存/一次提交、正式轮次自动
+fresh 审读及真实覆盖问题的自主修正，保持用户决策边界。Mac 继续使用官方 app 自有宿主/profile，
+不复制 Web 配置或凭据，不把旧表单证据改记为新流程通过。
+
+Word 保持暂停。仅在正式 UI 或实际连通的文档接口可用后，补真实批注返稿、版面及已准备的
+有效命名样式代表例。保留异常和未保存状态，不自动重试失败的原生批注调用，不重复已接收的
+六份 Word 结果或无关模型案例；原生控制恢复前不发送前台事件。
+当前没有证据确认控制错误的原因或修复方法，不据此更改系统权限、安全设置或重建环境。
+若用户选择手工协助，由主控先确认正式界面可用，再只完成缺少的操作及保存证据。

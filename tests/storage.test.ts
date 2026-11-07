@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
@@ -18,10 +19,12 @@ import type { Agent } from "@deepseek-ai/dsh-agent";
 import { isJsonValue } from "@deepseek-ai/dsh-util-values";
 import type { SubagentActivationSpec, SubagentResult } from "@deepseek-ai/dsh-subagent";
 import { prepareReading } from "../src/reading.js";
+import { recordDocumentDelivery } from "../src/delivery.js";
 import { proposeRequest, readingRequest } from "../src/contracts.js";
 import { PDFDocument } from "pdf-lib";
 import type { OfficeToPdfRequest } from "@deepseek-ai/dsh-office-to-pdf";
 import { LocalSubprocessRuntime } from "@deepseek-ai/dsh-subprocess-local";
+import { LocalFileSystem } from "@deepseek-ai/dsh-fs-local";
 import type { SubprocessHandle } from "@deepseek-ai/dsh-subprocess";
 
 function fixture() {
@@ -47,6 +50,16 @@ function fixture() {
 }
 async function open(root: string) {
   const ctx = new Context();
+  new LocalFileSystem(ctx, { cwd: root, diffBasisMaxBytes: 10 * 1024 * 1024 });
+  const boundary = { openTurnStartSeq: 0, lastTurn: 1 };
+  const directions = ["Preserve the confirmed source and propose the requested local clarification."];
+  const parent = { id: "task", session: { id: "task" } } as unknown as Agent;
+  ctx.provide("agents", { turnBoundaryOf: () => boundary });
+  ctx.provide("workingDirectory", { ensure: async (_agent: Agent, signal?: AbortSignal) => { signal?.throwIfAborted(); return root; } });
+  ctx.provide("sessionQuery", { observeSession: async () => ({
+    events: directions.map((text, index) => ({ seq: boundary.openTurnStartSeq + index, type: "user/message", data: { content: [{ type: "text", text }] } })),
+    [Symbol.dispose]() {},
+  }) });
   new Storage(ctx);
   const backend = new JsonStorageBackend(root);
   let fail = false,
@@ -92,13 +105,14 @@ async function open(root: string) {
     },
   });
   const invoke = (request: object, signal = new AbortController().signal) =>
-    service.handle(request, "task", true, signal) as Promise<{
+    service.handle(request, "task", !["create", "import", "link", "propose", "request_translation", "cancel_translation", "import_return", "compare_return", "propose_return", "copy_return_comments"].includes((request as { action: string }).action), signal, parent) as Promise<{
       paper: ReturnType<typeof import("../src/model.js").paperView>;
     }>;
   return {
     ctx,
     domain,
     service,
+    parent, boundary, directions,
     invoke,
     calls,
     setFailure(value: boolean) {
@@ -138,12 +152,62 @@ async function seed(host: Awaited<ReturnType<typeof open>>) {
   await host.domain.table("bindings").put("task", { paperId: paper.id });
   return paper;
 }
+
+test("explicit primary language survives real Host create, bilingual export, DOCX intake, linking and same-data reopen", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-language-"));
+  let host = await open(root), runtime = host.ctx.plugin(LocalSubprocessRuntime);
+  await runtime;
+  try {
+    let view = await host.invoke({ action: "create", requestId: "chinese-draft", name: "Chinese primary.docx", brief: "保留职责。", primaryLanguage: "zh" });
+    const id = view.paper.id;
+    assert.equal(view.paper.primaryLanguage, "zh"); assert.equal(view.paper.translationLanguage, "en");
+    view = await host.invoke({ action: "propose", requestId: "source", reason: "Supplied synthetic roles.",
+      operations: [{ kind: "replace", selection: view.paper.blocks[0].selection, replacement: "规划器选择，执行者执行。" }] });
+    view = await host.invoke({ action: "decide", candidateIds: [view.paper.candidates[0].id], decision: "accepted", expectedRevision: 0 });
+    view = await host.invoke({ action: "request_translation", requestId: "en", sources: [view.paper.blocks[0].selection], replaces: [] });
+    await host.service.handle({ action: "complete_translation", jobId: view.paper.translationJobs[0].id,
+      groups: [{ sourceIndexes: [0], text: "The planner selects; the worker executes." }] }, "task", false, new AbortController().signal);
+    const output = await host.service.handle({ action: "export", requestId: "bilingual-en", variant: "bilingual", format: "docx",
+      includeReasons: false, expectedRevision: 1, baselineRevision: 0 }, "task", true, new AbortController().signal) as { base64: string };
+    const inspected = await host.service.engine({ action: "inspect", base64: output.base64 }, new AbortController().signal) as {
+      blocks: { text: string; runs: { nativeFormat: string }[] }[] };
+    assert.deepEqual(inspected.blocks.map(block => block.text), ["规划器选择，执行者执行。", "The planner selects; the worker executes."]);
+    assert.match(inspected.blocks[1].runs[0].nativeFormat, /w:val="en-US"/);
+    const clean = await host.service.handle({ action: "export", requestId: "clean-zh", variant: "clean", format: "docx",
+      includeReasons: false, expectedRevision: 1, baselineRevision: 0 }, "task", true, new AbortController().signal) as { base64: string };
+    const sourcePath = join(root, "primary.docx"); await writeFile(sourcePath, Buffer.from(clean.base64, "base64"));
+    view = await host.invoke({ action: "import", requestId: "chinese-file", name: "Returned primary.docx", format: "docx", path: sourcePath, primaryLanguage: "zh" });
+    assert.notEqual(view.paper.id, id); assert.equal(view.paper.primaryLanguage, "zh");
+    assert.equal(view.paper.blocks[0].text, "规划器选择，执行者执行。");
+    view = await host.invoke({ action: "link", paperId: id, primaryLanguage: "en" });
+    assert.equal(view.paper.primaryLanguage, "zh", "Linking cannot overwrite the existing Paper's language choice.");
+    await host.close(); await runtime.dispose();
+    host = await open(root); runtime = host.ctx.plugin(LocalSubprocessRuntime); await runtime;
+    view = await host.invoke({ action: "read" });
+    assert.equal(view.paper.id, id); assert.equal(view.paper.primaryLanguage, "zh"); assert.equal(view.paper.translationLanguage, "en");
+    assert.equal(view.paper.blocks[0].text, "规划器选择，执行者执行。");
+  } finally { await host.close(); await runtime.dispose(); await rm(root, { recursive: true }); }
+});
 function storedPaper(host: Awaited<ReturnType<typeof open>>) {
   const paper = host.domain.table("papers").get("paper");
   assert.ok(paper && "history" in paper);
   return paper;
 }
-const readingCommand = { action: "read_independently", requestId: "reading", candidateIds: [], goal: "Check the confirmed source.", evidence: "Synthetic facts only." };
+const readingInput = { action: "read_independently", requestId: "reading", candidateIds: [], goal: "Check the confirmed source.", evidence: "Synthetic facts only." };
+async function seedWriting(host: Awaited<ReturnType<typeof open>>) {
+  let paper = await seed(host);
+  paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "write", reason: "Clarify the supplied statement.",
+    operations: [{ kind: "replace", selection: paperView(paper).blocks[0].selection, replacement: "Keep the confirmed sentence exactly." }] }),
+    { sessionId: "task", turn: host.boundary.lastTurn, turnStartSeq: host.boundary.openTurnStartSeq });
+  await host.domain.table("papers").put(paper.id, paper);
+  return paper;
+}
+function waitForReading(host: Awaited<ReturnType<typeof open>>, status: string) {
+  if (storedPaper(host).readings.some(reading => reading.status === status)) return Promise.resolve();
+  return new Promise<void>(resolve => { const off = host.ctx.on("domain/changed", () => {
+    if (storedPaper(host).readings.some(reading => reading.status === status)) { off(); resolve(); }
+  }); });
+}
 const readingResult: SubagentResult = {
   stopReason: "completed", output: [],
   structured: { interpretation: { problem: "A confirmed statement", mechanism: "Keep it intact", feedbackRole: "Clarification" }, findings: [], limits: ["Synthetic source only"] },
@@ -236,7 +300,8 @@ test("Markdown intake uses the real managed subprocess and SDK, retains original
   try {
     const source = "# Method\n\nThe result remains unverified. 中文原稿。\n";
     const resource = { path: "refs/source.bib", base64: Buffer.from("@misc{unused, title={A supplied resource}}\n").toString("base64") };
-    const imported = await host.invoke({ action: "import", format: "markdown", name: "source.md", base64: Buffer.from(source).toString("base64"), resources: [resource] });
+    await writeFile(join(root, "source.md"), source); await writeFile(join(root, "source.bib"), Buffer.from(resource.base64, "base64"));
+    const imported = await host.invoke({ action: "import", requestId: "markdown-file", format: "markdown", name: "source.md", path: "source.md", resources: [{ path: resource.path, sourcePath: "source.bib" }] });
     assert.equal(imported.paper.sourceFormat, "markdown");
     assert.deepEqual(imported.paper.sourceResources, [{ path: resource.path }]);
     assert.ok(imported.paper.blocks.some(block => block.text.includes("中文原稿")));
@@ -246,7 +311,8 @@ test("Markdown intake uses the real managed subprocess and SDK, retains original
     assert.deepEqual(stored.sourceResources, [resource]);
     assert.equal(handles.length, 3, "One Markdown process and two SDK boundaries use the same DSH subprocess service.");
     assert.deepEqual(await host.service.handle({ action: "download_source", resourcePath: resource.path }, "task", true, new AbortController().signal), { base64: resource.base64, name: "source.bib" });
-    const pending = host.service.handle({ action: "import", format: "markdown", name: "cancelled.md", base64: Buffer.from("# Cancelled\n\n" + "Data. ".repeat(100000)).toString("base64"), resources: [] }, "task", true, new AbortController().signal);
+    await writeFile(join(root, "cancelled.md"), "# Cancelled\n\n" + "Data. ".repeat(100000));
+    const pending = host.service.handle({ action: "import", requestId: "cancelled-file", format: "markdown", name: "cancelled.md", path: "cancelled.md", resources: [] }, "task", false, new AbortController().signal, host.parent);
     await new Promise(resolve => setTimeout(resolve, 20));
     const rejected = assert.rejects(pending);
     await host.service.close(); await rejected;
@@ -259,7 +325,7 @@ test("Markdown intake uses the real managed subprocess and SDK, retains original
 test("production native reading uses the DSH fresh/caller seam, validates structured capture and returns lossless JSON without changing the source", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
   try {
-    await seed(host);
+    await seedWriting(host);
     const before = JSON.stringify(storedPaper(host).document), calls: SubagentActivationSpec[] = [];
     let disposed = false;
     host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
@@ -267,7 +333,8 @@ test("production native reading uses the DSH fresh/caller seam, validates struct
       return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => { disposed = true; } };
     } });
     const parent = { id: "task", hiddenParentReasoning: "PRIVATE_PARENT_REASONING" } as unknown as Agent;
-    const result = await host.service.handle(readingCommand, "task", false, new AbortController().signal, parent);
+    await host.service.completeWritingTurn(parent, 1, new AbortController().signal);
+    const result = await host.invoke({ action: "read" });
     assert.equal(isJsonValue(result), true);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].provider, "spawn");
@@ -279,7 +346,7 @@ test("production native reading uses the DSH fresh/caller seam, validates struct
     assert.equal(storedPaper(host).readings[0].status, "completed");
     assert.equal(JSON.stringify(storedPaper(host).document), before);
     assert.equal(disposed, true);
-    await host.service.handle(readingCommand, "task", false, new AbortController().signal, parent);
+    await host.service.completeWritingTurn(parent, 1, new AbortController().signal);
     assert.equal(calls.length, 1, "An identical completed retry cannot start another chargeable child.");
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
@@ -289,7 +356,7 @@ test("only the exact owned child reads its frozen packet through the production 
   try {
     let paper = await seed(host);
     paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "p", operations: [{ kind: "replace", selection: paperView(paper).blocks[0].selection, replacement: "Keep the confirmed sentence exactly." }], reason: "Clarify the preservation requirement." }));
-    const prepared = prepareReading(paper, readingRequest.parse({ ...readingCommand, candidateIds: "all" }), "task");
+    const prepared = prepareReading(paper, readingRequest.parse({ ...readingInput, candidateIds: "all" }), "task");
     await host.domain.table("papers").put("paper", prepared.paper);
     const childId = prepared.reading.childId;
     const read = (id: string, human = false) => host.service.handle({ action: "read" }, id, human, new AbortController().signal, { id } as Agent) as Promise<{ paper: null | ReturnType<typeof paperView>; available: object[]; reading?: ReturnType<typeof import("../src/reading.js").readingPacket> }>;
@@ -312,10 +379,10 @@ test("only the exact owned child reads its frozen packet through the production 
     assert.equal(unrelated.available.length, 1);
     const before = JSON.stringify(storedPaper(host));
     for (const [human, command] of [
-      [false, { action: "create", name: "Forbidden", brief: "" }],
-      [false, readingCommand],
-      [true, { action: "link", paperId: "paper" }],
-      [true, { action: "feedback", requestId: "child-f", target: { kind: "source", selections: [paperView(later).blocks[0].selection] }, comment: "Forbidden mutation" }],
+      [false, { action: "create", requestId: "forbidden", name: "Forbidden", brief: "" }],
+      [false, { action: "import", requestId: "forbidden-file", path: "unread.docx" }],
+      [false, { action: "link", paperId: "paper" }],
+      [true, { action: "save_feedback", id: randomUUID(), expectedVersion: 0, target: { kind: "source", selections: [paperView(later).blocks[0].selection] }, comment: "Forbidden mutation" }],
     ] as const)
       await assert.rejects(host.service.handle(command, childId, human, new AbortController().signal, { id: childId } as Agent), /frozen material read only/);
     assert.equal(JSON.stringify(storedPaper(host)), before);
@@ -325,11 +392,12 @@ test("only the exact owned child reads its frozen packet through the production 
 test("reading cancellation targets its owned activation and retains a late completion as evidence without publishing a verdict", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
   try {
-    await seed(host);
+    await seedWriting(host);
     let finish!: (result: SubagentResult) => void, disposed = false;
     const result = new Promise<SubagentResult>(resolve => { finish = resolve; });
     host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result, dispose: async () => { disposed = true; } }) });
-    await host.service.handle(readingCommand, "task", true, new AbortController().signal, { id: "task" } as Agent);
+    const pending = host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    await waitForReading(host, "running");
     const id = storedPaper(host).readings[0].id;
     assert.equal(storedPaper(host).readings[0].status, "running");
     await host.invoke({ action: "cancel_reading", readingId: id });
@@ -341,6 +409,7 @@ test("reading cancellation targets its owned activation and retains a late compl
     });
     finish(readingResult);
     await terminal;
+    await pending;
     assert.equal(storedPaper(host).readings[0].status, "cancelled");
     assert.equal(storedPaper(host).readings[0].output, undefined);
     assert.ok(storedPaper(host).readings[0].terminal);
@@ -351,9 +420,9 @@ test("reading cancellation targets its owned activation and retains a late compl
 test("a child failure is a durable reading failure, never a completed quality verdict", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
   try {
-    await seed(host);
+    await seedWriting(host);
     host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve({ stopReason: "error", output: [], diagnostic: "Evidence could not be read." }), dispose: async () => {} }) });
-    await host.service.handle(readingCommand, "task", false, new AbortController().signal, { id: "task" } as Agent);
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
     assert.equal(storedPaper(host).readings[0].status, "failed");
     assert.equal(storedPaper(host).readings[0].output, undefined);
     assert.match(storedPaper(host).readings[0].diagnostic!, /Evidence/);
@@ -363,7 +432,7 @@ test("a child failure is a durable reading failure, never a completed quality ve
 test("cancelling the native reading caller disposes only its owned child and records cancellation", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
   try {
-    await seed(host);
+    await seedWriting(host);
     let finish!: (result: SubagentResult) => void, admitted!: () => void, disposed = false;
     const result = new Promise<SubagentResult>(resolve => { finish = resolve; });
     const started = new Promise<void>(resolve => { admitted = resolve; });
@@ -372,7 +441,7 @@ test("cancelling the native reading caller disposes only its owned child and rec
       return { childId: spec.childId, result, dispose: async () => { disposed = true; finish({ stopReason: "aborted", output: [] }); } };
     } });
     const signal = new AbortController();
-    const pending = host.service.handle(readingCommand, "task", false, signal.signal, { id: "task" } as Agent);
+    const pending = host.service.completeWritingTurn(host.parent, 1, signal.signal);
     await started;
     signal.abort();
     await pending;
@@ -387,7 +456,7 @@ test("same-data restart marks an unfinished reading interrupted without starting
   let host = await open(root);
   try {
     await seed(host);
-    const prepared = prepareReading(storedPaper(host), readingRequest.parse(readingCommand), "task");
+    const prepared = prepareReading(storedPaper(host), readingRequest.parse(readingInput), "task");
     await host.domain.table("papers").put("paper", prepared.paper);
     const material = JSON.stringify(prepared.reading.material);
     await host.close();
@@ -408,11 +477,11 @@ test("same-data restart marks an unfinished reading interrupted without starting
 test("failed durable reading admission cannot start a child", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
   try {
-    await seed(host);
+    await seedWriting(host);
     let starts = 0;
     host.ctx.provide("subagents", { startActivation: async () => { starts++; throw new Error("Must not start"); } });
     host.setFailure(true);
-    await assert.rejects(host.service.handle(readingCommand, "task", true, new AbortController().signal, { id: "task" } as Agent), /Injected durable write failure/);
+    await assert.rejects(host.service.completeWritingTurn(host.parent, 1, new AbortController().signal), /Injected durable write failure/);
     assert.equal(starts, 0);
     assert.equal(storedPaper(host).readings.length, 0);
   } finally { host.setFailure(false); await host.close(); await rm(root, { recursive: true }); }
@@ -421,14 +490,15 @@ test("failed durable reading admission cannot start a child", async () => {
 test("a rejected DSH cleanup retains valid results and a diagnostic, clears owned handles, and retries without another child or native error", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
   try {
-    await seed(host);
+    await seedWriting(host);
     let starts = 0, disposals = 0;
     host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
       starts++;
       return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => { disposals++; throw new Error("ACTIVATION_TEARDOWN_FAILED: representative cleanup rejection"); } };
     } });
     for (let i = 0; i < 2; i++) {
-      const response = await host.service.handle(readingCommand, "task", false, new AbortController().signal, { id: "task" } as Agent);
+      await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+      const response = await host.invoke({ action: "read" });
       assert.equal(isJsonValue(response), true);
       assert.equal(storedPaper(host).readings[0].status, "completed");
       assert.ok(storedPaper(host).readings[0].output);
@@ -538,8 +608,7 @@ test("cancellation at the queued Host update slot preserves saved feedback and r
     const cancellation = new AbortController();
     const cancelled = host.invoke(
       {
-        action: "feedback",
-        requestId: "cancelled",
+        action: "save_feedback", id: randomUUID(), expectedVersion: 0,
         target: {
           kind: "source",
           selections: [initial.paper.blocks[0].selection],
@@ -558,8 +627,7 @@ test("cancellation at the queued Host update slot preserves saved feedback and r
     assert.equal(current.paper.revision, 1);
     assert.equal(current.paper.feedback.length, 0);
     const note = {
-      action: "feedback",
-      requestId: "saved",
+      action: "save_feedback", id: randomUUID(), expectedVersion: 0,
       target: {
         kind: "source",
         selections: [current.paper.blocks[0].selection],
@@ -648,80 +716,35 @@ test("the production observation owner emits committed state and releases on can
   }
 });
 
-test("fault-injected prompt reply loss retains a retryable batch and uses the same native prompt identity and content", async () => {
-  const root = await mkdtemp(join(tmpdir(), "paper-storage-"));
-  const host = await open(root);
+test("one comment submission preserves its batch and native prompt identity after reply loss", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-storage-")), host = await open(root);
   try {
     await seed(host);
     const initial = await host.invoke({ action: "read" });
-    const feedback = await host.invoke({
-      action: "feedback",
-      requestId: "note",
-      target: {
-        kind: "source",
-        selections: [initial.paper.blocks[0].selection],
-      },
-      comment: "Preserve confirmed wording.",
-    });
-    const batch = await host.invoke({
-      action: "submit_batch",
-      requestId: "batch",
-      feedbackIds: [feedback.paper.feedback[0].id],
-      direction: "Minimal necessary change.",
-    });
-    const id = batch.paper.batches[0].id;
-    assert.equal(
-      host.calls.length,
-      0,
-      "Saving data alone must never call the model.",
-    );
+    const feedback = await host.invoke({ action: "save_feedback", id: randomUUID(), expectedVersion: 0,
+      target: { kind: "source", selections: [initial.paper.blocks[0].selection] }, comment: "Preserve confirmed wording." });
+    assert.equal(host.calls.length, 0, "Autosaving a comment cannot send a model prompt.");
+    const request = { action: "submit_batch", requestId: "batch", feedbackIds: [feedback.paper.feedback[0].id],
+      feedbackVersions: [{ id: feedback.paper.feedback[0].id, version: feedback.paper.feedback[0].version }], direction: "Minimal necessary change." };
     host.setSendFailure(true);
-    await assert.rejects(
-      host.invoke({ action: "send", kind: "batch", id }),
-      /reply loss/,
-    );
-    assert.equal(
-      (await host.invoke({ action: "read" })).paper.batches[0].delivery,
-      "ready",
-    );
-    const failed = await host.invoke({ action: "read" });
-    assert.equal(isJsonValue(failed), true);
+    await assert.rejects(host.invoke(request), /reply loss/);
+    const failed = await host.invoke({ action: "read" }), id = failed.paper.batches[0].id;
+    assert.equal(failed.paper.batches.length, 1); assert.equal(failed.paper.batches[0].delivery, "ready");
+    assert.match(failed.paper.batches[0].error!, /reply loss/);
+    await host.invoke({ action: "resolve_feedback", id: feedback.paper.feedback[0].id, expectedVersion: feedback.paper.feedback[0].version, resolved: true });
     host.setSendFailure(false);
-    await host.invoke({ action: "send", kind: "batch", id });
-    const nativeRead = await host.service.handle(
-      { action: "read" },
-      "task",
-      false,
-      new AbortController().signal,
-    );
-    assert.equal(
-      isJsonValue(nativeRead),
-      true,
-      "The actual native tool return must be lossless before any Remote serialization.",
-    );
-    assert.equal(
-      Object.hasOwn(
-        (await host.invoke({ action: "read" })).paper.batches[0],
-        "error",
-      ),
-      false,
-    );
-    assert.match(
-      failed.paper.batches[0].error!,
-      /reply loss/,
-      "The previously returned failed state is not mutated.",
-    );
+    const retried = await host.invoke(request);
+    assert.equal(retried.paper.batches.length, 1); assert.equal(retried.paper.batches[0].id, id);
+    assert.equal(retried.paper.batches[0].delivery, "sent"); assert.equal(Object.hasOwn(retried.paper.batches[0], "error"), false);
+    assert.equal(isJsonValue(retried), true); assert.equal(host.calls.length, 2);
     assert.deepEqual(host.calls[0], host.calls[1]);
-    assert.equal(host.calls.length, 2);
-    await host.invoke({ action: "send", kind: "batch", id });
-    assert.equal(host.calls.length, 2);
-  } finally {
-    await host.close();
-    await rm(root, { recursive: true });
-  }
+    await host.invoke(request); assert.equal(host.calls.length, 2);
+    assert.match(failed.paper.batches[0].error!, /reply loss/, "Earlier failed values remain immutable.");
+    await assert.rejects(host.invoke({ action: "send", kind: "batch", id }));
+  } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 
-test("translation send, native read and native completion return lossless JSON to the DSH tool consumer", async () => {
+test("the ordinary Agent prepares and completes translations in its existing turn without a second Send", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-storage-")),
     host = await open(root);
   try {
@@ -734,7 +757,8 @@ test("translation send, native read and native completion return lossless JSON t
       replaces: [],
     });
     const id = prepared.paper.translationJobs[0].id;
-    const sent = await host.invoke({ action: "send", kind: "translation", id });
+    const sent = prepared;
+    assert.equal(host.calls.length, 0);
     assert.equal(isJsonValue(sent), true);
     assert.equal(Object.hasOwn(sent.paper.translationJobs[0], "error"), false);
     const signal = new AbortController().signal;
@@ -778,7 +802,7 @@ test("shared font configuration refuses active paper writes and its owning confi
       entry.options.config = next as typeof entry.options.config; edits++;
     } } as never);
     const held = host.hold();
-    const saving = host.invoke({ action: "feedback", requestId: "held-feedback", target: { kind: "source", selections: [original.paper.blocks[0].selection] }, comment: "Keep this durable feedback." });
+    const saving = host.invoke({ action: "save_feedback", id: randomUUID(), expectedVersion: 0, target: { kind: "source", selections: [original.paper.blocks[0].selection] }, comment: "Keep this durable feedback." });
     await held.started;
     const request = { action: "configure_pdf_fonts", directories: ["/System/Library/Fonts", "/Library/Fonts"], expectedDirectories: ["/Existing"], sharedPreviews: true };
     await assert.rejects(host.invoke(request), /Finish or cancel active paper/);
@@ -805,8 +829,231 @@ test("an admitted global font edit prevents new paper mutations while its existi
     const applying = host.invoke({ action: "configure_pdf_fonts", directories: ["/Library/Fonts"], expectedDirectories: ["/Existing"], sharedPreviews: true });
     await started;
     const current = await host.invoke({ action: "read" });
-    await assert.rejects(host.invoke({ action: "feedback", requestId: "late", target: { kind: "source", selections: [current.paper.blocks[0].selection] }, comment: "Not admitted during reload." }), /settings are being applied/);
+    await assert.rejects(host.invoke({ action: "save_feedback", id: randomUUID(), expectedVersion: 0, target: { kind: "source", selections: [current.paper.blocks[0].selection] }, comment: "Not admitted during reload." }), /settings are being applied/);
     release(); await applying;
     assert.deepEqual((await host.invoke({ action: "read" })).paper.feedback, []);
   } finally { release(); await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("a completed writing turn aggregates its complete candidate combination and deduplicates stop-hook reentry", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-round-")), host = await open(root);
+  try {
+    await seed(host);
+    const source = (await host.invoke({ action: "read" })).paper.blocks[0].selection;
+    const add = (quote: string, replacement: string) => host.invoke({ action: "propose", requestId: randomUUID(), reason: "A scoped synthetic change.",
+      operations: [{ kind: "replace", selection: { ...source, from: source.quote.indexOf(quote), to: source.quote.indexOf(quote) + quote.length, quote }, replacement }] });
+    const calls: SubagentActivationSpec[] = [];
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      calls.push(spec); return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} };
+    } });
+    await add("Keep", "Retain"); await add("confirmed", "supplied");
+    assert.equal(calls.length, 0, "Individual propose calls cannot start a premature reader.");
+    const signal = new AbortController().signal;
+    await Promise.all([host.service.completeWritingTurn(host.parent, 1, signal), host.service.completeWritingTurn(host.parent, 1, signal)]);
+    assert.equal(calls.length, 1); assert.equal(storedPaper(host).readings.length, 1);
+    assert.equal(storedPaper(host).readings[0].candidateIds.length, 2);
+    assert.equal(storedPaper(host).readings[0].automatic?.turnStartSeq, 0);
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    assert.equal(calls.length, 1);
+    await add("sentence", "statement");
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    assert.equal(calls.length, 2); assert.equal(storedPaper(host).readings[1].candidateIds.length, 3);
+    assert.equal(storedPaper(host).readings[1].replaces, storedPaper(host).readings[0].id);
+    await host.service.completeWritingTurn({ id: storedPaper(host).readings[1].childId } as Agent, 1, signal);
+    assert.equal(calls.length, 2, "An owned reader cannot recursively start a paper reader.");
+    host.boundary.lastTurn = 2; host.boundary.openTurnStartSeq = 100;
+    await host.service.completeWritingTurn(host.parent, 2, signal);
+    assert.equal(calls.length, 2, "A later ordinary answer without new writing cannot review the old round again.");
+    assert.equal(storedPaper(host).revision, 0); assert.equal(storedPaper(host).decisions.length, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("new user directions in the same native writing turn create one replacement reading even when candidates stay unchanged", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-steering-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    let starts = 0;
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts++; return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} };
+    } });
+    const signal = new AbortController().signal;
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    const first = storedPaper(host).readings[0], original = JSON.stringify(first);
+    assert.equal(starts, 1);
+    const added = "Also check whether this clarification contradicts the abstract's stronger claim.";
+    host.directions.push(added);
+    await Promise.all([host.service.completeWritingTurn(host.parent, 1, signal), host.service.completeWritingTurn(host.parent, 1, signal)]);
+    const readings = storedPaper(host).readings;
+    assert.equal(starts, 2); assert.equal(readings.length, 2);
+    assert.deepEqual(readings[1].candidateIds, first.candidateIds);
+    assert.equal(readings[1].sourceRevision, first.sourceRevision);
+    assert.equal(readings[1].replaces, first.id); assert.ok(readings[1].goal.includes(added));
+    assert.ok(readings[1].goal.includes(host.directions[0]));
+    assert.equal(JSON.stringify(readings[0]), original, "The earlier reading keeps its original frozen inputs and result.");
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    assert.equal(starts, 2, "The same actual directions and candidate combination stay idempotent.");
+    host.boundary.lastTurn = 2; host.boundary.openTurnStartSeq = 100; host.directions.push("An unrelated later question.");
+    await host.service.completeWritingTurn(host.parent, 2, signal);
+    assert.equal(starts, 2, "A later turn with no paper candidate cannot start a reader.");
+    assert.equal(storedPaper(host).revision, 0); assert.equal(storedPaper(host).decisions.length, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("first-draft candidates trigger one automatic reader while unrelated and translation-only turns do not", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-draft-")), host = await open(root);
+  try {
+    let starts = 0;
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts++; return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} };
+    } });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    assert.equal(starts, 0);
+    const translated = await seed(host);
+    const prepared = await host.invoke({ action: "request_translation", requestId: "translation-only", sources: [paperView(translated).blocks[0].selection], replaces: [] });
+    await host.service.handle({ action: "complete_translation", jobId: prepared.paper.translationJobs[0].id,
+      groups: [{ sourceIndexes: [0], text: "保留已确认的句子。" }] }, "task", false, new AbortController().signal, host.parent);
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    assert.equal(starts, 0, "Completing a translation job without content candidates cannot start a scientific reader.");
+    const paper = fixture();
+    paper.document = importDocument([{ sourceIndex: 0, text: "", editable: true, style: null, runs: [], reason: null }]); paper.baseline = paper.document;
+    await host.domain.table("papers").put(paper.id, paper); await host.domain.table("bindings").put("task", { paperId: paper.id });
+    await host.invoke({ action: "propose", requestId: "first-draft", reason: "Two supplied synthetic statements.",
+      operations: [{ kind: "fill_draft", selection: paperView(paper).blocks[0].selection, paragraphs: ["The planner proposes.", "The result remains unverified."] }],
+      translations: [{ operationIndexes: [0], paragraphIndexes: [0], text: "规划器提出建议。" }, { operationIndexes: [0], paragraphIndexes: [1], text: "结果仍未经验证。" }] });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    assert.equal(starts, 1); assert.equal(storedPaper(host).readings[0].material.candidateTranslations.filter(item => item.jobId.startsWith("candidate:")).length, 2);
+    await host.service.completeWritingTurn({ id: "unrelated" } as Agent, 1, new AbortController().signal);
+    assert.equal(starts, 1);
+    host.boundary.lastTurn = 2; host.boundary.openTurnStartSeq = 100;
+    await host.service.completeWritingTurn(host.parent, 2, new AbortController().signal);
+    assert.equal(starts, 1);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("unprojectable automatic combinations record failure without manufacturing a child packet or retry loop", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-conflict-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    const source = paperView(storedPaper(host)).blocks[0].selection;
+    await host.invoke({ action: "propose", requestId: "alternative", reason: "An overlapping alternative.", operations: [{ kind: "replace", selection: source, replacement: "A different statement." }] });
+    let starts = 0; host.ctx.provide("subagents", { startActivation: async () => { starts++; throw new Error("Must not start."); } });
+    for (let attempt = 0; attempt < 2; attempt++) await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const reading = storedPaper(host).readings[0];
+    assert.equal(starts, 0); assert.equal(storedPaper(host).readings.length, 1);
+    assert.equal(reading.status, "failed"); assert.equal(reading.projectionUnavailable, true); assert.equal(reading.output, undefined);
+    await assert.rejects(host.service.handle({ action: "read" }, reading.childId, false, new AbortController().signal), /no reader packet/);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("failed automatic readers require a scoped explicit retry without user-supplied goal or evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-retry-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    let starts = 0;
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts++;
+      if (starts === 1) throw new Error("Representative startup failure.");
+      return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} };
+    } });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const failed = storedPaper(host).readings[0]; assert.equal(failed.status, "failed");
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal); assert.equal(starts, 1);
+    await host.invoke({ action: "retry_reading", requestId: "scoped-retry", readingId: failed.id });
+    await waitForReading(host, "completed");
+    const retried = storedPaper(host).readings[1];
+    assert.equal(retried.goal, failed.goal); assert.equal(retried.evidence, failed.evidence); assert.equal(retried.replaces, failed.id);
+    assert.equal(starts, 2); assert.equal(storedPaper(host).candidates[0].status, "pending");
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("file-reference intake uses the bounded DSH filesystem and reconciles concurrent and durable retries", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-file-intake-")), host = await open(root);
+  try {
+    const bytes = Buffer.from("A controlled Host intake fixture; document inspection is stubbed in this test.");
+    await writeFile(join(root, "source.docx"), bytes);
+    const text = "The Planner proposes an action."; let inspections = 0;
+    host.service.engine = async () => { inspections++; return { hasRevisions: false, normalizedBase64: bytes.toString("base64"), warnings: [], nativeComments: [],
+      blocks: [{ sourceIndex: 0, text, editable: true, style: null, runs: [{ text, bold: false, italic: false }], reason: null }] }; };
+    const request = { action: "import", requestId: "native-path", path: "source.docx" };
+    const [first, concurrent] = await Promise.all([host.invoke(request), host.invoke(request)]);
+    assert.equal(first.paper.id, concurrent.paper.id); assert.equal(inspections, 1); assert.equal(host.domain.table("papers").size, 1);
+    assert.equal((await host.invoke(request)).paper.id, first.paper.id); assert.equal(inspections, 1);
+    const stored = host.domain.table("papers").get(first.paper.id); assert.ok(stored && "history" in stored);
+    assert.equal(stored.originalBase64, bytes.toString("base64")); assert.equal(stored.creation?.requestId, request.requestId);
+    assert.equal(stored.translationJobs.length, 1); assert.equal(stored.translationJobs[0].sources[0].quote, text);
+    assert.equal(host.calls.length, 0, "The ordinary Agent receives prepared translations in the current turn, without a second prompt Send.");
+    await assert.rejects(host.invoke({ ...request, primaryLanguage: "zh" }), /different source or projection/);
+    await writeFile(join(root, "oversize.docx"), Buffer.alloc(16 * 1024 * 1024 + 1));
+    await assert.rejects(host.invoke({ action: "import", requestId: "oversize", path: "oversize.docx" }), { code: "FS_TOO_LARGE" });
+    assert.equal(inspections, 1); assert.equal(host.domain.table("papers").size, 1);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+for (const stage of ["file", "engine"] as const) test(`late ${stage} intake cannot overwrite a later user-selected Paper and its saved original reconciles on retry`, async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-file-late-")), host = await open(root);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  try {
+    await seed(host); const other = { ...fixture(), id: "other" }; await host.domain.table("papers").put(other.id, other);
+    const bytes = Buffer.from("A controlled late-import fixture."); await writeFile(join(root, "late.docx"), bytes);
+    let entered!: () => void; const started = new Promise<void>(resolve => { entered = resolve; }); let inspections = 0;
+    const ensure = host.ctx.workingDirectory.ensure.bind(host.ctx.workingDirectory);
+    host.ctx.workingDirectory.ensure = async (agent, signal) => { if (stage === "file") { entered(); await gate; } return ensure(agent, signal); };
+    host.service.engine = async () => { inspections++; if (stage === "engine") { entered(); await gate; } const text = "A newly imported document.";
+      return { hasRevisions: false, normalizedBase64: bytes.toString("base64"), warnings: [], nativeComments: [],
+        blocks: [{ sourceIndex: 0, text, editable: true, style: null, runs: [{ text, bold: false, italic: false }], reason: null }] }; };
+    const request = { action: "import", requestId: "late", path: "late.docx" }, pending = host.invoke(request);
+    const rejected = assert.rejects(pending, /associated with another paper/);
+    await started;
+    await assert.rejects(host.invoke({ action: "create", requestId: "late", name: "A competing request.docx", brief: "" }), /different input/);
+    await host.invoke({ action: "link", paperId: other.id }); release(); await rejected;
+    assert.equal(host.domain.table("bindings").get("task")?.paperId, other.id);
+    const saved = [...host.domain.table("papers").entries()].map(([, paper]) => paper).find(paper => "creation" in paper && paper.creation?.requestId === "late");
+    assert.ok(saved); assert.equal(saved.originalBase64, bytes.toString("base64"));
+    await assert.rejects(host.invoke(request), /associated with another paper/);
+    assert.equal(inspections, 1); assert.equal(host.domain.table("papers").size, 3);
+  } finally { release(); await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("conversation return references identify actual delivery markers and require explicit ambiguity/revision choices", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-return-reference-")), host = await open(root);
+  try {
+    let paper = await seed(host);
+    const deliveryBytes = Buffer.from("A controlled delivered-file fixture.").toString("base64"), returnBytes = Buffer.from("A controlled returned-file fixture.");
+    paper = recordDocumentDelivery(paper, { id: "delivered", revision: 0, baselineRevision: 0, variant: "clean", format: "docx", includeReasons: false,
+      name: "delivered.docx", base64: deliveryBytes, bytes: Buffer.from(deliveryBytes, "base64").length, warnings: [],
+      translations: [],
+      anchors: [{ blockId: paperView(paper).blocks[0].id, nativeId: "00000001" }] });
+    await host.domain.table("papers").put(paper.id, paper); await writeFile(join(root, "mentor.docx"), returnBytes);
+    const matching = [{ id: "delivered", paperId: paper.id }]; let markers: { id: string; paperId: string }[] = matching, hasRevisions = false;
+    // The real file service and return owner are exercised; Word inspection is
+    // explicitly stubbed, so this is not a native Word return acceptance claim.
+    host.service.engine = async raw => {
+      const expected = (raw as { base64: string }).base64 === deliveryBytes;
+      const text = "Keep the confirmed sentence.";
+      return { hasRevisions: expected ? false : hasRevisions, deliveryMarkers: expected ? matching : markers, warnings: [], nativeComments: [],
+        blocks: [{ sourceIndex: 0, nativeId: "00000001", text, editable: true, style: null, paragraphFormat: "",
+          runs: [{ text, bold: false, italic: false, nativeFormat: "" }], reason: null }] };
+    };
+    const request = { action: "import_return", requestId: "marked-return", path: "mentor.docx" };
+    await host.invoke(request);
+    assert.equal(storedPaper(host).documentReturns[0].deliveryId, "delivered");
+    assert.equal(storedPaper(host).documentReturns[0].originalBase64, returnBytes.toString("base64"));
+    markers = [];
+    await assert.rejects(host.invoke({ ...request, requestId: "no-marker" }), /no unique matching delivery/);
+    await host.invoke({ ...request, requestId: "chosen-baseline", deliveryId: "delivered" });
+    markers = [{ id: "other", paperId: paper.id }];
+    await assert.rejects(host.invoke({ ...request, requestId: "wrong-marker", deliveryId: "delivered" }), /no unique matching delivery/);
+    markers = [...matching, ...matching];
+    await assert.rejects(host.invoke({ ...request, requestId: "ambiguous" }), /does not uniquely identify/);
+    markers = [{ id: "delivered", paperId: "another-paper" }];
+    await assert.rejects(host.invoke({ ...request, requestId: "foreign-paper" }), /does not uniquely identify/);
+    markers = matching; hasRevisions = true;
+    await assert.rejects(host.invoke({ ...request, requestId: "unresolved" }), /user's accept\/reject choice/);
+    await host.invoke({ ...request, requestId: "chosen-revisions", revisionMode: "reject" });
+    assert.equal(storedPaper(host).documentReturns.at(-1)!.revisionMode, "reject");
+    assert.equal(storedPaper(host).documentReturns.length, 3);
+    assert.equal(storedPaper(host).revision, 0); assert.equal(storedPaper(host).candidates.length, 0); assert.equal(storedPaper(host).decisions.length, 0);
+    assert.equal(host.calls.length, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
 });

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Node as PMNode } from "prosemirror-model";
 import { z } from "zod";
 import type { Paper, Reading } from "./records.js";
-import { readingRequest, readingOutputSchema, type Selection } from "./contracts.js";
+import { readingRequest, readingOutputSchema, translationLanguageFor, type Selection } from "./contracts.js";
 import { schema, documentAt, projectCandidates, paperView, mapSelection, translationViews } from "./model.js";
 
 export function readingBlocks(document: z.infer<ReturnType<typeof z.json>>) {
@@ -16,7 +16,7 @@ export function readingBlocks(document: z.infer<ReturnType<typeof z.json>>) {
   return blocks;
 }
 
-export function prepareReading(paper: Paper, request: z.infer<typeof readingRequest>, sessionId: string) {
+export function prepareReading(paper: Paper, request: z.infer<typeof readingRequest>, sessionId: string, automatic?: Reading["automatic"]) {
   const previous = paper.readings.find(r => r.requestId === request.requestId);
   if (previous) {
     if (previous.sessionId !== sessionId || previous.goal !== request.goal || previous.evidence !== request.evidence
@@ -26,7 +26,14 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
   }
   if (request.replaces && !paper.readings.some(r => r.id === request.replaces))
     throw new Error("The earlier reading selected for recheck does not exist.");
-  const projection = projectCandidates(paper, request.candidateIds);
+  let projection: ReturnType<typeof projectCandidates>, diagnostic: string | undefined;
+  try { projection = projectCandidates(paper, request.candidateIds); }
+  catch (error) {
+    if (!automatic) throw error;
+    diagnostic = `No independent reader started because the candidate combination could not be projected: ${error instanceof Error ? error.message : String(error)}`;
+    projection = { candidateIds: request.candidateIds === "all" ? paper.candidates.filter(candidate => candidate.status === "pending").map(candidate => candidate.id) : request.candidateIds,
+      document: documentAt(paper, paper.revision).toJSON(), translations: translationViews(paper) };
+  }
   const candidates = paper.candidates.filter(c => projection.candidateIds.includes(c.id));
   const feedbackIds = new Set(candidates.flatMap(c => c.feedbackIds));
   const directions = paper.batches.filter(batch => !feedbackIds.size || batch.feedbackIds.some(id => feedbackIds.has(id)))
@@ -38,7 +45,9 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
     candidateIds: projection.candidateIds, requestedCandidateIds: request.candidateIds,
     goal: request.goal, evidence: request.evidence,
     ...(request.replaces ? { replaces: request.replaces } : {}),
-    status: "queued",
+    ...(automatic ? { automatic } : {}),
+    status: diagnostic ? "failed" : "queued",
+    ...(diagnostic ? { diagnostic, projectionUnavailable: true as const } : {}),
     material: {
       baselineDocument: documentAt(paper, paper.revision).toJSON(),
       candidateDocument: projection.document,
@@ -48,6 +57,7 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
       translations: translationViews(paper),
       candidateTranslations: projection.translations,
       brief: paper.brief,
+      primaryLanguage: paper.primaryLanguage,
       warnings: paper.warnings,
     },
   };
@@ -55,6 +65,7 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
 }
 
 export function readingPacket(paper: Pick<Paper, "id" | "name">, reading: Reading) {
+  if (reading.projectionUnavailable) throw new Error("This review never acquired a candidate projection; no reader packet is available.");
   return {
     kind: "independent-reading" as const, readOnly: true as const,
     paper: { id: paper.id, name: paper.name }, readingId: reading.id,
@@ -63,6 +74,8 @@ export function readingPacket(paper: Pick<Paper, "id" | "name">, reading: Readin
     requestedCandidateIds: reading.requestedCandidateIds,
     goal: reading.goal, evidence: reading.evidence,
     brief: reading.material.brief, warnings: reading.material.warnings,
+    primaryLanguage: reading.material.primaryLanguage,
+    translationLanguage: translationLanguageFor(reading.material.primaryLanguage),
     baselineBlocks: readingBlocks(reading.material.baselineDocument),
     candidateBlocks: readingBlocks(reading.material.candidateDocument),
     candidates: reading.material.candidates, feedback: reading.material.feedback,
@@ -116,7 +129,7 @@ function translationUnits(document: Paper["document"], translations: ReturnType<
   const blocks = readingBlocks(document);
   return new Map(translations.filter(t => t.state === "current").map(translation => {
     const candidate = translation.jobId.startsWith("candidate:");
-    // A candidate's Chinese group acquires a real projection id on acceptance.
+    // A candidate translation group acquires a real projection id on acceptance.
     // Its existing candidate identity/group remains the same reviewed input.
     const group = translations.filter(t => t.jobId === translation.jobId).findIndex(t => t.id === translation.id);
     const key = candidate ? `${translation.jobId}:${group}` : translation.id;

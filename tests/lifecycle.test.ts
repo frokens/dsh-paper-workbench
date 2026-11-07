@@ -530,7 +530,7 @@ test("Chinese content feedback binds the whole aligned source and needs a paired
   assert.equal(paperView(paper).translations.at(-1)!.state, "current");
 });
 
-test("feedback batches and stable delivery identities survive restart; saving and sending are separate", () => {
+test("feedback batch persistence and stable dispatch identities survive restart without treating autosave as submission", () => {
   let { paper } = initial();
   const feedback = {
     requestId: "note",
@@ -542,26 +542,26 @@ test("feedback batches and stable delivery identities survive restart; saving an
   const batch = {
     requestId: "batch",
     feedbackIds: [paper.feedback[0].id],
+    feedbackVersions: [{ id: paper.feedback[0].id, version: paper.feedback[0].version }],
     direction: "Only change the first occurrence.",
   };
   paper = createBatch(paper, batch, "task");
   assert.equal(createBatch(paper, batch, "task"), paper);
-  const prompt = deliveryPrompt(paper, "batch", paper.batches[0].id, "task");
+  const prompt = deliveryPrompt(paper, paper.batches[0].id, "task");
   paper = markDelivery(
     paper,
-    "batch",
     paper.batches[0].id,
     "Temporary send failure.",
   );
   assert.equal(
-    deliveryPrompt(paper, "batch", paper.batches[0].id, "task"),
+    deliveryPrompt(paper, paper.batches[0].id, "task"),
     prompt,
   );
   paper = paperSchema.parse(JSON.parse(JSON.stringify(paper)));
   assert.equal(paper.batches[0].delivery, "ready");
   assert.equal(text(paper), "X X alpha beta.");
   assert.throws(
-    () => deliveryPrompt(paper, "batch", paper.batches[0].id, "another-task"),
+    () => deliveryPrompt(paper, paper.batches[0].id, "another-task"),
     /does not belong/,
   );
 });

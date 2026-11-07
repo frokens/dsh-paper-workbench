@@ -4,9 +4,10 @@ D's code and representative installed paths received bounded independent
 [six-direction acceptance at 8b82844](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
 Candidate packages have been installed and upgraded in an exterior disposable
 profile; configured PDF delivery, cancellation and same-profile restart have
-representative actual evidence. Actual Microsoft Word round trips, Desktop,
-the complete ordinary-task entry matrix, browser interaction with the font form,
-public Release installation and final UI acceptance remain open. This accepts a
+representative actual evidence. Later E checks added six actual Word accept/reject
+results and bounded Mac installation/sidebar/model observations, described below.
+Actual mentor return/comments, Word layout/defined styles, the complete ordinary-task
+entry matrix, font-form interaction and final UI acceptance remain open. This accepts a
 bounded code batch under the acceptance rules, not the complete D exit or A–E product.
 
 The current Word projection consumes the primary ProseMirror document and actual
@@ -126,3 +127,82 @@ claim new SDK, model, PDF or installation execution. E continues the remaining
 functional and distribution work; the actual Word requirement stays open in D's
 complete exit and final acceptance. Final visual refinement follows functional
 acceptance.
+
+## Current E prerelease consumers
+
+The [alpha1 test prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)
+is fixed to implementation `46957f2`; later source/documentation does not replace its
+bytes. Its primary-language choice is retained through requests, pending candidates,
+frozen reading material and the existing export owner. English remains the default
+primary; explicitly choosing Chinese produces English projections. A translation
+wording correction changes only the projection, not confirmed primary text.
+
+Current source removes all document and mentor-return intake forms from the sidebar.
+The ordinary main Agent imports native attachment/@file/path references through
+DSH's bounded file service; links use the ordinary investigation/download tools
+first. `import_return` reads the actual embedded delivery marker, requires a unique
+matching primary-language DOCX receipt and asks in the conversation when the
+delivery or existing-revision choice is unresolved. It reuses the existing return
+record/comparison/proposal/comment owners. Human alignment remains explicit through
+that conversation; neither the Agent nor the automatic reader accepts a return.
+The local `0.5.0-alpha.2` candidate contains this changed entry, autosaved comments
+and system reading. It still needs independent package/native checks and is not
+publicly released. It does not alter the frozen alpha1 or prove a saved Word return.
+
+An installed alpha1 controlled path exercised Chinese primary text, English
+candidate projections, projection correction, content feedback and explicit human
+acceptance. Clean, tracked and bilingual DOCX plus a configured-font bilingual PDF
+were rendered and inspected; original input and immutable delivery retries matched.
+Those are SDK/Host/export observations, not Microsoft Word client actions.
+
+The [independent public-install check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)
+used the anonymously downloaded public attachment through native remove/install.
+All 40 installed files and four Skill paths matched; nine ordinary tasks, stored
+data, model defaults and the existing UI target were preserved. Cached dependencies
+were present. No model call, visible installer interaction, Word or Desktop action
+is inferred from that check. The current [support matrix](dsh-integration.md#4-支持矩阵)
+retains the remaining delivery and frontend gates. The later
+[Mac native observation](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
+verified the official plugin-page installation, an existing non-paper sidebar and
+a new draft/import/translation/candidate/fresh-reader path using the old forms and
+manual trigger. Its actual reader identified a translation-source coverage problem;
+the candidate stays pending and the original audit remains unchanged. This is not
+evidence for the current main-conversation input, autosave/one-submit or automatic
+trigger, nor for native accept/reject, restart or closed-sidebar auto-opening.
+
+## Actual Word results and remaining client gates
+
+The [independently checked Word16.105 window](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)
+produced six real accepted/rejected DOCX files from the teacher, paragraph
+split/merge and empty-to-three fixtures. Saved bytes matched their native action
+receipts. All six have the expected text/paragraph boundaries and no remaining
+revisions. The teacher and empty-to-three read-back format projections match.
+In the structure case, direct font families, color, size, indentation, line spacing,
+keepNext and bold survive; Word moves paragraph-after spacing and language to its
+defaults. Raw XML inequality alone is not format loss.
+
+The structure input has no styles.xml: its CustomBody name is an undefined
+reference. This fixture therefore provides no evidence for retaining or losing
+a real named style. Its original input and expected arrays remain unchanged.
+A separate one-style input with an actual style definition is prepared for the
+next bounded check; SDK/schema validation of that input is not Word acceptance.
+
+The teacher return was edited in Word memory, but its comment action failed and
+the return was not saved. A later native comment call lost its connection and
+Word's process exited. The exact cause is unresolved; this is not a confirmed
+plugin defect or a completed mentor-return test. This implementation task sent no
+reopen or recovery event and did not repeat the successful six files. A later
+read-only check found a new Word process; its cause and interactive health remain
+unknown. The native saved bytes and failed stages remain preserved.
+Application-filled raw properties stay with the audit originals; metadata-clean
+delivery derivatives remain a separate concern.
+
+The two Word-native layout PDFs were not executed after the stop. Word layout,
+real defined-style retention and the actual E/R/P return/comment path remain open.
+The existing comments/return owner will consume a genuinely saved return after
+the formal UI or an actually connected document interface is available. The same
+failed native comment automation is not retried to manufacture a result.
+The last Word document-connection inventory was empty. Neither that result nor
+the native window-control error establishes a system-permission fault or a
+verified repair. The next check needs a usable client and actual saved output;
+it does not require another model run or a changed runtime.

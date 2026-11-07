@@ -84,7 +84,7 @@ static partial class Program
                 if (request.TryGetProperty("bilingual", out var bilingual))
                 {
                     if (request.GetProperty("tracked").GetBoolean()) throw new Exception("A bilingual working copy uses the clean primary body.");
-                    AppendBilingual(body, bilingual);
+                    AppendBilingual(body, bilingual, request.GetProperty("translationLanguage").GetString());
                 }
                 StampDelivery(main, request);
             }
