@@ -1755,6 +1755,35 @@ export async function apply(ctx: Context) {
       ))
         yield state as View;
     }
+    scope.inject(["sidebarRight"], navigation => {
+      navigation.effect(() => {
+        let active: AbortController | undefined;
+        const selected = () => {
+          active?.abort();
+          const sessionId = navigation.sidebarRight.mounted.getSnapshot();
+          if (!sessionId) return;
+          const controller = new AbortController(); active = controller;
+          void (async () => {
+            let initialized = false, previous: string | undefined;
+            try {
+              for await (const state of observe(sessionId, controller.signal)) {
+                const paperId = state.paper?.id;
+                if (initialized && paperId && paperId !== previous) requestAnimationFrame(() => {
+                  if (!controller.signal.aborted && navigation.sidebarRight.mounted.getSnapshot() === sessionId)
+                    navigation.sidebarRight.openTab("paper-workbench");
+                });
+                previous = paperId; initialized = true;
+              }
+            } catch {
+              if (!controller.signal.aborted) console.warn("Paper workbench link observation stopped. Reopen the task to reconnect.");
+            }
+          })();
+        };
+        const unsubscribe = navigation.sidebarRight.mounted.subscribe(selected);
+        selected();
+        return () => { unsubscribe(); active?.abort(); };
+      });
+    });
     scope.effect(() =>
       scope.slots.inject("sidebar.right.pane.tab", () =>
         scope.slots.register(

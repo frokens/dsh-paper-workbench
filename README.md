@@ -10,16 +10,16 @@
 
 A 批的有界代码切片已由 [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)
 合入；B 批双语、反馈和修订生命周期的有界代码与代表性原生路径由
-[PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2) 合入，见[准确接收范围](docs/reference/bilingual-lifecycle-status.md)。
+[PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2) 合入，见[准确接收范围](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/bilingual-lifecycle-status.md)。
 C 批代码与代表路径已获有界独立接收并合入，见 [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)
-及[实际证据与限制](docs/reference/research-reading-status.md)。真实 DSH 普通任务已完成三段英文与
+及[实际证据与限制](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/research-reading-status.md)。真实 DSH 普通任务已完成三段英文与
 逐段中文候选、全新会话读者回读自己的冻结材料及结构化审读。候选仍待用户决定，审读意见须由作者
 判断，不表示一般写作质量或 Skill 效果。最终 Word 接受/拒绝、桌面接入、公开下载及界面收尾仍有未验项。
 尚未发布完整产品。下列完整体验仍是实施
 目标，不能视为已全部交付。当前职责、支持域和实际证据见
-[原生切片状态](docs/reference/native-slice-status.md)及实现 PR。
+[原生切片状态](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/native-slice-status.md)及实现 PR。
 D 批代码及代表安装路径已获[有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398)，
-见[交付与返稿状态](docs/reference/document-delivery-status.md)。实际 Word、Desktop、全普通任务入口、
+见[交付与返稿状态](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/document-delivery-status.md)。实际 Word、Desktop、全普通任务入口、
 字体表单交互、公开安装及完整 D 出口仍开放；E 继续剩余功能和最终验收。
 
 ## 目标体验
@@ -41,20 +41,28 @@ DSH 对话区或主聊天输入框。
 
 | 文档 | 职责 |
 | --- | --- |
-| [产品设计](docs/reference/product-design.md) | 用户问题、使用流程、范围及不可破坏的产品行为 |
-| [架构设计](docs/reference/architecture.md) | 文档模型、状态、修订、翻译、审读及格式适配 |
-| [DSH 接入与分发](docs/reference/dsh-integration.md) | 已核源码扩展点、安装、发布包和真实运行要求 |
-| [验收标准](docs/reference/acceptance.md) | 工程、真实 DSH、Word 往返及安装验收 |
-| [实施规划](docs/plans/implementation-plan.md) | 依赖顺序、职责批次、出口和剩余目标 |
-| [协作与审查](CONTRIBUTING.md) | 分支、Draft PR、独立审查、退修和合并 |
-| [工作规则](AGENTS.md) | 人与 Agent 均需遵守的稳定约束 |
+| [产品设计](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/product-design.md) | 用户问题、使用流程、范围及不可破坏的产品行为 |
+| [架构设计](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/architecture.md) | 文档模型、状态、修订、翻译、审读及格式适配 |
+| [DSH 接入与分发](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/dsh-integration.md) | 已核源码扩展点、安装、发布包和真实运行要求 |
+| [验收标准](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/acceptance.md) | 工程、真实 DSH、Word 往返及安装验收 |
+| [实施规划](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/plans/implementation-plan.md) | 依赖顺序、职责批次、出口和剩余目标 |
+| [协作与审查](https://github.com/frokens/dsh-paper-workbench/blob/main/CONTRIBUTING.md) | 分支、Draft PR、独立审查、退修和合并 |
+| [工作规则](https://github.com/frokens/dsh-paper-workbench/blob/main/AGENTS.md) | 人与 Agent 均需遵守的稳定约束 |
 
-## 安装与开发
+## 安装候选包
 
 候选包包含已构建 Host/Client、文档运行时、Skill 和许可，通过 DSH 正式插件入口安装。
 首个验证组合是 DSH `0.2.2-rc.1` Web、macOS Apple silicon；桌面插件安装与其余平台
-尚未验收。候选安装方式与限制见[安装说明](docs/install.md)。当前公开 Release 仍待
+尚未验收。候选安装方式与限制见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)。当前公开 Release 仍待
 独立审查；没有发布的包不能视为普通用户已可取得。
+
+公开候选发布后，从[GitHub Releases](https://github.com/frokens/dsh-paper-workbench/releases)取得
+准确的 `.tgz` 文件。在 DSH 的“插件 → 添加插件”输入下载文件路径并安装；使用者不需要
+克隆或编译源码。在任一普通任务打开右侧栏的“论文工作台”，新建或导入时选择主语言：
+默认英文配中文译文，也可明确选择中文主稿配英文译文。关联已有论文保留原选择。
+修改建议需由用户接收，准备翻译/反馈请求与发送给当前 Agent 是两步操作。
+
+## 源码开发
 
 开发者使用 Node.js 24.9 或更高版本和 .NET SDK 10。依赖由 npm 与 NuGet 锁文件确定。
 文档辅助程序使用 Open XML SDK，自带运行时；普通安装使用者无需 .NET SDK。
@@ -73,6 +81,6 @@ npm run package
 
 ## 贡献与许可
 
-请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。本仓库采用 [MIT License](LICENSE)。
+请先阅读 [CONTRIBUTING.md](https://github.com/frokens/dsh-paper-workbench/blob/main/CONTRIBUTING.md)。本仓库采用 [MIT License](https://github.com/frokens/dsh-paper-workbench/blob/main/LICENSE)。
 不得向公共仓库上传私人稿件、导师返稿、聊天截图、凭据或真实 API 密钥；回归样例
 使用合成文档或已核实可以再分发的材料，并保留第三方许可要求的署名。
