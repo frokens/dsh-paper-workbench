@@ -3,9 +3,47 @@
 Status: C candidate 0.3.0-alpha.4 and its representative native path received bounded
 independent acceptance in [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)
 and merged in `163019e08c79c93b4a333a6e3a76cf2cb43fcdca`. The bounded A/B
-code and representative B native path are recorded separately. Word desktop
-round trips, Desktop frontend, public user installation, D/E and final sidebar
-usability remain open.
+code and representative B native path are recorded separately. The C record below
+is retained with its original scope; the current E extension is described first.
+Word round trips, Desktop frontend and final sidebar usability remain open.
+
+## Current E language and independent-revision scope
+
+The public [0.5.0-alpha.1 test candidate](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)
+is fixed to implementation `46957f2`. New/imported Papers explicitly choose English
+or Chinese primary text, defaulting to English; the paired translation and frozen
+reader packet derive from that single fact. Linking retains the existing choice.
+The same candidate, feedback, acceptance and native fresh-child owners remain in
+use, with the ordinary main Agent and on-demand Skills.
+
+Representative native writing and translation results have independent semantic
+review. A subsequent [independent revision check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)
+bound a real reader finding to the exact current selection of a clearly labeled
+controlled old draft. The writer proposed one pending deletion; one new native
+fresh reader obtained the frozen packet and actual materials and returned located
+structured findings. Independent review found the deletion removed authoring
+instructions without losing mechanism facts or leaving a dangling reference.
+
+Both reader concerns and all five limits remain: the mechanism increment is
+limited by the supplied evidence, and the controlled Paper has no English
+projection. This proves Chinese local revision and fresh-reader review, not
+bilingual synchronization, whole-paper quality or user acceptance. The source
+remains revision zero, the candidate pending and original files preserved.
+Quality is assessed through actual reader evidence and user judgment; no keyword
+filter, fixed-answer check or automatic rewrite loop was added.
+
+This same case required three actual parent Sends: a supervisor path-alias false
+cancellation, a valid deletion followed by an incorrectly stringified candidate-ID
+argument rejected by the correct public schema, and an explicit native recovery.
+The recovery prompt supplied no correct argument answer; the Agent used historical
+tool feedback and launched the sole actual new reader. The errors and interventions
+remain in evidence. Initial native Skill receipts came from the checkout and cannot
+prove installed-package origin. After a normal same-profile restart, actual Host
+imports and Skill paths resolved to the frozen installed package; subsequent
+local-revision, bilingual and independent-reading receipts matched its body and
+resource base. This does not establish general model or Skill effectiveness.
+
+## C acceptance record
 
 The existing Open XML SDK creates a real blank DOCX, which enters the same Paper,
 immutable baseline, exact selections, candidates, decisions and export path as an
@@ -160,7 +198,7 @@ The live Client displays the completed reading and unchanged source revision; a
 finding's candidate control navigates to the new candidate and its paragraph-scoped
 Chinese. Native chat and composer remain intact. Very long finding/reason headings,
 centering of tall candidate cards and control/state density remain final UI work.
-No additional model run is needed for this closeout. This repository-only status
-update does not rebuild or replace the frozen alpha.4 package. Code and the
-representative path await final independent acceptance; complete product acceptance,
-Word/Desktop events, D exports/returns/PDF and E distribution/usability remain open.
+This C record does not rebuild or replace the frozen alpha.4 package; its bounded
+code and representative path were accepted and merged as linked above. Current E
+evidence is recorded in the first section and the support matrix. Complete product
+acceptance, actual Word/Desktop events and final usability remain open.

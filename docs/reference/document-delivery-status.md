@@ -6,7 +6,9 @@ Candidate packages have been installed and upgraded in an exterior disposable
 profile; configured PDF delivery, cancellation and same-profile restart have
 representative actual evidence. Actual Microsoft Word round trips, Desktop,
 the complete ordinary-task entry matrix, browser interaction with the font form,
-public Release installation and final UI acceptance remain open. This accepts a
+visible installation and final UI acceptance remain open. Public alpha1 attachment
+download and native API installation have since been independently verified as
+described below. This accepts a
 bounded code batch under the acceptance rules, not the complete D exit or A–E product.
 
 The current Word projection consumes the primary ProseMirror document and actual
@@ -126,3 +128,26 @@ claim new SDK, model, PDF or installation execution. E continues the remaining
 functional and distribution work; the actual Word requirement stays open in D's
 complete exit and final acceptance. Final visual refinement follows functional
 acceptance.
+
+## Current E prerelease consumers
+
+The [alpha1 test prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)
+is fixed to implementation `46957f2`; later documentation does not replace its
+bytes. Its primary-language choice is retained through requests, pending candidates,
+frozen reading material and the existing export owner. English remains the default
+primary; explicitly choosing Chinese produces English projections. A translation
+wording correction changes only the projection, not confirmed primary text.
+
+An installed alpha1 controlled path exercised Chinese primary text, English
+candidate projections, projection correction, content feedback and explicit human
+acceptance. Clean, tracked and bilingual DOCX plus a configured-font bilingual PDF
+were rendered and inspected; original input and immutable delivery retries matched.
+Those are SDK/Host/export observations, not Microsoft Word client actions.
+
+The [independent public-install check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)
+used the anonymously downloaded public attachment through native remove/install.
+All 40 installed files and four Skill paths matched; nine ordinary tasks, stored
+data, model defaults and the existing UI target were preserved. Cached dependencies
+were present. No model call, visible installer interaction, Word or Desktop action
+is inferred from that check. The current [support matrix](dsh-integration.md#4-支持矩阵)
+retains the remaining delivery and frontend gates.

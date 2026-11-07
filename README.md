@@ -8,19 +8,20 @@
 
 ## 当前状态
 
-A 批的有界代码切片已由 [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)
-合入；B 批双语、反馈和修订生命周期的有界代码与代表性原生路径由
-[PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2) 合入，见[准确接收范围](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/bilingual-lifecycle-status.md)。
-C 批代码与代表路径已获有界独立接收并合入，见 [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)
-及[实际证据与限制](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/research-reading-status.md)。真实 DSH 普通任务已完成三段英文与
-逐段中文候选、全新会话读者回读自己的冻结材料及结构化审读。候选仍待用户决定，审读意见须由作者
-判断，不表示一般写作质量或 Skill 效果。最终 Word 接受/拒绝、桌面接入、公开下载及界面收尾仍有未验项。
-尚未发布完整产品。下列完整体验仍是实施
-目标，不能视为已全部交付。当前职责、支持域和实际证据见
-[原生切片状态](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/native-slice-status.md)及实现 PR。
-D 批代码及代表安装路径已获[有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398)，
-见[交付与返稿状态](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/document-delivery-status.md)。实际 Word、Desktop、全普通任务入口、
-字体表单交互、公开安装及完整 D 出口仍开放；E 继续剩余功能和最终验收。
+当前提供 [0.5.0-alpha.1 测试预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)，
+安装包固定对应实现提交 `46957f2`；后续文档更新不改写该包或 tag。A–D 的有界代码批次已合入，
+E 的主语言选择、公开分发和最终验收在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 继续，完整产品尚未接收。
+
+独立核验已从公开附件匿名下载，经 DSH 原生安装接口安装，并确认 9 个普通任务可读、安装文件与原包一致、
+原数据及模型设置保留。这覆盖安装工程路径；可见安装界面、全部已有/新建/恢复/非论文任务的侧栏入口仍需实际观察。
+真实普通 Agent 已完成代表翻译、写作和新的独立读者审改路径；中文局部删除获得
+[有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)，
+候选仍待用户决定，不能扩称整稿质量或中英文同步修订通过。
+
+实际 Microsoft Word 接受/拒绝及导师返稿、Mac 桌面侧栏、字体表单、默认字体发现和最终界面仍有未验项。
+支持组合及证据边界见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)、
+[接入矩阵](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/dsh-integration.md)和
+[交付与返稿状态](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/document-delivery-status.md)。下列完整体验仍是目标，不能视为全部交付。
 
 ## 目标体验
 
@@ -53,11 +54,10 @@ DSH 对话区或主聊天输入框。
 
 候选包包含已构建 Host/Client、文档运行时、Skill 和许可，通过 DSH 正式插件入口安装。
 首个验证组合是 DSH `0.2.2-rc.1` Web、macOS Apple silicon；桌面插件安装与其余平台
-尚未验收。候选安装方式与限制见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)。当前公开 Release 仍待
-独立审查；没有发布的包不能视为普通用户已可取得。
+尚未验收。候选安装方式与限制见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)。
 
-公开候选发布后，从[GitHub Releases](https://github.com/frokens/dsh-paper-workbench/releases)取得
-准确的 `.tgz` 文件。在 DSH 的“插件 → 添加插件”输入下载文件路径并安装；使用者不需要
+从 [alpha1 预发布页](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)下载
+`dsh-paper-workbench-0.5.0-alpha.1.tgz` 和校验文件。在 DSH 的“插件 → 添加插件”输入下载文件路径并安装；使用者不需要
 克隆或编译源码。在任一普通任务打开右侧栏的“论文工作台”，新建或导入时选择主语言：
 默认英文配中文译文，也可明确选择中文主稿配英文译文。关联已有论文保留原选择。
 修改建议需由用户接收，准备翻译/反馈请求与发送给当前 Agent 是两步操作。

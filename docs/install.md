@@ -2,10 +2,11 @@
 
 A–C and D's code/representative installed paths have received bounded independent
 acceptance; see the [D review](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
-The complete D exit remains open. A complete public Release has not been published. This page records the
-candidate's formal installation path and support boundaries; it does not establish
-full product, Microsoft Word, Desktop, all ordinary-task entries, actual font-form
-interaction, public installation or cross-platform acceptance.
+The complete D/E exits remain open. The public test prerelease
+[0.5.0-alpha.1](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)
+is available; it is not a complete-product release. Its attachment is fixed to
+implementation commit `46957f2c4dc6b40433f6bbe5fef0ab23f230768f`. Later repository
+documentation does not rebuild or replace that attachment.
 
 ## Package and dependency
 
@@ -16,6 +17,14 @@ No source checkout, compilation, private registry or .NET SDK is required.
 The declared combination is **macOS Apple silicon, Node.js 24.9 or later, DSH
 0.2.2-rc.1 Web**. The package restricts its OS and CPU accordingly. Desktop and
 other combinations remain unverified.
+
+The [independent public-attachment check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)
+downloaded anonymously, installed through DSH's native API, matched all 40 package
+files and four installed Skill paths, and read nine ordinary tasks without changing
+their data, model defaults or the existing UI target. The dependency cache already
+existed. This is API installation evidence, not a visible-UI or completely cold
+installation test. See the [current support matrix](reference/dsh-integration.md#4-支持矩阵)
+for Word, Desktop, task-entry and font limits.
 
 DSH's installer obtains the exact public dependency `pandoc-wasm@1.1.0` and its
 WASI shim. The published dependency already includes Pandoc 3.10; no separate Pandoc
@@ -29,8 +38,10 @@ links. The plugin's own MIT license is unchanged.
 
 ## Formal entry
 
-1. Obtain the reviewed candidate tarball from its GitHub Release when published.
-   During review, use the exact candidate asset identified by the PR.
+1. Download the [alpha1 tarball](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.1/dsh-paper-workbench-0.5.0-alpha.1.tgz)
+   and its [SHA256 file](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.1/dsh-paper-workbench-0.5.0-alpha.1.tgz.sha256).
+   The tarball is 32,932,855 bytes; its SHA256 is
+   `12931815a95dabbef926511a09a2b64521ee5f86b29dfdd7a49a3059e4a29464`.
 2. In DSH, open **Plugins**, then **Add plugin**.
 3. Enter the downloaded tarball's local file path and choose **Install**.
 4. Read the result. If DSH requests a restart, restart that same host/profile.

@@ -126,9 +126,11 @@ Host/Client/工具/Skills、重启恢复、升级保全、卸载退出；Word �
 | B | 有界代码与代表原生路径已接收，最终界面收尾开放 | [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2)；[实际职责及待验项](../reference/bilingual-lifecycle-status.md) |
 | C | 代码和代表路径已获有界独立接收并合入，完整产品仍开放 | [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)；[实际证据与限制](../reference/research-reading-status.md) |
 | D | 代码及代表安装路径已获有界独立接收，完整出口仍开放 | [准确六向复审](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398)；[实际 Word 等未验边界](../reference/document-delivery-status.md) |
-| E | 实现中，剩余功能与最终验收尚未完成 | 主语言纵向链、安装可达性和公开候选正常使用；功能验收后再美化，D 的实际 Word 必验继续保留 |
+| E | 主语言链、公开附件 API 安装及独立审改代表出口已获有界接收，整体未完成 | [公开预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)、[9 任务安装工程复现](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)、[中文局部修订与新读者复核](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)；真实 UI、Word、Desktop、字体和完整任务入口仍开放 |
 
 维护状态只引用真实 PR 和结果，不在本文件堆积轮次日志。
 本次 D 接收依据验收标准允许缺少必验证据时接收有界代码批次的规则，不取消真实
-Word、Desktop、全普通任务入口、字体表单实际交互或公开安装。E 先完成剩余功能及
+Word、Desktop、全普通任务入口、字体表单实际交互或可见用户安装。公开附件已匿名下载并经
+原生 API 独立安装，不能扩称全冷依赖或可见界面通过。alpha1 包固定实现提交 `46957f2`，
+本轮文档收敛不重打包、改版本或移动 tag。E 先完成剩余功能及
 验证，界面美化按用户要求放在功能验收之后。
