@@ -1,7 +1,7 @@
 import { diffArrays, wordsWithSpaceDiff } from "diff";
 import { Mapping, Step } from "prosemirror-transform";
 import type { z } from "zod";
-import { documentAt, mapSelection, mapRange, acceptedOperationSteps, propose, addFeedback, type Paper } from "./model.js";
+import { documentAt, mapSelection, mapRange, acceptedOperationSteps, propose, addFeedback, isPendingCandidate, type Paper } from "./model.js";
 import { findDocumentBlock } from "./operations.js";
 import { documentReturnSchema, type ReturnedBlock } from "./records.js";
 import { proposeRequest, type Selection, type returnMappingsSchema, type proposeReturnRequest, type copyReturnCommentsRequest } from "./contracts.js";
@@ -335,8 +335,13 @@ export function proposeReturnChanges(paper: Paper, request: z.infer<typeof propo
     return paper;
   }
   if (request.expectedRevision !== paper.revision) throw new Error("The current paper changed. Compare the returned file again.");
-  if (paper.candidates.some(candidate => candidate.status === "pending" && candidate.returnedFrom?.returnId === request.returnId
-    && candidate.returnedFrom.changeIds.some(id => provenance.changeIds.includes(id))))
+  const containsSelectedReturn = (candidate: Paper["candidates"][number]): boolean =>
+    candidate.returnedFrom?.returnId === request.returnId && candidate.returnedFrom.changeIds.some(id => provenance.changeIds.includes(id))
+    || !!candidate.revises?.some(id => {
+      const previous = paper.candidates.find(item => item.id === id);
+      return !!previous && containsSelectedReturn(previous);
+    });
+  if (paper.candidates.some(candidate => isPendingCandidate(paper, candidate) && containsSelectedReturn(candidate)))
     throw new Error("Some selected return changes already have a pending candidate. Review that candidate first.");
   const comparison = compareReturn(paper, request.returnId, request.mappings);
   const changes = provenance.changeIds.map(id => comparison.changes.find(change => change.id === id));

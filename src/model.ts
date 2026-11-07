@@ -33,6 +33,13 @@ export const importDocument = (blocks: ImportedBlock[]) =>
   documentFromImport(blocks).toJSON();
 export const realDiff = textDiff;
 
+export function candidateSuccessor(paper: Pick<Paper, "candidates">, id: string) {
+  return paper.candidates.find(candidate => candidate.revises?.includes(id));
+}
+export function isPendingCandidate(paper: Pick<Paper, "candidates">, candidate: Candidate) {
+  return candidate.status === "pending" && !candidateSuccessor(paper, candidate.id);
+}
+
 export function createPaper(
   input: Pick<
     Paper,
@@ -332,6 +339,7 @@ export function propose(
     feedbackIds: request.feedbackIds,
     dependsOn: request.dependsOn,
     translations: request.translations,
+    ...(request.revises ? { revises: request.revises } : {}),
   };
   const previous = paper.candidates.find(
     (c) => c.requestId === request.requestId,
@@ -344,6 +352,7 @@ export function propose(
         feedbackIds: previous.feedbackIds,
         dependsOn: previous.dependsOn,
         translations: previous.translations,
+        ...(previous.revises ? { revises: previous.revises } : {}),
       }) !== JSON.stringify(payload)
     )
       throw new Error(
@@ -351,9 +360,30 @@ export function propose(
       );
     return paper;
   }
+  const revises = request.revises ?? [];
+  if (new Set(revises).size !== revises.length)
+    throw new Error("Choose each revised proposal only once.");
+  for (const id of revises) {
+    const previous = paper.candidates.find(candidate => candidate.id === id);
+    if (!previous || !isPendingCandidate(paper, previous))
+      throw new Error(`The proposal to revise is no longer pending: ${id}. Read its current state.`);
+    if (previous.feedbackIds.some(feedbackId => !request.feedbackIds.includes(feedbackId)))
+      throw new Error("Retain the revised group's linked feedback in its complete replacement proposal.");
+    for (const dependency of previous.dependsOn) {
+      const required = paper.candidates.find(candidate => candidate.id === dependency);
+      if (required && isPendingCandidate(paper, required) && !revises.includes(dependency) && !request.dependsOn.includes(dependency))
+        throw new Error(`Retain the required pending dependency or revise it in the same group: ${dependency}.`);
+    }
+  }
+  const dependent = paper.candidates.find(candidate => isPendingCandidate(paper, candidate)
+    && !revises.includes(candidate.id) && candidate.dependsOn.some(id => revises.includes(id)));
+  if (dependent)
+    throw new Error(`An active proposal depends on the revised group. Include it explicitly: ${dependent.id}.`);
   for (const id of request.dependsOn)
     if (!paper.candidates.some((c) => c.id === id))
       throw new Error("A dependency does not exist.");
+    else if (revises.includes(id) || candidateSuccessor(paper, id))
+      throw new Error("A revised proposal cannot remain a dependency. Read the current proposal group.");
   for (const id of request.feedbackIds)
     if (!paper.feedback.some((f) => f.id === id))
       throw new Error("The linked feedback does not exist.");
@@ -382,6 +412,7 @@ export function propose(
     throw new Error(
       "Content feedback on a translation needs a corresponding candidate translation. Use the separate correction action for translation wording only.",
     );
+  const priorProjection = revises.length ? projectCandidates(paper, revises) : undefined;
   const candidate: Candidate = {
     id: randomUUID(),
     requestId: request.requestId,
@@ -395,13 +426,21 @@ export function propose(
   if (plan.conflicts.length) throw new Error(plan.conflicts[0].message);
   if (!plan.transform.docChanged)
     throw new Error("The proposal contains no change.");
+  if (priorProjection) {
+    const text = (doc: PMNode) => {
+      const blocks: string[] = [];
+      doc.forEach(node => blocks.push(node.type.name === "opaque" ? node.attrs.text : node.textContent));
+      return blocks.join("\n");
+    };
+    candidate.proposalDiff = textDiff(text(PMNode.fromJSON(schema, priorProjection.document)), text(plan.transform.doc));
+  }
   return proposed;
 }
 
 function planAcceptance(paper: Paper, requested: string[] | "all") {
   const selected =
     requested === "all"
-      ? paper.candidates.filter((c) => c.status === "pending").map((c) => c.id)
+      ? paper.candidates.filter((c) => isPendingCandidate(paper, c)).map((c) => c.id)
       : [...new Set(requested)];
   const ordered: Candidate[] = [],
     visited = new Set<string>(),
@@ -429,9 +468,9 @@ function planAcceptance(paper: Paper, requested: string[] | "all") {
   for (const candidate of ordered) {
     if (candidate.status === "accepted") continue;
     try {
-      if (candidate.status !== "pending")
+      if (!isPendingCandidate(paper, candidate))
         throw new Error(
-          "This proposal or a required dependency was rejected or undone.",
+          "This proposal or a required dependency was revised, rejected or undone.",
         );
       if (
         candidate.dependsOn.some((id) =>
@@ -643,8 +682,8 @@ export function decideMany(
   if (candidates.every((c) => c.status === decision)) return paper;
   if (expectedRevision !== paper.revision)
     throw new Error("The paper changed. Review the decision scope again.");
-  if (candidates.some((c) => c.status !== "pending"))
-    throw new Error("A selected proposal already has a different decision.");
+  if (candidates.some((c) => !isPendingCandidate(paper, c)))
+    throw new Error("A selected proposal was revised or already has a different decision. Review its current state.");
   let next = paper,
     decided = selected;
   if (decision === "accepted") {
@@ -1350,8 +1389,9 @@ export function paperView(paper: Paper) {
     sourceResources: paper.sourceResources.map(resource => ({ path: resource.path })),
     blocks,
     candidates: paper.candidates.map((candidate) => {
+      const successor = candidateSuccessor(paper, candidate.id);
       const plan =
-        candidate.status === "pending"
+        isPendingCandidate(paper, candidate)
           ? previewAcceptance(paper, [candidate.id])
           : undefined;
       const currentSelections: Selection[] = [];
@@ -1368,6 +1408,8 @@ export function paperView(paper: Paper) {
         }
       return {
         ...candidate,
+        status: successor ? "superseded" as const : candidate.status,
+        revisedBy: successor?.id ?? null,
         currentSelections,
         conflict: plan?.conflicts.map((c) => c.message).join("\n") || null,
         sourceRevisions: [

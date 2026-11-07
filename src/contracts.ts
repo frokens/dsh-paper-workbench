@@ -128,6 +128,8 @@ export const proposeRequest = z.object({
   feedbackIds: z.array(z.string()).max(100).default([]),
   dependsOn: z.array(z.string()).max(100).default([]),
   translations: z.array(candidateTranslationSchema).max(100).default([]),
+  revises: z.array(z.string()).min(1).max(100).optional()
+    .describe("Replace these exact still-pending candidates with this complete proposal, preserving their records and readings. Operations still select the accepted body, never projected paragraph IDs. Include affected dependent candidates together."),
 });
 export const translationSelectionSchema = z.object({
   translationId: z.string(),

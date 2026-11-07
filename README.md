@@ -20,7 +20,16 @@ alpha2 已[匿名下载并经正式安装接口升级](https://github.com/froken
 系统自动 fresh 读者已加载安装包 Skill 与准确材料。旧 Markdown 读者因电脑休眠后的流超时与墙钟取消而无输出；
 后续受控 DOCX 的自动审读、明确人类决定和真实文件下载/对照已获
 [有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)；读者的问题和限度保留，不能扩称整稿质量或完整新交互接收。
-新侧栏可见操作、首稿与完整任务入口仍需各自证据。安装使用现有依赖缓存，未声称全冷安装。
+网页端的实际选择批注、自动保存、提交、自动审读及准确人类接收已获
+[有界接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711258312)。
+一次普通空草稿从项目材料起草三段英文及完整逐段中文、正式轮次自动唯一 fresh 审读，
+以及官方 Mac alpha2 升级后恢复原任务/侧栏，也已有
+[独立工程核对](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711574419)。
+首稿保留四项关注、一个问题及六项证据限制，仍待修改，不能据此接收其论文质量。
+完整普通任务入口与 Mac 点击矩阵仍开放。安装使用现有依赖缓存，未声称全冷安装。
+
+后续源码正在收敛待定候选的继续修订、侧栏阅读层级和 Skill 语境；这批尚未发布，
+本地检查与原 alpha2 的实际运行证据分别报告，不把源码改动写成原包已有能力。
 
 历史 [alpha1](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1) 原包与 tag 保持原件。
 [Mac 原生窗口实证](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
@@ -36,7 +45,7 @@ alpha2 已[匿名下载并经正式安装接口升级](https://github.com/froken
 [实际输入/下载稿及批注](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)完成独立核对。
 桌面 Word 自动化、有效命名样式、真实版面及复杂导师返稿为扩展验证，不阻塞这个最小目标。
 插件自身 PDF 导出与代表页文本、字体和分页核对仍独立验收，复用现有有效证据，不作为这次 Word 样例的新前置。
-Mac 新交互、默认字体发现和最终界面仍开放。原生读者发现一项实际候选译文的来源覆盖不足，
+Mac 完整点击矩阵、默认字体发现和最终界面仍开放。原生读者发现一项实际候选译文的来源覆盖不足，
 原候选与意见保留待定，不能以中文显示正确代替来源语义核验。
 支持组合及证据边界见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)、
 [接入矩阵](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/dsh-integration.md)和

@@ -44,14 +44,15 @@ function editor() {
 }
 function connection(edit: ReturnType<typeof editor>) {
   const view = { paper: { id: "paper", blocks: [{ id: "paragraph" }] } }, drafts = [edit.draft];
-  const state = { view: view as unknown, drafts, connected: true, error: "" };
+  const state = { view: view as unknown, drafts, connection: "live", connectionError: "", error: "" };
   const scope = {
     sessionId: "ordinary-task", cache: { current: edit.scope.cache }, submission: { current: { requestId: "saved-submission" } },
     controller: { current: new AbortController() }, submittingController: { current: new AbortController() },
     setView: (value: unknown) => { state.view = value; }, setDrafts: (value: typeof drafts) => { state.drafts = value; },
-    setConnected: (value: boolean) => { state.connected = value; }, setError: (value: string) => { state.error = value; },
+    setConnection: (value: string) => { state.connection = value; }, setConnectionError: (value: string) => { state.connectionError = value; },
+    setError: (value: string) => { state.error = value; },
     setPicked: () => {}, setSelected: () => {}, setPreview: () => {}, setComparison: () => {},
-    observe: async function* (_sessionId: string, signal: AbortSignal) {
+    observe: async function* (_sessionId: string, signal: AbortSignal): AsyncGenerator<unknown, void, unknown> {
       if (!signal.aborted) await new Promise<void>(resolve => signal.addEventListener("abort", () => resolve(), { once: true }));
     },
   };
@@ -81,6 +82,34 @@ test("failed autosave survives a same-task Refresh with its text, exact anchor a
     assert.deepEqual(requests[1], requests[0]);
     assert.equal(edit.scope.version.current, 1); assert.equal(edit.scope.saved.current, edit.state.text);
   } finally { stopSecond(); }
+});
+
+test("connection recovery keeps the document and drafts while normal stream completion becomes offline", async () => {
+  const edit = editor(), stream = connection(edit);
+  let finish!: () => void;
+  const ending = new Promise<void>(resolve => { finish = resolve; });
+  stream.scope.observe = async function* () { yield stream.view; await ending; };
+  const stop = stream.connect();
+  assert.equal(stream.state.connection, "loading");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stream.state.connection, "live");
+  finish(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stream.state.connection, "offline");
+  assert.strictEqual(stream.state.view, stream.view); assert.strictEqual(stream.state.drafts, stream.drafts);
+  stop();
+});
+
+test("a connection failure keeps its diagnostic separate from action errors and saved comment state", async () => {
+  const edit = editor(), stream = connection(edit);
+  stream.state.error = "A separate action needs attention.";
+  stream.scope.observe = async function* () { throw new Error("Controlled stream failure."); };
+  const stop = stream.connect();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stream.state.connection, "offline");
+  assert.match(stream.state.connectionError, /Controlled stream failure/);
+  assert.equal(stream.state.error, "A separate action needs attention.");
+  assert.strictEqual(stream.state.view, stream.view); assert.strictEqual(stream.state.drafts, stream.drafts);
+  stop();
 });
 
 test("Refresh leaves an in-flight autosave alive and coalesces subsequent text into the same anchored comment", async () => {

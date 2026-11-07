@@ -868,6 +868,53 @@ test("a completed writing turn aggregates its complete candidate combination and
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 
+test("pending draft revision is durable, refuses a late old acceptance and triggers only the new turn's fresh combination", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-pending-revision-"));
+  let host = await open(root);
+  try {
+    const document = importDocument([{ sourceIndex: 0, text: "", editable: true, style: null, reason: null, runs: [] }]);
+    const blank = { ...fixture(), document, baseline: document };
+    await host.domain.table("papers").put(blank.id, blank);
+    await host.domain.table("bindings").put("task", { paperId: blank.id });
+    const starts: SubagentActivationSpec[] = [];
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts.push(spec); return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} };
+    } });
+    const selection = (await host.invoke({ action: "read" })).paper.blocks[0].selection;
+    let view = await host.invoke({ action: "propose", requestId: "first-draft", reason: "A supplied method draft.",
+      operations: [{ kind: "fill_draft", selection, paragraphs: ["The design guarantees clarity.", "The human decides."] }],
+      translations: [{ operationIndexes: [0], paragraphIndexes: [0], text: "该设计保证清晰。" }, { operationIndexes: [0], paragraphIndexes: [1], text: "人类决定。" }] });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const originalCandidate = structuredClone(storedPaper(host).candidates[0]), originalReading = structuredClone(storedPaper(host).readings[0]);
+    host.boundary.lastTurn = 2; host.boundary.openTurnStartSeq = 100;
+    const revision = { action: "propose", requestId: "corrected-draft", revises: [originalCandidate.id], reason: "State the mechanism without an unmeasured effect.",
+      operations: [{ kind: "fill_draft", selection, paragraphs: ["The design separates interpretation from authority.", "The human decides."] }],
+      translations: [{ operationIndexes: [0], paragraphIndexes: [0], text: "该设计区分解释与权威。" }, { operationIndexes: [0], paragraphIndexes: [1], text: "人类决定。" }] };
+    host.setFailure(true);
+    await assert.rejects(host.invoke(revision), /Injected durable write failure/);
+    host.setFailure(false);
+    assert.deepEqual(storedPaper(host).candidates, [originalCandidate]);
+    const held = host.hold(), saving = host.invoke(revision);
+    await held.started;
+    const late = assert.rejects(host.invoke({ action: "decide", candidateIds: [originalCandidate.id], decision: "accepted", expectedRevision: 0 }), /revised/);
+    held.release(); view = await saving; await late;
+    await host.invoke(revision);
+    assert.equal(starts.length, 1, "Revision propose calls do not start premature readers.");
+    await Promise.all([host.service.completeWritingTurn(host.parent, 2, new AbortController().signal), host.service.completeWritingTurn(host.parent, 2, new AbortController().signal)]);
+    assert.equal(starts.length, 2); assert.notEqual(starts[0].childId, starts[1].childId);
+    const latestId = view.paper.candidates.at(-1)!.id;
+    assert.deepEqual(storedPaper(host).readings[1].candidateIds, [latestId]);
+    assert.deepEqual(storedPaper(host).candidates[0], originalCandidate); assert.deepEqual(JSON.parse(JSON.stringify(storedPaper(host).readings[0])), originalReading);
+    assert.equal(storedPaper(host).revision, 0); assert.deepEqual(storedPaper(host).history, []); assert.deepEqual(storedPaper(host).decisions, []);
+    await host.close(); host = await open(root);
+    view = await host.invoke({ action: "read" });
+    assert.equal(view.paper.candidates[0].status, "superseded"); assert.equal(view.paper.candidates[1].status, "pending");
+    assert.deepEqual(storedPaper(host).candidates[0], originalCandidate); assert.deepEqual(JSON.parse(JSON.stringify(storedPaper(host).readings[0])), originalReading);
+    await assert.rejects(host.invoke({ action: "decide", candidateIds: [originalCandidate.id], decision: "accepted", expectedRevision: 0 }), /revised/);
+    assert.equal(storedPaper(host).readings.length, 2); assert.equal(storedPaper(host).revision, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
 test("new user directions in the same native writing turn create one replacement reading even when candidates stay unchanged", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-auto-steering-")), host = await open(root);
   try {

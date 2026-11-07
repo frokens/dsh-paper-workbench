@@ -26,6 +26,8 @@ export const candidateSchema = z.object({
   status: z.enum(["pending", "accepted", "rejected", "undone"]),
   diffs: z.array(diffSchema),
   translations: z.array(candidateTranslationSchema),
+  revises: z.array(z.string()).optional(),
+  proposalDiff: diffSchema.optional(),
   authoring: z.object({ sessionId: z.string(), turn: z.number().int().positive(), turnStartSeq: z.number().int().nonnegative() }).optional(),
   returnedFrom: z.object({ returnId: z.string(), changeIds: z.array(z.string()), mappings: returnMappingsSchema,
     sourceRevision: z.number().int().nonnegative() }).optional(),

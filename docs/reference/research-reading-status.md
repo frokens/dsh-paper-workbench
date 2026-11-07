@@ -16,7 +16,77 @@ is fixed to `bad9ddf`, [package-reviewed](https://github.com/frokens/dsh-paper-w
 and [actually downloaded/installed](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503).
 All 40 installed files and four live Skill paths matched. A configured Web host's
 same-process upgrade and later actual Skill/body-base receipts establish that
-run's source; no completely cold or visible alpha2 Mac installation is inferred.
+run's source. The later official Mac upgrade and reopened ordinary task/sidebar
+have their own [bounded evidence](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711574419);
+no completely cold installation or complete desktop click matrix is inferred.
+
+The actual Web selection/comment/save/submit/automatic-reading/human-decision path
+received [bounded independent acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711258312).
+A separate ordinary blank task produced three English method paragraphs and three
+complete Chinese counterparts from the actual project source. Its single native
+request automatically started exactly one fresh reader at the formal turn boundary
+and retained actual structured output. This engineering path has
+[independent review](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711574419),
+but the draft remains pending: four concerns, one question and six limits are retained.
+They identify unsupported cost/effect claims, mixed workflow terms, an ambiguous
+recipient and the implementation-evidence boundary; draft quality is not accepted.
+
+## Unreleased pending-proposal and sidebar changes
+
+Current source adds `propose.revises` to the existing candidate owner. It names an
+exact active pending group and supplies complete replacement operations/translations
+against accepted-body selections. A first draft reuses its original empty selection;
+it is never accepted just to enable correction, and projected block IDs are not
+editable source identities. Earlier candidate content, original status records and
+frozen readings remain unchanged. The owner derives a superseded current view from
+the new candidate's relation and excludes those predecessors from acceptance,
+all-pending projection, turn-triggered reading and returned-change duplication checks.
+An exact replay is idempotent; a second replacement or a late old acceptance fails.
+Affected incoming dependencies must be included, and remaining pending prerequisites
+and linked feedback must be retained explicitly. No separate draft repository,
+qualification version or compatibility endpoint is introduced.
+
+The new proposal stores a program-computed `proposalDiff` between the prior projected
+combination and the replacement. Its ordinary `diffs` still compare the accepted
+source with the proposed operations and govern the eventual decision/export chain.
+The two comparison baselines are labeled separately. Proposal/relation/differences
+publish in one durable update. A complete revised writing turn uses the same unique
+fresh-reader hook; individual proposal calls do not launch readers. Earlier reading
+results retain their old combination and cannot certify the replacement.
+
+The Client reuses DSH's exact-version Button, SegmentedTabs and ConnectionIndicator
+module and theme tokens. Connection/recovery is distinct from per-comment save
+receipts; normal stream completion becomes offline without discarding the document
+or dirty comment. Feedback navigation counts saved discussions, while submission
+names the unsubmitted comment/reply count. Reading cards show only the findings
+located at that block, candidate cards only their associated findings, and findings
+without a current source location are grouped once. Full interpretation, original
+quotes, evidence and limits remain available. Long reasons and historical proposals
+are expandable; the sidebar keeps its own responsive scroll area and native main
+conversation/composer stay unchanged.
+
+The Skills distinguish manuscript evidence from surrounding revision bookkeeping,
+operation scope from computed differences and translated coverage, submitted feedback
+versions from earlier editing history, and proposed state from committed source.
+Writing guidance separates design intent, enforced boundaries and observed outcomes,
+keeps terms/recipients explicit, and uses the user's language for discussion/review
+while preserving manuscript quotations. These are judgment principles, not keyword
+tests or a requirement to produce zero findings.
+
+Local checks cover pending bilingual first-draft correction without a body commit,
+unchanged paragraphs/translations and old material, both diff baselines, dependency
+and feedback preservation, stale/concurrent refusal, durable failure/reopen and one
+new turn-level reading. Existing affected lifecycle, reading and comment-recovery
+checks pass with type checking and the Host/Client build. Initial fixture failures
+from object-prototype comparison and a narrow async-generator type are retained;
+the corrected checks compare complete serialized values and body identity.
+This is local engineering evidence, not a new installed bundle or model run. The
+new external UI module still needs actual DSH loading with the eventual exact new
+bundle. Pending-candidate source/translation selection comments are also not yet
+supported: the current Feedback targets bind accepted source/translation, so a
+pending draft can currently be revised through the native main conversation only.
+
+## Earlier alpha2 DOCX reading and file evidence
 
 One current native DOCX message imported the four-paragraph synthetic input,
 completed its paragraph Chinese and proposed a pending whole-sentence operation
