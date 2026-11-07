@@ -15,6 +15,7 @@ import {
   documentFromImport,
   textDiff,
   transformOperation,
+  operationStepCount,
   findDocumentBlock,
   validateDocumentRange,
   bindNativeFormats,
@@ -218,7 +219,7 @@ function locateRange(
     );
   return result;
 }
-function mapRange(
+export function mapRange(
   from: number,
   to: number,
   mapping: Mapping,
@@ -506,6 +507,45 @@ export function previewAcceptance(paper: Paper, ids: string[] | "all") {
     includedDependencies,
     conflicts,
   };
+}
+
+/** Read operation boundaries from actual Steps, without recreating structural IDs. */
+export function acceptedOperationSteps(paper: Paper, revision: number, deadline: number) {
+  const entry = paper.history[revision - 1];
+  if (entry?.kind !== "accept" || entry.revision !== revision)
+    throw new Error("The revision is not an actual candidate acceptance.");
+  const before = documentAt(paper, revision - 1), scoped = {
+    ...paper, revision: revision - 1, document: before.toJSON(), history: paper.history.slice(0, revision - 1),
+  };
+  const transform = new Transform(before), recorded = entry.steps.map(json => Step.fromJSON(schema, json));
+  const result: { candidateId: string; operationIndex: number; from: number; to: number; startStep: number; endStep: number; steps: Step[] }[] = [];
+  let offset = 0;
+  for (const id of entry.candidateIds) {
+    const candidate = paper.candidates.find(item => item.id === id);
+    if (!candidate) throw new Error("The accepted candidate record is missing.");
+    for (const [operationIndex, operation] of candidate.operations.entries()) {
+      if (performance.now() >= deadline) throw new Error("This comment exceeds the bounded source comparison.");
+      const resolved = resolveOperation(scoped, operation, transform), block = validateDocumentRange(transform.doc, resolved.selection);
+      const parts = candidate.diffs[operationIndex];
+      if (!parts) throw new Error("The accepted operation has no recorded diff.");
+      const count = operationStepCount(operation, parts), steps = recorded.slice(offset, offset + count);
+      if (steps.length !== count) throw new Error("The accepted operation boundaries do not match their actual Steps.");
+      if (resolved.kind === "replace") {
+        if (parts.filter(part => part.kind !== "insert").map(part => part.text).join("") !== resolved.selection.quote
+          || parts.filter(part => part.kind !== "delete").map(part => part.text).join("") !== resolved.replacement
+          || JSON.stringify(transformOperation(transform.doc, resolved, parts).steps.map(step => step.toJSON()))
+            !== JSON.stringify(steps.map(step => step.toJSON())))
+          throw new Error("The accepted replacement does not match its actual Steps.");
+      }
+      result.push({ candidateId: id, operationIndex, startStep: offset, endStep: offset + count,
+        from: block.position + 1 + resolved.selection.from, to: block.position + 1 + resolved.selection.to, steps });
+      for (const step of steps) transform.step(step);
+      offset += count;
+    }
+  }
+  if (offset !== recorded.length || !transform.doc.eq(documentAt(paper, revision)))
+    throw new Error("The accepted operation records do not reproduce their committed revision.");
+  return result;
 }
 export function projectCandidates(paper: Paper, ids: string[] | "all") {
   const plan = planAcceptance(paper, ids);

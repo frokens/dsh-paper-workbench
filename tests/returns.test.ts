@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createPaper, importDocument, paperView, propose, decide, type Paper } from "../src/model.js";
+import { createPaper, importDocument, paperView, propose, decide, decideMany, mapSelection, type Paper } from "../src/model.js";
 import { proposeRequest, proposeReturnRequest, copyReturnCommentsRequest } from "../src/contracts.js";
 import { wordProjection, wordComments } from "../src/word.js";
 import { recordDocumentDelivery } from "../src/delivery.js";
@@ -178,6 +178,128 @@ test("repeated returned wording cannot choose a different occurrence for text or
     assert.throws(() => copyReturnComments(sameText, copyReturnCommentsRequest.parse({ action: "copy_return_comments", requestId: "equal-text-copy", returnId: "return",
       commentIds: [sameComparison.comments[0].id], mappings: [], expectedRevision: sameText.revision, textOnly: true })), /exact current source/);
   }
+});
+
+test("unchanged returned comments follow their actual delivered occurrence after equal-text local edits", () => {
+  const { paper } = deliver(from(engine({ action: "fixture", fixture: "repeated-format" }).base64));
+  const id = paperView(paper).blocks[0].id;
+  const file = engine({ action: "export", base64: paper.sourceBase64, tracked: false, ...wordProjection(paper), delivery: { id: "delivery", paperId: paper.id },
+    comments: [
+      { blockIds: [id], selections: [{ blockId: id, from: 0, to: 1 }], text: "Original first occurrence." },
+      { blockIds: [id], selections: [{ blockId: id, from: 2, to: 3 }], text: "Original second occurrence." },
+    ] });
+  const current = returned(editRange(editRange(paper, 0, 2, ""), 1, 1, " X"), file.base64);
+  assert.equal(paperView(current).blocks[0].text, "X X");
+  const comparison = compareReturn(current, "return"), first = comparison.comments.find(item => item.text === "Original first occurrence.")!,
+    second = comparison.comments.find(item => item.text === "Original second occurrence.")!;
+  assert.equal(first.state, "unresolved", "Re-entering identical text does not restore the removed original source.");
+  assert.deepEqual(first.sources, []);
+  assert.equal(second.state, "ready");
+  assert.deepEqual(second.sources.map(item => [item.from, item.to, item.quote]), [[0, 1, "X"]], "The actual surviving occurrence moved to the first position.");
+  const copy = (commentId: string) => copyReturnCommentsRequest.parse({ action: "copy_return_comments", requestId: `copy-${commentId}`, returnId: "return",
+    mappings: [], commentIds: [commentId], expectedRevision: current.revision, textOnly: true });
+  assert.throws(() => copyReturnComments(current, copy(first.id)), /exact current source/);
+  const copied = copyReturnComments(current, copy(second.id));
+  assert.equal(copied.feedback.length, 1);
+  assert.deepEqual(copied.feedback[0].target, { kind: "source", selections: second.sources });
+});
+
+test("new returned comment wording requires its actual acceptance and keeps exact scope across local work and later source loss", () => {
+  const { paper } = deliver(from(engine({ action: "create", paragraphs: ["alpha keeps omega."] }).base64));
+  const remote = editRange(paper, 0, "alpha keeps omega.".length, "gamma keeps delta."), id = paperView(remote).blocks[0].id;
+  const file = engine({ action: "export", base64: remote.sourceBase64, tracked: false, ...wordProjection(remote), delivery: { id: "delivery", paperId: paper.id },
+    comments: [
+      { blockIds: [id], selections: [{ blockId: id, from: 0, to: 5 }], text: "New first word." },
+      { blockIds: [id], selections: [{ blockId: id, from: 12, to: 17 }], text: "New last word." },
+      { blockIds: [id], selections: [{ blockId: id, from: 0, to: 18 }], text: "Complete returned scope." },
+    ] });
+  const manual = returned(editRange(paper, 0, 18, "gamma keeps delta."), file.base64);
+  assert.ok(compareReturn(manual, "return").comments.every(item => item.state === "unresolved"), "Equal P/R wording alone does not establish the returned source.");
+  let current = returned(editRange(paper, 0, 0, "Local "), file.base64);
+  current = proposeReturnChanges(current, proposal(current));
+  assert.equal(current.candidates.at(-1)!.operations.length, 2);
+  current = decide(current, current.candidates.at(-1)!.id, "accepted");
+  let comments = compareReturn(current, "return").comments;
+  assert.ok(comments.every(item => item.state === "ready"));
+  assert.deepEqual(comments.find(item => item.text === "New first word.")!.sources.map(item => [item.from, item.to, item.quote]), [[6, 11, "gamma"]]);
+  assert.deepEqual(comments.find(item => item.text === "Complete returned scope.")!.sources.map(item => [item.from, item.to, item.quote]), [[6, 24, "gamma keeps delta."]]);
+  const acceptedScope = comments.find(item => item.text === "New first word.")!.sources[0];
+  current = editRange(editRange(current, 6, 11, ""), 6, 6, "gamma");
+  assert.equal(paperView(current).blocks[0].text, "Local gamma keeps delta.");
+  assert.throws(() => mapSelection(current, acceptedScope), /intervening edit|removed/);
+  comments = compareReturn(current, "return").comments;
+  assert.equal(comments.find(item => item.text === "New first word.")!.state, "unresolved");
+  assert.equal(comments.find(item => item.text === "Complete returned scope.")!.state, "unresolved");
+  assert.equal(comments.find(item => item.text === "New last word.")!.state, "ready", "The unrelated accepted returned source still survives.");
+});
+
+test("grouped acceptance locates the return operation after boundary edits and unrelated multi-Step structural operations", () => {
+  const { paper } = deliver(from(engine({ action: "create", paragraphs: ["alpha keeps omega.", "Left side right side.", "Third stays."] }).base64));
+  const remote = editRange(paper, 0, 5, "gamma"), id = paperView(remote).blocks[0].id;
+  const raw = engine({ action: "export", base64: remote.sourceBase64, tracked: false, ...wordProjection(remote), delivery: { id: "delivery", paperId: paper.id },
+    comments: [{ blockIds: [id], selections: [{ blockId: id, from: 0, to: 5 }], text: "Accepted new word." }] });
+  for (const structure of ["split", "merge"] as const) {
+    let current = returned(paper, raw.base64);
+    const blocks = paperView(current).blocks;
+    const prefix = () => {
+      current = propose(current, proposeRequest.parse({ action: "propose", requestId: "prefix", reason: "Keep unrelated local prefix and structural work.",
+        operations: [{ kind: "replace", selection: { ...blocks[0].selection, from: 0, to: 0, quote: "" }, replacement: "Local " },
+          { kind: "replace", selection: { ...blocks[0].selection, from: 12, to: 17, quote: "omega" }, replacement: "pending" },
+          structure === "split" ? { kind: "split", selection: { ...blocks[1].selection, from: 9, to: 9, quote: "" } }
+            : { kind: "merge", selection: blocks[1].selection, next: blocks[2].selection, separator: " / " }] }));
+    };
+    prefix();
+    current = proposeReturnChanges(current, proposal(current));
+    current = decideMany(current, current.candidates.filter(item => item.status === "pending").map(item => item.id), "accepted", current.revision);
+    assert.equal(current.history.length, 1);
+    assert.equal(paperView(current).blocks[0].text, "Local gamma keeps pending.");
+    const comment = compareReturn(current, "return").comments[0];
+    assert.equal(comment.state, "ready", `${structure}: ${comment.diagnostic}`);
+    assert.deepEqual(comment.sources.map(item => [item.from, item.to, item.quote]), [[6, 11, "gamma"]]);
+    assert.equal(paperView(current).blocks.length, structure === "split" ? 4 : 2);
+  }
+});
+
+test("saved granular return operations establish the current returned scope without assuming matching diff indexes", () => {
+  const { paper } = deliver(from(engine({ action: "create", paragraphs: ["The Planner proposes an action."] }).base64));
+  const remote = editRange(paper, 0, paperView(paper).blocks[0].text.length, "The Planner chooses a safe action."), id = paperView(remote).blocks[0].id;
+  const raw = engine({ action: "export", base64: remote.sourceBase64, tracked: false, ...wordProjection(remote), delivery: { id: "delivery", paperId: paper.id },
+    comments: [{ blockIds: [id], selections: [{ blockId: id, from: 22, to: 26 }], text: "Explain the safety condition." }] });
+  for (const separate of [false, true]) {
+    let current = returned(paper, raw.base64);
+    const s = paperView(current).blocks[0].selection;
+    const operations = [[12, 14, "ch"], [15, 16, ""], [22, 23, ""], [24, 24, "s"], [25, 25, "fe a"]].map(([from, to, replacement]) =>
+      ({ kind: "replace" as const, selection: { ...s, from: Number(from), to: Number(to), quote: s.quote.slice(Number(from), Number(to)) }, replacement: String(replacement) }));
+    for (const [index, group] of (separate ? operations.map(operation => [operation]) : [operations]).entries()) {
+      current = propose(current, proposeRequest.parse({ action: "propose", requestId: `saved-${index}`, reason: "Recorded granular return operations.", operations: group }));
+      const candidate = current.candidates.at(-1)!;
+      current = { ...current, candidates: current.candidates.map(item => item.id === candidate.id ? { ...item,
+        returnedFrom: { returnId: "return", sourceRevision: 0, mappings: [], changeIds: group.map((_, operationIndex) => `${id}:${separate ? index : operationIndex}`) } } : item) };
+    }
+    for (const candidate of current.candidates) current = decide(current, candidate.id, "accepted");
+    assert.equal(paperView(current).blocks[0].text, "The Planner chooses a safe action.");
+    const comment = compareReturn(current, "return").comments[0];
+    assert.equal(comment.state, "ready", comment.diagnostic);
+    assert.deepEqual(comment.sources.map(item => [item.from, item.to, item.quote]), [[22, 26, "safe"]]);
+  }
+});
+
+test("accepting another return change cannot establish manually typed identical wording", () => {
+  const { paper } = deliver(from(engine({ action: "create", paragraphs: ["alpha keeps omega."] }).base64));
+  const remote = editRange(paper, 0, 18, "gamma keeps delta."), id = paperView(remote).blocks[0].id;
+  const raw = engine({ action: "export", base64: remote.sourceBase64, tracked: false, ...wordProjection(remote), delivery: { id: "delivery", paperId: paper.id },
+    comments: [{ blockIds: [id], selections: [{ blockId: id, from: 0, to: 5 }], text: "First returned word." },
+      { blockIds: [id], selections: [{ blockId: id, from: 12, to: 17 }], text: "Last returned word." }] });
+  let current = returned(editRange(paper, 0, 5, "gamma"), raw.base64);
+  const comparison = compareReturn(current, "return"), ready = comparison.changes.filter(item => item.status === "ready");
+  assert.equal(ready.length, 1);
+  current = proposeReturnChanges(current, proposeReturnRequest.parse({ action: "propose_return", requestId: "partial-return", returnId: "return",
+    mappings: [], changeIds: ready.map(item => item.id), expectedRevision: current.revision, textOnly: true }));
+  current = decide(current, current.candidates.at(-1)!.id, "accepted");
+  assert.equal(paperView(current).blocks[0].text, "gamma keeps delta.");
+  const comments = compareReturn(current, "return").comments;
+  assert.equal(comments.find(item => item.text === "First returned word.")!.state, "unresolved");
+  assert.equal(comments.find(item => item.text === "Last returned word.")!.state, "ready");
 });
 
 test("native formats are compared at their actual text spans, detecting removal and reassignment while ignoring equivalent run boundaries", () => {

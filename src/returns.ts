@@ -1,6 +1,8 @@
 import { diffArrays, wordsWithSpaceDiff } from "diff";
+import { Mapping, Step } from "prosemirror-transform";
 import type { z } from "zod";
-import { documentAt, mapSelection, propose, addFeedback, type Paper } from "./model.js";
+import { documentAt, mapSelection, mapRange, acceptedOperationSteps, propose, addFeedback, type Paper } from "./model.js";
+import { findDocumentBlock } from "./operations.js";
 import { documentReturnSchema, type ReturnedBlock } from "./records.js";
 import { proposeRequest, type Selection, type returnMappingsSchema, type proposeReturnRequest, type copyReturnCommentsRequest } from "./contracts.js";
 
@@ -96,15 +98,6 @@ function compareText(before: string, after: string, deadline: number): TextCompa
   return result;
 }
 
-function unchangedReturnRange(comparison: TextComparison, from: number, to: number) {
-  if (comparison.problem) throw new Error(comparison.problem);
-  const candidates = comparison.equal.filter(pair => from >= pair.returnedFrom && to <= pair.returnedTo)
-    .map(pair => ({ from: pair.from + from - pair.returnedFrom, to: pair.from + to - pair.returnedFrom }));
-  const distinct = candidates.filter((item, index) => candidates.findIndex(other => other.from === item.from && other.to === item.to) === index);
-  if (distinct.length !== 1) throw new Error("This comment refers to returned wording that is not yet in the current source. Review the returned text or its paragraph alignment first.");
-  return distinct[0];
-}
-
 function nativeFormats(block: ReturnedBlock, from: number, to: number) {
   let position = 0;
   return block.runs.flatMap(run => {
@@ -182,6 +175,69 @@ export function compareReturn(paper: Paper, returnId: string, mappings: Mappings
   const unCompared: { blockId: string; returnedIndex: number; diagnostic: string }[] = [];
   const deadline = performance.now() + 2000;
   const comparisons = new Map<number, TextComparison>();
+  const acceptedRanges = new Map<string, Selection[]>();
+  const acceptedSteps = new Map<number, ReturnType<typeof acceptedOperationSteps>>();
+  const returnAlignments = new Map<string, TextComparison>();
+  const stepsAt = (revision: number) => {
+    let chunks = acceptedSteps.get(revision);
+    if (!chunks) { chunks = acceptedOperationSteps(paper, revision, deadline); acceptedSteps.set(revision, chunks); }
+    return chunks;
+  };
+  const returnOwned = (chunk: ReturnType<typeof acceptedOperationSteps>[number]) => {
+    const candidate = paper.candidates.find(item => item.id === chunk.candidateId)!;
+    return candidate.returnedFrom?.returnId === returnId && candidate.operations[chunk.operationIndex].kind === "replace";
+  };
+  function acceptedReturnRange(block: ReturnedBlock, original: Selection, returnedFrom: number, returnedTo: number) {
+    const key = `${block.sourceIndex}:${returnedFrom}:${returnedTo}`, cached = acceptedRanges.get(key);
+    if (cached) return cached;
+    const source = findDocumentBlock(delivered, original.blockId), ranges: Selection[] = [];
+    for (const entry of paper.history.slice(delivery.revision)) {
+      if (performance.now() >= deadline) throw new Error("This comment exceeds the bounded source comparison. Verify its current range manually.");
+      if (entry.kind !== "accept" || !entry.candidateIds.some(id => paper.candidates.find(item => item.id === id)?.returnedFrom?.returnId === returnId)) continue;
+      const chunks = stepsAt(entry.revision), mapping = new Mapping(chunks.flatMap(chunk => chunk.steps.map(step => step.getMap())));
+      const target = documentAt(paper, entry.revision), paragraphs: { node: typeof target; start: number; end: number }[] = [];
+      target.forEach((node, position) => { if (node.type.name === "paragraph") paragraphs.push({ node, start: position + 1, end: position + 1 + node.content.size }); });
+      const possible = new Set<string>();
+      for (const chunk of chunks.filter(returnOwned)) {
+        if (!chunk.steps.length) continue;
+        const written = mapRange(chunk.from, chunk.to, mapping.slice(chunk.startStep, chunk.endStep), true);
+        const final = mapRange(written.from, written.to, mapping.slice(chunk.endStep), true);
+        paragraphs.filter(item => final.from <= item.end && final.to >= item.start).forEach(item => possible.add(item.node.attrs.id));
+      }
+      // Paragraphs come from actual operation results, never a global text search.
+      for (const paragraph of paragraphs.filter(item => possible.has(item.node.attrs.id))) {
+        const alignmentKey = `${entry.revision}:${block.sourceIndex}:${paragraph.node.attrs.id}`;
+        let alignment = returnAlignments.get(alignmentKey);
+        if (!alignment) { alignment = compareText(block.text, paragraph.node.textContent, Math.min(deadline, performance.now() + 200)); returnAlignments.set(alignmentKey, alignment); }
+        if (alignment.problem) continue;
+        const pairs = alignment.equal.filter(pair => returnedFrom >= pair.from && returnedTo <= pair.to)
+          .map(pair => ({ from: pair.returnedFrom + returnedFrom - pair.from, to: pair.returnedFrom + returnedTo - pair.from }));
+        const distinct = pairs.filter((pair, index) => pairs.findIndex(other => other.from === pair.from && other.to === pair.to) === index);
+        if (distinct.length !== 1) continue;
+        let from = paragraph.start + distinct[0].from, to = paragraph.start + distinct[0].to, usedReturn = false;
+        try {
+          // Pull the exact accepted scope back through actual history. Only this
+          // return's verified replacement Steps may establish new wording; all
+          // local edits remain strict, including same-commit edits and deletions.
+          for (const previous of paper.history.slice(delivery.revision, entry.revision).reverse()) {
+            const actual = previous.kind === "accept" ? stepsAt(previous.revision).flatMap(chunk => chunk.steps.map(step => ({ step, owned: returnOwned(chunk) })))
+              : previous.steps.map(json => ({ step: Step.fromJSON(delivered.type.schema, json), owned: false }));
+            for (const { step, owned } of actual.reverse()) {
+              if (performance.now() >= deadline) throw new Error("This comment exceeds the bounded source comparison.");
+              const inverse = step.getMap().invert();
+              if (owned) inverse.forEach((start, end) => { usedReturn ||= start <= to && end >= from; });
+              ({ from, to } = mapRange(from, to, new Mapping([inverse]), owned));
+            }
+          }
+          if (usedReturn && from >= source.position + 1 && to <= source.position + 1 + source.node.content.size)
+            ranges.push({ paperId: paper.id, revision: entry.revision, blockId: paragraph.node.attrs.id,
+              ...distinct[0], quote: block.text.slice(returnedFrom, returnedTo) });
+        } catch { /* An unrelated intervening edit cannot establish a returned source. */ }
+      }
+    }
+    acceptedRanges.set(key, ranges);
+    return ranges;
+  }
   for (const block of returned.blocks) {
     const blockId = aligned.get(block.sourceIndex), original = blockId ? source.get(blockId) : undefined;
     if (!original || !blockId) continue;
@@ -222,13 +278,40 @@ export function compareReturn(paper: Paper, returnId: string, mappings: Mappings
           throw new Error("Verify this comment's returned paragraph alignment first.");
         const comparison = comparisons.get(block.sourceIndex) ?? compareText(original.text, block.text, Math.min(deadline, performance.now() + 200));
         if (comparison.problem) throw new Error(comparison.problem);
-        const node = [...current.content.content].find(item => item.attrs.id === blockId && item.type.name === "paragraph");
-        if (node?.textContent === block.text) sources.push({ ...original.selection, revision: paper.revision,
-          from: range.from, to: range.to, quote: block.text.slice(range.from, range.to) });
-        else {
-          const unchanged = unchangedReturnRange(comparison, range.from, range.to);
-          sources.push(mapSelection(paper, { ...original.selection, ...unchanged, quote: original.text.slice(unchanged.from, unchanged.to) }));
+        const parts = [...comparison.equal.map(pair => ({ ...pair, changeIndex: -1 })),
+          ...comparison.changes.map((pair, changeIndex) => ({ ...pair, changeIndex }))]
+          .filter(pair => range.from === range.to ? range.from >= pair.returnedFrom && range.to <= pair.returnedTo
+            : range.from < pair.returnedTo && range.to > pair.returnedFrom)
+          .sort((a, b) => a.returnedFrom - b.returnedFrom);
+        const resolved: Selection[] = [];
+        let cursor = range.from;
+        for (const part of parts) {
+          if (performance.now() >= deadline) throw new Error("This comment exceeds the bounded source comparison. Verify its current range manually.");
+          const from = Math.max(range.from, part.returnedFrom), to = Math.min(range.to, part.returnedTo);
+          if (from !== cursor) throw new Error("This comment has no continuous exact current source range. Review its returned text and alignment.");
+          if (part.changeIndex < 0) {
+            const start = part.from + from - part.returnedFrom, end = part.from + to - part.returnedFrom;
+            resolved.push(mapSelection(paper, { ...original.selection, from: start, to: end, quote: original.text.slice(start, end) }));
+          } else {
+            const accepted = acceptedReturnRange(block, original.selection, from, to);
+            const targets: Selection[] = [];
+            for (const selection of accepted) {
+              try {
+                targets.push(mapSelection(paper, selection));
+              } catch { /* The accepted wording was subsequently changed or removed. */ }
+            }
+            const distinct = targets.filter((item, index) => targets.findIndex(other => JSON.stringify(other) === JSON.stringify(item)) === index);
+            if (distinct.length !== 1) throw new Error("This comment's returned wording has no unique surviving accepted source. Accept the return change or verify its current range manually.");
+            resolved.push(distinct[0]);
+          }
+          cursor = to;
         }
+        if (!resolved.length || cursor !== range.to || resolved.some((selection, index) => index > 0
+          && (selection.blockId !== resolved[0].blockId || selection.from !== resolved[index - 1].to)))
+          throw new Error("This comment has no continuous exact current source range. Review its returned text and alignment.");
+        const selection = { ...resolved[0], to: resolved.at(-1)!.to, quote: resolved.map(item => item.quote).join("") };
+        if (selection.quote !== block.text.slice(range.from, range.to)) throw new Error("The returned comment scope no longer matches its exact source text.");
+        sources.push(selection);
       }
     } catch (error) { diagnostic = error instanceof Error ? error.message : String(error); }
     return { ...comment, locations, sources: diagnostic ? [] : sources,

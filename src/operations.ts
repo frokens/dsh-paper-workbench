@@ -50,6 +50,13 @@ export function textDiff(before: string, after: string) {
   }));
 }
 
+/** Mechanical Step boundaries used when reading an already committed operation. */
+export function operationStepCount(operation: Operation, parts: ReturnType<typeof textDiff>) {
+  if (operation.kind === "replace") return parts.filter(part => part.kind !== "equal").length;
+  if (operation.kind === "merge") return operation.separator ? 2 : 1;
+  return 1;
+}
+
 export function documentFromImport(blocks: ImportedBlock[]) {
   if (!blocks.length) throw new Error("The DOCX has no supported body blocks.");
   return documentSchema.node(

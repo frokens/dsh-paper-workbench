@@ -46,8 +46,18 @@ at actual matched spans, including format removal/reassignment and equivalent ru
 segmentation. Formatting, moved paragraphs and
 unmatched structural changes remain explicit review items; the current text-only
 return proposal does not apply them. Supported returned comment text can be copied
-to ordinary feedback after its exact current source range is confirmed. New returned
-wording must be accepted before comments on it can be copied. This text-only action
+to ordinary feedback after its exact current source range is confirmed. Unchanged
+returned wording always maps strictly from E through actual P history, including
+when E, R and P display identical text. New returned wording must have an actual
+accepted return candidate and committed range; the selected part then maps strictly
+from that acceptance revision to P. Deleting and retyping identical wording does
+not preserve its source. Comments spanning old and new wording require every part
+to survive as one continuous exact range. Actual saved operation diffs delimit the
+recorded Steps, including multi-Step replacements/merges and grouped acceptance.
+Structural identities are read from those Steps. New wording is located only in
+actual return-operation result paragraphs, with bounded unique text alignment and
+an exact history check back to E; other local Steps remain strict. Saved operation
+granularity does not have to match today's returned text comparison. This text-only action
 retains return/comment provenance and does not copy rich comment bodies or accept
 the returned manuscript automatically. The original returned DOCX remains available.
 
@@ -98,8 +108,10 @@ checked; the actual page was opened. This evidence covers the configured path an
 does not repair the default font-discovery failure.
 
 The alpha.2 source passed the complete 94 owner/SDK checks. The subsequent comment
-provenance correction and font failure-state presentation passed the 11 affected
-return/font checks and type checking; unaffected evidence is retained. Direct
+provenance correction and font failure-state presentation passed the 16 affected
+return/font checks and type checking, including unchanged-return and accepted-new-word
+source loss despite identical current text, grouped boundary edits, unrelated
+multi-Step structure and saved granular return operations; unaffected evidence is retained. Direct
 SDK accept/reject projections cover empty-to-multiple paragraphs, split/merge,
 inverse history, nonzero B, complete native formats, comments and source evidence.
 Managed-process intake covers retained Markdown/resources and joined cancellation.
