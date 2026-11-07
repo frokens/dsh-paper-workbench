@@ -18,7 +18,7 @@ function engine(input: object) {
 }
 
 test("Chinese primary and English projection share the existing feedback, candidate, frozen-reader and Word lifecycle", () => {
-  const input = createRequest.parse({ action: "create", name: "中文论文", brief: "保留选择和执行的职责区别。", primaryLanguage: "zh" });
+  const input = createRequest.parse({ action: "create", requestId: "chinese-draft", name: "中文论文", brief: "保留选择和执行的职责区别。", primaryLanguage: "zh" });
   const original = engine({ action: "create", paragraphs: ["规划器选择操作，执行者执行。"] });
   const imported = engine({ action: "inspect", base64: original.base64 });
   let paper = createPaper({ id: "zh-paper", name: input.name, brief: input.brief, primaryLanguage: input.primaryLanguage,
@@ -28,7 +28,8 @@ test("Chinese primary and English projection share the existing feedback, candid
   assert.equal(paperView(paper).primaryLanguage, "zh");
   assert.equal(paperView(paper).translationLanguage, "en");
   paper = requestTranslation(paper, { requestId: "translation", sources: [paperView(paper).blocks[0].selection], replaces: [] }, "task");
-  assert.match(deliveryPrompt(paper, "translation", paper.translationJobs[0].id, "task"), /Chinese paper source into English/);
+  assert.equal(paperView(paper).translationLanguage, "en");
+  assert.equal(paper.translationJobs[0].sources[0].quote, paperView(paper).blocks[0].text);
   paper = completeTranslation(paper, { action: "complete_translation", jobId: paper.translationJobs[0].id,
     groups: [{ sourceIndexes: [0], text: "The planner selects an action. The worker executes." }] });
   const translated = paper.translations[0];
@@ -38,8 +39,9 @@ test("Chinese primary and English projection share the existing feedback, candid
   const corrected = paper.translations[0];
   paper = addFeedback(paper, { requestId: "feedback", target: { kind: "translation", selection: { translationId: corrected.id,
     version: corrected.version, from: 0, to: corrected.text.length, quote: corrected.text } }, comment: "Clarify proposal and reporting; keep the condition." });
-  paper = createBatch(paper, { requestId: "batch", feedbackIds: [paper.feedback[0].id], direction: "依据材料澄清职责，不改变主语言。" }, "task");
-  assert.match(deliveryPrompt(paper, "batch", paper.batches[0].id, "task"), /primary body is Chinese and its projection is English/);
+  paper = createBatch(paper, { requestId: "batch", feedbackIds: [paper.feedback[0].id],
+    feedbackVersions: [{ id: paper.feedback[0].id, version: paper.feedback[0].version }], direction: "依据材料澄清职责，不改变主语言。" }, "task");
+  assert.match(deliveryPrompt(paper, paper.batches[0].id, "task"), /primary body is Chinese and its projection is English/);
   paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "candidate", reason: "区分提出与执行并保留反馈用途。",
     operations: [{ kind: "replace", selection: paperView(paper).blocks[0].selection, replacement: "规划器提出候选操作，执行者执行并回报结果。" }],
     feedbackIds: [paper.feedback[0].id], translations: [{ operationIndexes: [0], text: "The planner proposes a candidate action; the worker executes it and reports the result." }] }));
@@ -62,7 +64,7 @@ test("Chinese primary and English projection share the existing feedback, candid
 });
 
 test("existing English records and frozen reading packets retain their default without changing content or history", () => {
-  const input = createRequest.parse({ action: "create", name: "Default", brief: "" });
+  const input = createRequest.parse({ action: "create", requestId: "default-draft", name: "Default", brief: "" });
   assert.equal(input.primaryLanguage, "en");
   assert.equal(createRequest.safeParse({ ...input, primaryLanguage: "fr" }).success, false);
   const paper = createPaper({ id: "old", name: input.name, originalBase64: "", sourceBase64: "", warnings: [],

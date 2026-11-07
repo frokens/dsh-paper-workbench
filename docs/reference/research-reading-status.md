@@ -5,7 +5,8 @@ independent acceptance in [PR #3](https://github.com/frokens/dsh-paper-workbench
 and merged in `163019e08c79c93b4a333a6e3a76cf2cb43fcdca`. The bounded A/B
 code and representative B native path are recorded separately. The C record below
 is retained with its original scope; the current E extension is described first.
-Word round trips, Desktop frontend and final sidebar usability remain open.
+Complete Word return/layout, Desktop workflow and final sidebar usability remain
+open; later bounded Word and Mac results do not establish those complete exits.
 
 ## Current E language and independent-revision scope
 
@@ -43,14 +44,19 @@ imports and Skill paths resolved to the frozen installed package; subsequent
 local-revision, bilingual and independent-reading receipts matched its body and
 resource base. This does not establish general model or Skill effectiveness.
 
-## C acceptance record
+## Current writing and automatic-reading entry
+
+The current source uses the ordinary main conversation for attachment/path/link
+input and new-draft requests. The Host reads references through DSH's bounded file
+service and reuses the original import/return/SDK owners. Native alpha1 evidence
+below remains evidence for its older manual UI/trigger, not for this new entry.
 
 The existing Open XML SDK creates a real blank DOCX, which enters the same Paper,
 immutable baseline, exact selections, candidates, decisions and export path as an
-uploaded file. The writing brief is retained as input data. Human creation saves
-its brief as feedback without submitting a batch or calling a model; users can
-combine additional sidebar feedback and ordinary chat direction before explicit
-Send. The ordinary main Agent investigates actual material and proposes the draft.
+uploaded file. The writing brief is retained as input data from the conversation.
+The ordinary main Agent investigates actual material and proposes the draft.
+Comment cards autosave; one submission sends the actual saved round to that same
+Agent, while main-chat writing requests require no extra sidebar configuration.
 There is no separate writing document, model runtime or paper preset.
 
 On the exact empty selection of a single empty paragraph, `fill_draft` proposes
@@ -63,7 +69,8 @@ ranges. Ordinary source selection and concurrency rules remain unchanged. IDs
 created by acceptance persist in actual steps and survive replay, undo and body
 restoration. Restoring the body does not silently renew Chinese after intervening
 source edits: old input remains retained and stale, and explicit new translation
-binds the restored body's current ranges. Structural Word export remains D work.
+binds the restored body's current ranges. Current paragraph Word export uses the
+shared D owner; actual Word limitations are recorded separately.
 
 Four on-demand skills use the existing DSH filesystem provider: research argument
 and mechanism, feedback-based local revision, bilingual scientific writing, and
@@ -81,6 +88,25 @@ Directions describe the user's writing goal and scope; author execution steps ar
 context for the reader, whose task remains reading and located findings.
 No parent conversation or hidden author reasoning is copied. Materials are data
 for investigation, not executable instructions.
+
+The formal serial `agent/turn-stopping` hook aggregates candidates actually created
+by this plugin's native session/turn, including first drafts and chat revisions.
+It awaits the existing fresh-child owner with the parent turn cancellation signal.
+Actual turn user directions are captured through a disposable asynchronous
+`sessionQuery.observeSession` cut, not deprecated synchronous Session log reads.
+Same candidates/body revision/baseline projections reuse the persisted automatic
+reading, including a stopped or failed outcome; fresh steering only starts another
+reader after the input combination changes. No per-propose child or second scheduler
+is introduced. Failed projection is a failed Reading with no available child packet.
+Startup failure is settled and cleaned before the hook returns. Restart interrupts
+unfinished work without silently replaying model calls. Explicit retry reuses the
+saved scope and needs no goal/evidence form.
+
+Unrelated turns and owned readers never trigger this process. Translation-only
+jobs do not separately launch scientific readers; paired candidate translations
+are always frozen and baseline changes retain their existing applicability checks.
+The user alone decides acceptance. A new package/native check remains necessary
+for this changed trigger, independent of the historical fresh-reader evidence.
 
 The exact owned child can retrieve this same frozen packet through the formal
 paper `read` action. The Host resolves its existing `Paper.readings.childId`, not
@@ -201,4 +227,5 @@ centering of tall candidate cards and control/state density remain final UI work
 This C record does not rebuild or replace the frozen alpha.4 package; its bounded
 code and representative path were accepted and merged as linked above. Current E
 evidence is recorded in the first section and the support matrix. Complete product
-acceptance, actual Word/Desktop events and final usability remain open.
+acceptance and final usability remain open. Later bounded Word and Mac events are
+recorded with their exact scope in the current support matrix.

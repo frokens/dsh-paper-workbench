@@ -16,7 +16,7 @@ export function readingBlocks(document: z.infer<ReturnType<typeof z.json>>) {
   return blocks;
 }
 
-export function prepareReading(paper: Paper, request: z.infer<typeof readingRequest>, sessionId: string) {
+export function prepareReading(paper: Paper, request: z.infer<typeof readingRequest>, sessionId: string, automatic?: Reading["automatic"]) {
   const previous = paper.readings.find(r => r.requestId === request.requestId);
   if (previous) {
     if (previous.sessionId !== sessionId || previous.goal !== request.goal || previous.evidence !== request.evidence
@@ -26,7 +26,14 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
   }
   if (request.replaces && !paper.readings.some(r => r.id === request.replaces))
     throw new Error("The earlier reading selected for recheck does not exist.");
-  const projection = projectCandidates(paper, request.candidateIds);
+  let projection: ReturnType<typeof projectCandidates>, diagnostic: string | undefined;
+  try { projection = projectCandidates(paper, request.candidateIds); }
+  catch (error) {
+    if (!automatic) throw error;
+    diagnostic = `No independent reader started because the candidate combination could not be projected: ${error instanceof Error ? error.message : String(error)}`;
+    projection = { candidateIds: request.candidateIds === "all" ? paper.candidates.filter(candidate => candidate.status === "pending").map(candidate => candidate.id) : request.candidateIds,
+      document: documentAt(paper, paper.revision).toJSON(), translations: translationViews(paper) };
+  }
   const candidates = paper.candidates.filter(c => projection.candidateIds.includes(c.id));
   const feedbackIds = new Set(candidates.flatMap(c => c.feedbackIds));
   const directions = paper.batches.filter(batch => !feedbackIds.size || batch.feedbackIds.some(id => feedbackIds.has(id)))
@@ -38,7 +45,9 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
     candidateIds: projection.candidateIds, requestedCandidateIds: request.candidateIds,
     goal: request.goal, evidence: request.evidence,
     ...(request.replaces ? { replaces: request.replaces } : {}),
-    status: "queued",
+    ...(automatic ? { automatic } : {}),
+    status: diagnostic ? "failed" : "queued",
+    ...(diagnostic ? { diagnostic, projectionUnavailable: true as const } : {}),
     material: {
       baselineDocument: documentAt(paper, paper.revision).toJSON(),
       candidateDocument: projection.document,
@@ -56,6 +65,7 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
 }
 
 export function readingPacket(paper: Pick<Paper, "id" | "name">, reading: Reading) {
+  if (reading.projectionUnavailable) throw new Error("This review never acquired a candidate projection; no reader packet is available.");
   return {
     kind: "independent-reading" as const, readOnly: true as const,
     paper: { id: paper.id, name: paper.name }, readingId: reading.id,

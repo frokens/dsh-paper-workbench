@@ -4,11 +4,10 @@ D's code and representative installed paths received bounded independent
 [six-direction acceptance at 8b82844](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
 Candidate packages have been installed and upgraded in an exterior disposable
 profile; configured PDF delivery, cancellation and same-profile restart have
-representative actual evidence. Actual Microsoft Word round trips, Desktop,
-the complete ordinary-task entry matrix, browser interaction with the font form,
-visible installation and final UI acceptance remain open. Public alpha1 attachment
-download and native API installation have since been independently verified as
-described below. This accepts a
+representative actual evidence. Later E checks added six actual Word accept/reject
+results and bounded Mac installation/sidebar/model observations, described below.
+Actual mentor return/comments, Word layout/defined styles, the complete ordinary-task
+entry matrix, font-form interaction and final UI acceptance remain open. This accepts a
 bounded code batch under the acceptance rules, not the complete D exit or A–E product.
 
 The current Word projection consumes the primary ProseMirror document and actual
@@ -132,11 +131,22 @@ acceptance.
 ## Current E prerelease consumers
 
 The [alpha1 test prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)
-is fixed to implementation `46957f2`; later documentation does not replace its
+is fixed to implementation `46957f2`; later source/documentation does not replace its
 bytes. Its primary-language choice is retained through requests, pending candidates,
 frozen reading material and the existing export owner. English remains the default
 primary; explicitly choosing Chinese produces English projections. A translation
 wording correction changes only the projection, not confirmed primary text.
+
+Current source removes all document and mentor-return intake forms from the sidebar.
+The ordinary main Agent imports native attachment/@file/path references through
+DSH's bounded file service; links use the ordinary investigation/download tools
+first. `import_return` reads the actual embedded delivery marker, requires a unique
+matching primary-language DOCX receipt and asks in the conversation when the
+delivery or existing-revision choice is unresolved. It reuses the existing return
+record/comparison/proposal/comment owners. Human alignment remains explicit through
+that conversation; neither the Agent nor the automatic reader accepts a return.
+This changed entry, autosaved comments and system reading need a reviewed new
+package/native check. They do not alter the frozen alpha1 or prove a saved Word return.
 
 An installed alpha1 controlled path exercised Chinese primary text, English
 candidate projections, projection correction, content feedback and explicit human
@@ -150,7 +160,14 @@ All 40 installed files and four Skill paths matched; nine ordinary tasks, stored
 data, model defaults and the existing UI target were preserved. Cached dependencies
 were present. No model call, visible installer interaction, Word or Desktop action
 is inferred from that check. The current [support matrix](dsh-integration.md#4-支持矩阵)
-retains the remaining delivery and frontend gates.
+retains the remaining delivery and frontend gates. The later
+[Mac native observation](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
+verified the official plugin-page installation, an existing non-paper sidebar and
+a new draft/import/translation/candidate/fresh-reader path using the old forms and
+manual trigger. Its actual reader identified a translation-source coverage problem;
+the candidate stays pending and the original audit remains unchanged. This is not
+evidence for the current main-conversation input, autosave/one-submit or automatic
+trigger, nor for native accept/reject, restart or closed-sidebar auto-opening.
 
 ## Actual Word results and remaining client gates
 

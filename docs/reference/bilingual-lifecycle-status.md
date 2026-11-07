@@ -4,23 +4,42 @@ Status: bounded B code and its representative native path independently accepted
 in [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2), reviewed at
 `7936adcef50222002a5284130d6f9cc07a770afd` and merged as `f398f95`.
 Accepted package: 0.2.0-alpha.3. The original A package and synthetic Word files are retained;
-the remaining real Word and Desktop checks are not replaced by these changes.
+the remaining Word return/layout and complete Desktop checks are not replaced by
+these changes. Later bounded Word and native Mac evidence is recorded in the
+[current delivery status](document-delivery-status.md#current-e-prerelease-consumers)
+and [support matrix](dsh-integration.md#4-支持矩阵).
 
 ## Implemented ownership
 
 The ordinary sidebar Remote and native paper tool still share `PaperWorkbench`.
 No paper preset, replacement composer, second main Agent, provider client or model
-runtime is introduced. Saving paper data does not send a prompt. The separate human
-Send action uses DSH's existing session prompt API, queues onto the same task and
-reuses a stable native request identity after response loss.
+runtime is introduced. Current source keeps document input in the native main
+conversation. Comment drafts autosave without a prompt; one human round submission
+persists the batch and uses DSH's existing session prompt API on the same task,
+reusing its identity after response loss. Submission checks the saved comment
+versions atomically so a concurrent edit cannot enter a round the user did not read.
+Mutable discussion resolution is excluded from the dispatch content; a response-loss
+retry keeps both the original prompt identity and its exact submitted content.
+The document's comment editors stay mounted across sidebar tabs, and current saved
+anchors remain highlighted; stale locations are not guessed. Earlier B/alpha1 evidence below covers the
+old separate-save/send workflow, not native acceptance of the new interaction.
 
 One storageDomain aggregate holds the editable ProseMirror body, immutable import
 baseline and original package, actual steps/inverse steps, candidates, decisions,
-feedback, batches and translation projections. Version 2 admits the installed
-version 1 schema only to upgrade it in place. The upgrade reads original run
+feedback, batches and translation projections. Current domain version4 admits
+versions1–3; optional creation/turn provenance and versioned discussion state stay
+in these same records. The existing version1 upgrade reads original run
 boundaries with the existing SDK, replays decisions, retains persistent IDs and
 verifies the visible accepted body before writing. It neither clears old data nor
 creates another editable document.
+
+Draft comment edits use expected versions and keep their original anchors. Once
+submitted or frozen into candidates/readings, comment content is immutable;
+discussion replies append Feedback records, and resolve/reopen is discussion state,
+not a source decision. Candidate translations cover exactly the chosen operations'
+resulting ranges. The program does not infer a full sentence from translation text;
+a suitable source scope can retain the same minimal physical edit Steps. Bilingual
+export still requires complete current paragraph groups and rejects partial ones.
 
 `operations.ts` owns replace/split/merge semantics. Acceptance persists actual
 ProseMirror steps, including the new paragraph ID created by a split. Replay,
@@ -78,8 +97,8 @@ translation, restart serialization and installed aggregate upgrade. These are ow
 and SDK checks, not installed-client or model acceptance.
 
 The alpha.2 correction passed type checking, 39 owner/SDK checks, Host/Client build and
-the developer Word fixture preparation command. The public installed-Host test
-now consumes the current operations/scope contracts through the official DSH
+the developer Word fixture preparation command. At that B stage the installed-Host test
+consumed the operations/scope contracts through the official DSH
 Client and also checks stream updates, split targets and comparison after merge.
 
 A subsequent independent review and the first actual ordinary-Agent request exposed
@@ -135,7 +154,9 @@ Agent translation/proposal evidence are tracked against the exact head/package i
 remain separate. Native Word and Desktop frontend acceptance remain open; A's
 earlier limited evidence is retained separately.
 
-Word export currently supports the original paragraph layout. A changed split/merge
+The following is the historical B package boundary; current delivery is described
+in the [D/E record](document-delivery-status.md).
+At B, Word export supported the original paragraph layout. A changed split/merge
 layout is explicitly refused while retaining the accepted body and full history;
 the paragraph-boundary Word adapter remains D work. Undo/restoring the original
 layout re-enables that export path. Complex Word objects remain preserved read only.
