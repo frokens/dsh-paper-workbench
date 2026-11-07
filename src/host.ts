@@ -255,6 +255,7 @@ export class PaperWorkbench extends TypertRemoteService {
         if (!ids.length) return current;
         const prior = current.readings.filter(reading => reading.sessionId === agent.id && reading.automatic?.turnStartSeq === turnStartSeq);
         const same = prior.findLast(reading => reading.sourceRevision === current.revision
+          && reading.goal === goal
           && JSON.stringify(reading.requestedCandidateIds) === JSON.stringify(ids)
           && JSON.stringify(reading.material.translations) === JSON.stringify(translationViews(current)));
         if (same) { id = same.id; return current; }

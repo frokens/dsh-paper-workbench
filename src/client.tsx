@@ -407,7 +407,7 @@ function CommentEditor({ draft, record, locked, call, sessionId, t, register, ca
     return () => { active.current = false; unregister(); controller.current?.abort(); };
   }, [draft.id, flush, register]);
   React.useEffect(() => {
-    if (!saving && !retry.current && record && latest.current === saved.current && record.version !== version.current) {
+    if (!saving && !retry.current && record && latest.current === saved.current && record.version > version.current) {
       saved.current = record.comment; version.current = record.version; latest.current = record.comment; setText(record.comment);
     }
   }, [record?.version, saving]);
@@ -448,15 +448,19 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     return () => { if (saves.current.get(key) === flush) saves.current.delete(key); };
   }, []);
   React.useEffect(() => {
-    const stream = new AbortController(); setView(undefined); setConnected(false); setError("");
+    setView(undefined);
     setPicked(undefined); setDrafts([]); setSelected([]); setPreview(undefined); setComparison(undefined); cache.current.clear(); submission.current = undefined;
+    return () => { controller.current?.abort(); submittingController.current?.abort(); };
+  }, [sessionId]);
+  React.useEffect(() => {
+    const stream = new AbortController(); setConnected(false); setError("");
     void (async () => {
       try { for await (const state of observe(sessionId, stream.signal)) {
         if (stream.signal.aborted) return;
         setView(state); setConnected(true);
       } } catch (failure) { if (!stream.signal.aborted) { setConnected(false); setError(String(failure)); } }
     })();
-    return () => { stream.abort(); controller.current?.abort(); submittingController.current?.abort(); };
+    return () => stream.abort();
   }, [sessionId, observe, refresh]);
   const prior = React.useRef<string | undefined>(undefined);
   React.useEffect(() => {

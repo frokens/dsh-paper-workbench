@@ -20,8 +20,11 @@ reusing its identity after response loss. Submission checks the saved comment
 versions atomically so a concurrent edit cannot enter a round the user did not read.
 Mutable discussion resolution is excluded from the dispatch content; a response-loss
 retry keeps both the original prompt identity and its exact submitted content.
-The document's comment editors stay mounted across sidebar tabs, and current saved
-anchors remain highlighted; stale locations are not guessed. Earlier B/alpha1 evidence below covers the
+The document's comment editors stay mounted across sidebar tabs and same-task
+stream reconnects. Refresh retains unconfirmed text, anchors and the original save
+attempt; it does not reset the task's comment state. An older observation cannot
+roll back an acknowledged save version or overwrite dirty/in-flight text. Current
+saved anchors remain highlighted; stale locations are not guessed. Earlier B/alpha1 evidence below covers the
 old separate-save/send workflow, not native acceptance of the new interaction.
 
 One storageDomain aggregate holds the editable ProseMirror body, immutable import

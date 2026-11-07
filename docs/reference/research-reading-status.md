@@ -94,9 +94,11 @@ by this plugin's native session/turn, including first drafts and chat revisions.
 It awaits the existing fresh-child owner with the parent turn cancellation signal.
 Actual turn user directions are captured through a disposable asynchronous
 `sessionQuery.observeSession` cut, not deprecated synchronous Session log reads.
-Same candidates/body revision/baseline projections reuse the persisted automatic
-reading, including a stopped or failed outcome; fresh steering only starts another
-reader after the input combination changes. No per-propose child or second scheduler
+Same candidates/body revision/baseline projections and the exact captured user
+goal reuse the persisted automatic reading, including a stopped or failed outcome.
+Same-turn steering that changes that goal starts a replacement reading even when
+candidate text is unchanged; the earlier frozen material remains intact. A later
+ordinary turn without paper candidates still does not start a reader. No per-propose child or second scheduler
 is introduced. Failed projection is a failed Reading with no available child packet.
 Startup failure is settled and cleaned before the hook returns. Restart interrupts
 unfinished work without silently replaying model calls. Explicit retry reuses the

@@ -52,11 +52,12 @@ async function open(root: string) {
   const ctx = new Context();
   new LocalFileSystem(ctx, { cwd: root, diffBasisMaxBytes: 10 * 1024 * 1024 });
   const boundary = { openTurnStartSeq: 0, lastTurn: 1 };
+  const directions = ["Preserve the confirmed source and propose the requested local clarification."];
   const parent = { id: "task", session: { id: "task" } } as unknown as Agent;
   ctx.provide("agents", { turnBoundaryOf: () => boundary });
   ctx.provide("workingDirectory", { ensure: async (_agent: Agent, signal?: AbortSignal) => { signal?.throwIfAborted(); return root; } });
   ctx.provide("sessionQuery", { observeSession: async () => ({
-    events: [{ seq: boundary.openTurnStartSeq, type: "user/message", data: { content: [{ type: "text", text: "Preserve the confirmed source and propose the requested local clarification." }] } }],
+    events: directions.map((text, index) => ({ seq: boundary.openTurnStartSeq + index, type: "user/message", data: { content: [{ type: "text", text }] } })),
     [Symbol.dispose]() {},
   }) });
   new Storage(ctx);
@@ -111,7 +112,7 @@ async function open(root: string) {
     ctx,
     domain,
     service,
-    parent, boundary,
+    parent, boundary, directions,
     invoke,
     calls,
     setFailure(value: boolean) {
@@ -863,6 +864,37 @@ test("a completed writing turn aggregates its complete candidate combination and
     host.boundary.lastTurn = 2; host.boundary.openTurnStartSeq = 100;
     await host.service.completeWritingTurn(host.parent, 2, signal);
     assert.equal(calls.length, 2, "A later ordinary answer without new writing cannot review the old round again.");
+    assert.equal(storedPaper(host).revision, 0); assert.equal(storedPaper(host).decisions.length, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("new user directions in the same native writing turn create one replacement reading even when candidates stay unchanged", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-steering-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    let starts = 0;
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts++; return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} };
+    } });
+    const signal = new AbortController().signal;
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    const first = storedPaper(host).readings[0], original = JSON.stringify(first);
+    assert.equal(starts, 1);
+    const added = "Also check whether this clarification contradicts the abstract's stronger claim.";
+    host.directions.push(added);
+    await Promise.all([host.service.completeWritingTurn(host.parent, 1, signal), host.service.completeWritingTurn(host.parent, 1, signal)]);
+    const readings = storedPaper(host).readings;
+    assert.equal(starts, 2); assert.equal(readings.length, 2);
+    assert.deepEqual(readings[1].candidateIds, first.candidateIds);
+    assert.equal(readings[1].sourceRevision, first.sourceRevision);
+    assert.equal(readings[1].replaces, first.id); assert.ok(readings[1].goal.includes(added));
+    assert.ok(readings[1].goal.includes(host.directions[0]));
+    assert.equal(JSON.stringify(readings[0]), original, "The earlier reading keeps its original frozen inputs and result.");
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    assert.equal(starts, 2, "The same actual directions and candidate combination stay idempotent.");
+    host.boundary.lastTurn = 2; host.boundary.openTurnStartSeq = 100; host.directions.push("An unrelated later question.");
+    await host.service.completeWritingTurn(host.parent, 2, signal);
+    assert.equal(starts, 2, "A later turn with no paper candidate cannot start a reader.");
     assert.equal(storedPaper(host).revision, 0); assert.equal(storedPaper(host).decisions.length, 0);
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
