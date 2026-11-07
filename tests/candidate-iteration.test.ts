@@ -16,10 +16,10 @@ function draftRequest(paper: ReturnType<typeof initial>, paragraphs: string[], e
     operations: [{ kind: "fill_draft", selection: paperView(paper).blocks[0].selection, paragraphs }],
     translations: paragraphs.map((_, index) => ({ operationIndexes: [0], paragraphIndexes: [index], text: `译文 ${index}` })), ...extra });
 }
-function change(paper: ReturnType<typeof initial>, quote: string, replacement: string, extra: object = {}) {
+function change(paper: ReturnType<typeof initial>, quote: string, replacement: string, extra: object = {}, authoring?: NonNullable<ReturnType<typeof initial>["candidates"][number]["authoring"]>) {
   const source = paperView(paper).blocks[0].selection, from = source.quote.indexOf(quote);
   return propose(paper, proposeRequest.parse({ action: "propose", requestId: `p-${paper.candidates.length}`, reason: "Synthetic scoped change.",
-    operations: [{ kind: "replace", selection: { ...source, from, to: from + quote.length, quote }, replacement }], ...extra }));
+    operations: [{ kind: "replace", selection: { ...source, from, to: from + quote.length, quote }, replacement }], ...extra }), authoring);
 }
 function completed(paper: ReturnType<typeof initial>, requestId: string, turn: number) {
   const prepared = prepareReading(paper, readingRequest.parse({ action: "read_independently", requestId, candidateIds: "all", goal: "Check the supplied method.", evidence: "Synthetic source only." }),
@@ -66,6 +66,72 @@ test("a pending first draft is revised without accepting it; both comparison bas
   assert.deepEqual(paperView(accepted).blocks.map(block => block.text), revisedParagraphs);
   assert.equal(accepted.revision, 1); assert.equal(accepted.translations.length, 3);
   assert.deepEqual(accepted.candidates[0], oldCandidate);
+});
+
+test("the final candidate compares the complete writing turn with its starting proposal, while retaining the direct last-step diff", () => {
+  const original = ["An absolute claim. Build 2.", "One agent handles a round.", "Success proves correctness."];
+  const revised = ["A bounded claim. Build 2.", "The writing session handles a fixed batch.", "Success leaves the human decision open."];
+  let paper = initial();
+  paper = propose(paper, draftRequest(paper, original), { sessionId: "task", turn: 1, turnStartSeq: 10 });
+  const first = paper.candidates[0];
+  const turn = { sessionId: "task", turn: 2, turnStartSeq: 20 };
+  paper = propose(paper, draftRequest(paper, revised, { revises: [first.id] }), turn);
+  const intermediate = paper.candidates.at(-1)!;
+  const finalParagraphs = [revised[0].replace("2", "3"), ...revised.slice(1)];
+  paper = propose(paper, draftRequest(paper, finalParagraphs, { revises: [intermediate.id] }), turn);
+  const saved = JSON.stringify(paper), view = paperView(paper).candidates.at(-1)!;
+  assert.deepEqual(view.proposalDiff!.filter(part => part.kind !== "equal"), [{ kind: "delete", text: "2" }, { kind: "insert", text: "3" }]);
+  assert.deepEqual(view.writingTurnComparison!.candidateIds, [first.id]);
+  const diff = view.writingTurnComparison!.diff;
+  assert.equal(diff.filter(part => part.kind !== "insert").map(part => part.text).join(""), original.join("\n"));
+  assert.equal(diff.filter(part => part.kind !== "delete").map(part => part.text).join(""), finalParagraphs.join("\n"));
+  assert.notDeepEqual(diff, view.diffs[0], "The empty accepted body is a different baseline.");
+  assert.equal(JSON.stringify(paper), saved, "The comparison is a readonly projection, not a rewritten candidate.");
+  for (const laterTurn of [{ sessionId: "task", turn: 3, turnStartSeq: 30 }, { sessionId: "other", turn: 2, turnStartSeq: 20 }]) {
+    const next = propose(paper, draftRequest(paper, [finalParagraphs[0].replace("3", "4"), ...finalParagraphs.slice(1)], { revises: [view.id] }), laterTurn);
+    assert.deepEqual(paperView(next).candidates.at(-1)!.writingTurnComparison!.candidateIds, [view.id], "A different native turn/session stops the lineage walk.");
+  }
+});
+
+test("a missing or conflicting turn baseline stays explicitly unavailable without replacing historical comparisons or source checks", () => {
+  let paper = initial(["Alpha beta."]);
+  paper = change(paper, "Alpha", "Agent", {}, { sessionId: "task", turn: 1, turnStartSeq: 10 });
+  const original = structuredClone(paper.candidates[0]);
+  paper = change(paper, "Alpha", "Human");
+  paper = decideMany(paper, [paper.candidates[1].id], "accepted", 0);
+  const revised = change(paper, "Human", "Revised", { revises: [original.id] }, { sessionId: "task", turn: 2, turnStartSeq: 20 });
+  const latest = paperView(revised).candidates.at(-1)!;
+  assert.equal(latest.writingTurnComparison, undefined);
+  assert.match(latest.writingTurnComparisonIssue!, /starting proposals.*cannot be compared.*overlaps/s);
+  assert.equal(latest.proposalDiff, undefined); assert.ok(latest.proposalComparisonIssue);
+  assert.deepEqual(revised.candidates[0], original);
+  const missing = change(paper, "Human", "Revised", { revises: [original.id] });
+  assert.match(paperView(missing).candidates.at(-1)!.writingTurnComparisonIssue!, /no native writing-turn boundary/);
+  let fresh = initial();
+  const turn = { sessionId: "task", turn: 1, turnStartSeq: 10 };
+  fresh = propose(fresh, draftRequest(fresh, ["First.", "Second."]), turn);
+  fresh = propose(fresh, draftRequest(fresh, ["Changed first.", "Second."], { revises: [fresh.candidates[0].id] }), turn);
+  assert.equal(paperView(fresh).candidates.at(-1)!.writingTurnComparison, undefined);
+  assert.match(paperView(fresh).candidates.at(-1)!.writingTurnComparisonIssue!, /without an earlier candidate baseline/);
+});
+
+test("a later other-session dependency cannot silently enter the reconstructed writing-turn baseline", () => {
+  let paper = initial(["Alpha.", "Beta."]);
+  const firstTurn = { sessionId: "task", turn: 1, turnStartSeq: 10 }, currentTurn = { sessionId: "task", turn: 2, turnStartSeq: 20 };
+  paper = change(paper, "Alpha", "Original proposal", {}, firstTurn);
+  const first = paper.candidates[0];
+  paper = change(paper, "Alpha", "Intermediate", { revises: [first.id] }, currentTurn);
+  const intermediate = paper.candidates.at(-1)!;
+  paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "concurrent", reason: "A separate task's proposal.",
+    operations: [{ kind: "replace", selection: paperView(paper).blocks[1].selection, replacement: "Other task." }] }), { sessionId: "other", turn: 1, turnStartSeq: 10 });
+  const other = paper.candidates.at(-1)!;
+  paper = change(paper, "Alpha", "Final", { revises: [intermediate.id], dependsOn: [other.id] }, currentTurn);
+  const saved = JSON.stringify(paper), view = paperView(paper).candidates.at(-1)!;
+  assert.equal(view.writingTurnComparison, undefined);
+  assert.match(view.writingTurnComparisonIssue!, /cannot be compared/);
+  assert.ok(view.proposalDiff, "The direct comparison is retained with its original scope.");
+  assert.equal(view.conflict, null, "An unavailable comparison is separate from the valid current proposal.");
+  assert.equal(JSON.stringify(paper), saved);
 });
 
 test("revising a proposal keeps affected dependencies explicit and leaves unrelated proposals intact", () => {

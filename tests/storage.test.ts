@@ -26,6 +26,9 @@ import type { OfficeToPdfRequest } from "@deepseek-ai/dsh-office-to-pdf";
 import { LocalSubprocessRuntime } from "@deepseek-ai/dsh-subprocess-local";
 import { LocalFileSystem } from "@deepseek-ai/dsh-fs-local";
 import type { SubprocessHandle } from "@deepseek-ai/dsh-subprocess";
+import { ToolsService } from "@deepseek-ai/dsh-tools";
+import { NativeToolExecutor } from "@deepseek-ai/dsh-tool-executor-native";
+import type { ToolCallId } from "@deepseek-ai/dsh-llm";
 
 function fixture() {
   return createPaper({
@@ -348,6 +351,77 @@ test("production native reading uses the DSH fresh/caller seam, validates struct
     assert.equal(disposed, true);
     await host.service.completeWritingTurn(parent, 1, new AbortController().signal);
     assert.equal(calls.length, 1, "An identical completed retry cannot start another chargeable child.");
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("owned reading anchors fail before native tool dispatch, can be corrected, and do not affect other callers, tools or teardown", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-tool-")), host = await open(root);
+  const disposers: (() => void)[] = [];
+  try {
+    host.ctx.provide("systemPrompt", { tools: () => () => {} });
+    new ToolsService(host.ctx);
+    disposers.push(host.ctx.tools.setExecutor(new NativeToolExecutor(host.ctx)));
+    let captured = 0, otherCalls = 0;
+    // A neutral concluding body exercises the real native tool pipeline. The
+    // subagent owns structured_output itself in production; no replacement is
+    // installed by the plugin or this fixture in a running DSH profile.
+    disposers.push(host.ctx.tools.register({ name: "structured_output", description: "Synthetic concluding capture.", parameters: { type: "object" },
+      output: { schema: { type: "object" }, render: () => [{ type: "text", text: "Captured." }] },
+      execute: async (_args, execution) => { captured++; execution.concludeTurn(); return { captured: true }; } }));
+    disposers.push(host.ctx.tools.register({ name: "read_evidence", description: "Synthetic evidence tool.", parameters: { type: "object" },
+      output: { schema: { type: "object" }, render: () => [{ type: "text", text: "Read." }] },
+      execute: async () => { otherCalls++; return { read: true }; } }));
+    const paper = await seed(host), prepared = prepareReading(paper, readingRequest.parse(readingInput), "task");
+    await host.domain.table("papers").put(paper.id, prepared.paper);
+    await host.domain.table("papers").put("legacy", { id: "legacy", name: "Pending migration", revision: 0, document: paper.document, baseline: paper.baseline,
+      originalBase64: "", sourceBase64: "", warnings: [], candidates: [], decisions: [] });
+    const block = paperView(paper).blocks[0];
+    const finding = { kind: "concern", locations: [{ version: "baseline", blockId: block.id, quote: "确认的句子" }], candidateIds: [],
+      issue: "核对两语含义。", impact: "需要澄清。", evidence: "确认的句子", suggestion: "说明含义。" };
+    const invalid = { interpretation: { problem: "问题", mechanism: "机制", feedbackRole: "批注" }, findings: [finding], limits: ["合成材料。"] };
+    const invoke = (agentId: string | undefined, name: string, value = invalid) => host.ctx.tools.execute({
+      calls: [{ type: "tool-call", id: randomUUID() as ToolCallId, name, arguments: JSON.stringify(value) }],
+      ...(agentId ? { agent: { id: agentId } as Agent } : {}), signal: new AbortController().signal,
+    });
+    const failed = await invoke(prepared.reading.childId!, "structured_output");
+    assert.equal(failed.results[0].result.isError, true);
+    assert.match(JSON.stringify(failed.results[0].result), /INVALID_ARGS/);
+    assert.match(JSON.stringify(failed.results[0].result), /Finding 1, location 1/);
+    assert.equal(failed.concluded, false); assert.equal(captured, 0);
+    const fixed = { ...invalid, findings: [{ ...finding, locations: [{ version: "baseline", blockId: block.id, quote: block.text }] }] };
+    const accepted = await invoke(prepared.reading.childId!, "structured_output", fixed);
+    assert.equal(accepted.results[0].result.isError, false); assert.equal(accepted.concluded, true); assert.equal(captured, 1);
+    for (const agentId of ["task", "another-structured-child", undefined]) {
+      const unaffected = await invoke(agentId, "structured_output");
+      assert.equal(unaffected.concluded, true);
+    }
+    assert.equal(captured, 4);
+    assert.equal((await invoke(prepared.reading.childId!, "read_evidence")).concluded, false); assert.equal(otherCalls, 1);
+    assert.deepEqual(storedPaper(host).readings[0], prepared.reading, "The pre-hook does not publish a second output or change frozen material.");
+    await host.service.close();
+    assert.equal((await invoke(prepared.reading.childId!, "structured_output")).concluded, true, "Closing the Host removes its validation listener.");
+    assert.equal(captured, 5);
+  } finally { disposers.reverse().forEach(dispose => dispose()); await host.close(); await host.ctx.fiber.dispose(); await rm(root, { recursive: true }); }
+});
+
+test("durable reading validation still rejects an invalid terminal capture and retains the original output", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-reading-terminal-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    const block = paperView(storedPaper(host)).blocks[0], source = JSON.stringify(storedPaper(host).document);
+    const structured = { interpretation: { problem: "角色", mechanism: "执行", feedbackRole: "澄清" }, findings: [{ kind: "concern",
+      locations: [{ version: "baseline", blockId: block.id, quote: "确认的句子" }], candidateIds: [], issue: "核对含义。", impact: "有歧义。", evidence: "确认的句子", suggestion: "澄清含义。" }], limits: ["仅合成材料。"] };
+    let starts = 0;
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts++;
+      return { childId: spec.childId, result: Promise.resolve({ stopReason: "completed", output: [], structured }), dispose: async () => {} };
+    } });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const reading = storedPaper(host).readings[0];
+    assert.equal(reading.status, "failed"); assert.equal(reading.output, undefined);
+    assert.match(reading.diagnostic!, /Finding 1, location 1/);
+    assert.deepEqual((reading.terminal as { structured: unknown }).structured, structured);
+    assert.equal(JSON.stringify(storedPaper(host).document), source); assert.equal(starts, 1);
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 

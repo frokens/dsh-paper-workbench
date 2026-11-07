@@ -21,7 +21,7 @@ import type { Agent } from "@deepseek-ai/dsh-agent";
 import type {} from "@deepseek-ai/dsh-fs";
 import type {} from "@deepseek-ai/dsh-working-directory";
 import type {} from "@deepseek-ai/dsh-session-query";
-import { assertObjectJsonSchema } from "@deepseek-ai/dsh-tools";
+import { assertObjectJsonSchema, ToolArgsError } from "@deepseek-ai/dsh-tools";
 import type { SubagentActivation } from "@deepseek-ai/dsh-subagent";
 import type {} from "@deepseek-ai/dsh-api-session-controller";
 import type { SessionRequestId } from "@deepseek-ai/dsh-api-session-controller/types";
@@ -96,6 +96,7 @@ const packageVersion: string = JSON.parse(readFileSync(join(root, "package.json"
 
 export class PaperWorkbench extends TypertRemoteService {
   private readonly lifetime = new AbortController();
+  private readonly stopReadingValidation: () => void;
   private readonly requests = new Set<Promise<unknown>>();
   private changingFonts = false;
   private initialization?: Promise<void>;
@@ -115,6 +116,16 @@ export class PaperWorkbench extends TypertRemoteService {
     private readonly bindings: KvTable<string, { paperId: string }>,
   ) {
     super(ctx, "paperWorkbench");
+    this.stopReadingValidation = ctx.on("tools/pre-execute", async (execution, next) => {
+      if (execution.name === "structured_output" && execution.agent) {
+        const owned = this.ownedReading(execution.agent.id);
+        if (owned && ["queued", "running"].includes(owned.reading.status)) {
+          try { validateReadingOutput(owned.reading, execution.arguments); }
+          catch (error) { throw new ToolArgsError([error instanceof Error ? error.message : String(error)]); }
+        }
+      }
+      return next();
+    });
   }
 
   initialize() {
@@ -193,6 +204,7 @@ export class PaperWorkbench extends TypertRemoteService {
   }
 
   close = async () => {
+    this.stopReadingValidation();
     this.lifetime.abort();
     await Promise.allSettled([...this.readingRuns.values()].map(run => run.activation?.dispose()));
     await Promise.allSettled([...this.requests]);
@@ -859,7 +871,8 @@ export class PaperWorkbench extends TypertRemoteService {
 
   private ownedReading(sessionId: string) {
     for (const [, stored] of this.papers.entries()) {
-      const paper = this.requireCurrent(stored);
+      if (!("history" in stored)) continue;
+      const paper = stored;
       const reading = paper.readings.find(reading => reading.childId === sessionId);
       if (reading) return { paper, reading };
     }

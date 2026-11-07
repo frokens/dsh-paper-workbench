@@ -124,6 +124,67 @@ module loading, theme, keyboard/narrow layout and pending-comment revision with 
 automatic fresh reader require separate exact-package native receipts in PR #5;
 publication, local checks and the older alpha2 native results do not establish them.
 
+## Alpha3 native result and unreleased follow-up
+
+The public alpha3 package was subsequently installed in the same Web host. Actual
+module loading, four live Skill definitions and four exact English/Chinese
+candidate comments were checked. One visible submission delivered those four
+comment versions to the existing writer. The writer made two internal replacement
+proposals in that single native turn; the system started exactly one fresh reader
+for the final pending proposal. The body remained unaccepted. This path received
+[bounded review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815273201)
+through fresh-reader initiation, not successful result delivery or overall product
+acceptance. The writer did not actually reload the newer author Skills in that
+turn, so its writing result does not establish an effect of those Skill changes.
+
+The fresh reader completed a real `structured_output` call, but one location put
+a Chinese translation quotation under an English primary-language block ID.
+The exact frozen primary block did not contain that quote. The Host correctly
+retained the raw terminal output and marked the Reading failed instead of
+publishing its findings as a completed result. The other three primary-language
+locations matched. The report was in English although the submitted comment
+bodies were Chinese; the current turn's packet did not repeat the initial turn's
+explicit Chinese conversation instruction. The failure, original material,
+earlier reading and pending manuscript remain evidence in their original scope.
+No statement of draft quality follows from a successful tool call.
+
+The current unreleased source uses DSH's official `tools/pre-execute` policy to
+validate only this plugin's active owned reader calling its real
+`structured_output`. It reuses `validateReadingOutput` against the same frozen
+material before the tool body can conclude the turn. A mechanical error names
+the finding, location and primary block, and returns ordinary invalid-arguments
+feedback so that child can correct its location within the same reading. The
+final durable result still passes the same validation. The listener is owned by
+the Host's Cordis scope and removed on close; other tasks, structured children
+and tools are unaffected. There is no second capture owner or semantic quality
+gate. Schema descriptions, the prompt and independent-reading Skill agree:
+locations quote exact baseline/proposed primary blocks; bilingual issues use the
+corresponding primary anchor and retain translated wording in issue/evidence.
+User directions/comment bodies determine discussion language, separately from
+manuscript language, English delivery templates and time-context messages.
+
+The actual alpha3 final proposal's direct-predecessor diff contained only a build
+digit: the substantive feedback edits were in its folded intermediate proposal.
+The unreleased view derives a cumulative comparison through the same native
+session/turn boundary, reconstructing the immutable candidate prefix at that
+turn's start and reusing the existing acceptance projection and text-diff owner.
+The final card shows that comparison first, with its exact starting candidate IDs
+in the readonly view; the direct predecessor and accepted-body comparisons remain
+separately labeled. This is derived display data, not a new editable manuscript
+or persisted comparison preference. Missing native boundaries, conflicting old
+source, absent earlier proposals or a later other-session dependency produce an
+explicit unavailable comparison. An empty accepted body is not presented as an
+earlier candidate baseline. Old candidates, differences and readings stay fixed.
+
+Alpha3's native equal-width tabs also overlapped at the ordinary narrow sidebar
+width. The unreleased Client retains the same native SegmentedTabs and puts its
+intrinsic-width list inside a horizontal scroll container. Native selection,
+focus, keyboard handling and theme tokens remain with that primitive. Source
+checks and builds do not establish installed layout, theme or keyboard behavior.
+An independently reviewed new package, zero-model native checks and one explicit
+fresh recovery of the same failed-reading owner remain separate validation steps;
+the published alpha3 package/tag and this failed reading are not rewritten.
+
 ## Earlier alpha2 DOCX reading and file evidence
 
 One current native DOCX message imported the four-paragraph synthetic input,

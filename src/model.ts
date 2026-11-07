@@ -34,6 +34,12 @@ export const importDocument = (blocks: ImportedBlock[]) =>
   documentFromImport(blocks).toJSON();
 export const realDiff = textDiff;
 
+function documentText(document: PMNode) {
+  const blocks: string[] = [];
+  document.forEach(node => blocks.push(node.type.name === "opaque" ? node.attrs.text : node.textContent));
+  return blocks.join("\n");
+}
+
 export function candidateSuccessor(paper: Pick<Paper, "candidates">, id: string) {
   return paper.candidates.find(candidate => candidate.revises?.includes(id));
 }
@@ -468,12 +474,7 @@ export function propose(
   if (!plan.transform.docChanged)
     throw new Error("The proposal contains no change.");
   if (priorProjection) {
-    const text = (doc: PMNode) => {
-      const blocks: string[] = [];
-      doc.forEach(node => blocks.push(node.type.name === "opaque" ? node.attrs.text : node.textContent));
-      return blocks.join("\n");
-    };
-    candidate.proposalDiff = textDiff(text(PMNode.fromJSON(schema, priorProjection.document)), text(plan.transform.doc));
+    candidate.proposalDiff = textDiff(documentText(PMNode.fromJSON(schema, priorProjection.document)), documentText(plan.transform.doc));
   }
   return proposed;
 }
@@ -608,6 +609,41 @@ export function projectCandidates(paper: Paper, ids: string[] | "all") {
     throw new Error(plan.conflicts.map((c) => c.message).join("\n"));
   const projected = applyAcceptance(paper, plan);
   return { candidateIds: plan.candidateIds, document: projected.document, translations: translationViews(projected) };
+}
+
+function writingTurnComparison(paper: Paper, candidate: Candidate, plan: ReturnType<typeof planAcceptance>): {
+  writingTurnComparison?: { candidateIds: string[]; diff: ReturnType<typeof textDiff> };
+  writingTurnComparisonIssue?: string;
+} {
+  if (!candidate.revises?.length) return {};
+  try {
+    const authoring = candidate.authoring;
+    if (!authoring) throw new Error("The proposal has no native writing-turn boundary.");
+    const sameTurn = (item: Candidate) => item.authoring?.sessionId === authoring.sessionId
+      && item.authoring.turnStartSeq === authoring.turnStartSeq && item.authoring.turn === authoring.turn;
+    const first = paper.candidates.findIndex(sameTurn), base = new Set<string>(), seen = new Set<string>();
+    function visit(id: string) {
+      if (seen.has(id)) return;
+      seen.add(id);
+      const item = paper.candidates.find(value => value.id === id);
+      if (!item) throw new Error("A referenced candidate record is missing.");
+      if (!sameTurn(item)) { base.add(id); return; }
+      item.revises?.forEach(visit);
+      item.dependsOn.forEach(visit);
+    }
+    visit(candidate.id);
+    if (!base.size) throw new Error("This turn began without an earlier candidate baseline; use the accepted-body comparison.");
+    // Reconstruct only the immutable candidate prefix at this native turn's
+    // start. Current accepted-source mapping still rejects stale/conflicting
+    // ranges; a later turn's proposal is never substituted for this baseline.
+    const before = { ...paper, candidates: paper.candidates.slice(0, first) };
+    const baseline = planAcceptance(before, [...base]);
+    if (baseline.conflicts.length) throw new Error(baseline.conflicts.map(item => item.message).join("\n"));
+    if (plan.conflicts.length) throw new Error(plan.conflicts.map(item => item.message).join("\n"));
+    return { writingTurnComparison: { candidateIds: [...base], diff: textDiff(documentText(baseline.transform.doc), documentText(plan.transform.doc)) } };
+  } catch (error) {
+    return { writingTurnComparisonIssue: `The starting proposals for this writing turn cannot be compared: ${error instanceof Error ? error.message : String(error)} Original proposal comparisons and the accepted-body difference are retained.` };
+  }
 }
 function commit(
   paper: Paper,
@@ -1495,6 +1531,7 @@ export function paperView(paper: Paper) {
         }
       return {
         ...candidate,
+        ...(plan ? writingTurnComparison(paper, candidate, plan) : {}),
         status: successor ? "superseded" as const : candidate.status,
         revisedBy: successor?.id ?? null,
         content: plan && !plan.conflicts.length ? candidateContentForPlan(paper, plan, candidate) : null,

@@ -190,6 +190,8 @@ const en = {
   proposal: "Proposed change",
   proposalReason: "Reason for this change",
   previousProposalDiff: "Text changes from the previous proposal",
+  writingTurnDiff: "Text changes since this writing turn's starting proposals",
+  writingTurnComparisonUnavailable: "The starting proposals for this writing turn cannot be compared. Earlier comparisons and the accepted-body difference remain available.",
   acceptedSourceDiff: "Full difference from the accepted body",
   pairedTranslation: "Paired translation",
   previousProposals: "Earlier proposals",
@@ -337,6 +339,8 @@ const zh: typeof en = {
   proposal: "修改建议",
   proposalReason: "修改说明",
   previousProposalDiff: "本次相对上一候选的文字变化",
+  writingTurnDiff: "本轮写作相对起始候选的文字变化",
+  writingTurnComparisonUnavailable: "无法比较本轮写作的起始候选。较早的比较与相对已接受正文的差异仍保留。",
   acceptedSourceDiff: "相对已接受正文的完整差异",
   pairedTranslation: "配对译文",
   previousProposals: "较早的候选",
@@ -808,6 +812,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
 .pw-connection-detail{font-size:12px;color:var(--pw-muted);margin:8px 0}
 .pw-connection-detail p{max-height:10rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
 .pw-tabs{margin:12px 0;overflow-x:auto}
+.pw-tab-list{min-width:max-content}
 .pw-tabs button{white-space:nowrap}
 .pw-submit-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
 .pw-selection-bar{border-top:1px solid var(--pw-line);padding-top:8px;margin-top:10px}
@@ -848,7 +853,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
 .pw-archived{color:var(--pw-muted)}
 .pw-archived[open]{color:inherit}
 .pw-notices{font-size:12px;color:var(--pw-muted);margin-bottom:16px}
-@container (max-width:420px){.pw-head,.pw-scroll{padding:12px}.paper-workbench article,.pw-archived{padding:12px}.pw-tabs{max-width:100%}.pw-tabs>[role="tab"]{min-width:max-content}.pw-submit-bar{align-items:flex-start}.pw-source,.pw-chinese{font-size:15px}.pw-actions{gap:6px}}
+@container (max-width:420px){.pw-head,.pw-scroll{padding:12px}.paper-workbench article,.pw-archived{padding:12px}.pw-tabs{max-width:100%}.pw-submit-bar{align-items:flex-start}.pw-source,.pw-chinese{font-size:15px}.pw-actions{gap:6px}}
 `}</style>
     <header className="pw-head"><h2>{paper?.name ?? view?.reading?.paper.name ?? t("title")}</h2>
       <div className="pw-actions pw-connection"><small role="status">{t(connection)}</small>
@@ -861,10 +866,10 @@ function Workbench({ sessionId, call, observe, t }: Props) {
         disconnectedLabel={t("offline")} connectingLabel={t(view ? "reconnecting" : "loading")} recoveredLabel={t("live")}
         reconnectActionLabel={t("refresh")} restartActionLabel={t("refresh")} onReconnect={() => setRefresh(value => value + 1)} />
       {connectionError && <details className="pw-connection-detail"><summary>{t("connectionDetails")}</summary><p>{connectionError}</p></details>}
-      {paper && <SegmentedTabs size="sm" className="pw-tabs" label={t("title")} value={tab} onChange={setTab}
+      {paper && <div className="pw-tabs"><SegmentedTabs size="sm" className="pw-tab-list" label={t("title")} value={tab} onChange={setTab}
         items={tabs.map(key => ({ value: key, id: `${panelId}-${key}-tab`, panelId: `${panelId}-${key}-panel`,
           label: <>{t(key)}{key === "proposals" ? ` ${pending.length}` : key === "feedback" ? ` ${paper.feedback.filter(item => !item.replyTo).length}` : ""}</>,
-        })) as [SegmentedTab<WorkbenchTab>, ...SegmentedTab<WorkbenchTab>[]]} />}
+        })) as [SegmentedTab<WorkbenchTab>, ...SegmentedTab<WorkbenchTab>[]]} /></div>}
       {!!paper && <div className="pw-submit-bar"><small>{t("readyComments")} · {round.length}</small>
         <Button size="sm" variant="primary" disabled={busy || submitting || !round.length} onClick={() => void submitRound()}>{t(submitting ? "submittingRound" : "submitRound")}</Button></div>}
       {picked && <div className="pw-selection-bar"><small>{picked.value.quote}</small><div className="pw-actions">
@@ -935,7 +940,9 @@ function Workbench({ sessionId, call, observe, t }: Props) {
             {candidate.status === "pending" && <input type="checkbox" aria-label={candidate.reason} checked={selected.includes(candidate.id)} onChange={event => setSelected(ids => event.target.checked ? [...ids, candidate.id] : ids.filter(id => id !== candidate.id))} />}
             <span className="pw-tag">{t(candidate.status)}</span><h3>{t("proposal")}</h3></div>
             <details className="pw-reason"><summary>{t("proposalReason")}</summary><p>{candidate.reason}</p></details>
-            {candidate.proposalDiff && <section className="pw-change"><h3>{t("previousProposalDiff")}</h3><Diff parts={candidate.proposalDiff} collapseEqual={t("unchangedText")} /></section>}
+            {candidate.writingTurnComparison && <section className="pw-change"><h3>{t("writingTurnDiff")}</h3><Diff parts={candidate.writingTurnComparison.diff} collapseEqual={t("unchangedText")} /></section>}
+            {candidate.writingTurnComparisonIssue && <div className="pw-notices"><p>{t("writingTurnComparisonUnavailable")}</p><details><summary>{t("evidence")}</summary><p>{candidate.writingTurnComparisonIssue}</p></details></div>}
+            {candidate.proposalDiff && <details className="pw-change" open={!candidate.writingTurnComparison}><summary>{t("previousProposalDiff")}</summary><Diff parts={candidate.proposalDiff} collapseEqual={t("unchangedText")} /></details>}
             {candidate.proposalComparisonIssue && <div className="pw-notices"><p>{t("candidateComparisonUnavailable")}</p><details><summary>{t("evidence")}</summary><p>{candidate.proposalComparisonIssue}</p></details></div>}
             <details className="pw-change" open={!candidate.proposalDiff && !candidate.content}><summary>{t("acceptedSourceDiff")}</summary>
               {candidate.diffs.map((parts, index) => <Diff parts={parts} key={index} />)}

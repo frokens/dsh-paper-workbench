@@ -117,6 +117,25 @@ test("reader findings must quote real reviewed content and candidates; compatibl
   assert.throws(() => validateReadingOutput(reading, { ...output, findings: [{ ...output.findings[0], locations: [{ ...output.findings[0].locations[0], quote: "verified result" }] }] }), /does not locate/);
 });
 
+test("a translated quote under a primary block gets an exact repair location; the bilingual issue survives with a valid primary anchor", () => {
+  let paper = fixture();
+  paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "bilingual", reason: "Clarify the mechanism.",
+    operations: [{ kind: "replace", selection: paperView(paper).blocks[0].selection, replacement: "The model selects an action." }],
+    translations: [{ operationIndexes: [0], text: "模型选择一项动作。" }] }));
+  const { reading } = prepareReading(paper, request, "task"), packet = readingPacket(paper, reading);
+  const block = packet.candidateBlocks[0], translation = packet.candidateTranslations[0].text;
+  const output = { interpretation: { problem: "角色", mechanism: "决策和执行", feedbackRole: "局部澄清" },
+    findings: [{ kind: "concern", locations: [{ version: "candidate", blockId: block.id, quote: block.text }, { version: "candidate", blockId: block.id, quote: translation }],
+      candidateIds: reading.candidateIds, issue: "检查两语含义。", impact: "含义可能不同。", evidence: translation, suggestion: "核对动作的含义。" }], limits: ["仅合成材料。"] };
+  const frozen = JSON.stringify(reading);
+  assert.throws(() => validateReadingOutput(reading, output), error => error instanceof Error
+    && error.message.includes("Finding 1, location 2") && error.message.includes(block.id)
+    && error.message.includes("candidateBlocks") && error.message.includes("issue/evidence"));
+  const corrected = { ...output, findings: [{ ...output.findings[0], locations: [output.findings[0].locations[0]] }] };
+  assert.equal(validateReadingOutput(reading, corrected).findings[0].evidence, translation);
+  assert.equal(JSON.stringify(reading), frozen);
+});
+
 test("unfinished and failed reading states never certify a reviewed current body or combination", () => {
   const prepared = prepareReading(fixture(), { ...request, candidateIds: [] }, "task");
   for (const status of ["queued", "running", "failed", "cancelled", "interrupted", "completed"] as const) {
