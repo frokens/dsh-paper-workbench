@@ -1,16 +1,26 @@
-# Test prerelease installation
+# 0.5.0-alpha.3 test bundle installation
 
 A–C and D's code/representative installed paths have received bounded independent
 acceptance; see the [D review](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
-The complete D/E exits remain open. The public test prerelease
+The complete D/E exits remain open. This guide describes **0.5.0-alpha.3**, which
+adds pending English/Chinese selection comments, complete pending-proposal revisions,
+proven acceptance anchors, locatable delivery warnings and the revised sidebar/Skills.
+The functional source at `aa2c94a` received
+[bounded independent engineering review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5814877675).
+Its local checks and one actual SDK DOCX fixture do not establish alpha3 installation,
+UI loading, or a native model/comment/revision/reader loop. Exact-package observations
+are recorded separately in that PR; inspect their stated version and scope.
+Distribution is limited to versions and attachments actually listed in
+[Releases](https://github.com/frokens/dsh-paper-workbench/releases).
+
+The historical public test prerelease
 [0.5.0-alpha.2](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
-is available, fixed to source `bad9ddf4e22b3873b2d565da9de3ea6c159698fb`.
-It is not a complete-product release. The archive received an
+is fixed to source `bad9ddf4e22b3873b2d565da9de3ea6c159698fb`. It received an
 [independent package check](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)
 and has actually been downloaded and installed. Its frozen predecessor alpha1,
 fixed to implementation `46957f2`, remains unchanged.
 
-The **0.5.0-alpha.2 prerelease** contains main-conversation
+The **0.5.0-alpha.2 prerelease** introduced main-conversation
 file input, autosaved comments/one submission and automatic completed-turn reading,
 including the comment reconnect/version and frozen-goal repairs reviewed at
 [`26a020c`](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163).
@@ -29,8 +39,10 @@ The declared combination is **macOS Apple silicon, Node.js 24.9 or later, DSH
 Mac application's own existing host/profile is the desktop acceptance route.
 Its [alpha1 native installation/sidebar check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
 has bounded real evidence, including ordinary-task translation and fresh reading.
-That window used the old forms/manual trigger. Alpha2's visible Mac interaction,
-complete ordinary-task matrix and first-draft path remain unverified. Native Web
+That window used the old forms/manual trigger. The later official Mac alpha2 upgrade
+and reopened task/sidebar have [bounded evidence](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711574419),
+as does one alpha2 from-zero draft and automatic fresh reading. Their original quality
+findings remain; these records do not certify alpha3 or the complete ordinary-task matrix. Native Web
 DOCX path import/translation, local edit, automatic fresh-reader structured output,
 explicit human decision and actual tracked download received
 [bounded independent acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)
@@ -58,18 +70,20 @@ links. The plugin's own MIT license is unchanged.
 
 ## Formal entry
 
-The public links below install the frozen alpha2 archive already checked through
-the formal API. Alpha1 retains its older interaction and is not replaced in place.
+Choose the exact version listed in Releases. Historical alpha1/alpha2 archives and
+tags retain their original bytes and evidence; alpha3 is a separate archive.
 
-1. Download the [alpha2 tarball](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.2/dsh-paper-workbench-0.5.0-alpha.2.tgz)
-   and its [SHA256 file](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.2/dsh-paper-workbench-0.5.0-alpha.2.tgz.sha256).
-   The tarball is 32,939,556 bytes; its SHA256 is
-   `154a57dd06594054612179e72d027c5933051549c39e337a9e94bcaa48a99d44`.
+1. When `v0.5.0-alpha.3` is listed in [Releases](https://github.com/frokens/dsh-paper-workbench/releases),
+   download `dsh-paper-workbench-0.5.0-alpha.3.tgz` and its same-name `.sha256` file.
+   Verify that attachment's SHA256. A version absent from Releases is not an
+   available public distribution. Alpha2's 32,939,556 bytes and
+   `154a57dd06594054612179e72d027c5933051549c39e337a9e94bcaa48a99d44`
+   identify only the frozen alpha2 archive.
 2. In DSH, open **Plugins**, then **Add plugin**.
 3. Enter the downloaded tarball's local file path and choose **Install**.
 4. Read the result. If DSH requests a restart, restart that same host/profile.
 5. The native sidebar is available in ordinary tasks without replacing the main
-   Agent. Frozen alpha1 retains its historical workflow. In alpha2,
+   Agent. Frozen alpha1 retains its historical workflow. In alpha3,
    document input belongs to the original main conversation: attach a
    file, mention @file, supply a path/link, or request a new draft. The ordinary
    Agent calls the shared backend and the associated document opens in the sidebar.
@@ -85,8 +99,8 @@ restart that profile. This failure does not replace an already linked paper.
 
 ## Documents and delivery
 
-This section describes the published alpha2 workflow. Its complete visible/native
-acceptance remains open; the frozen alpha1 retains its historical interaction.
+This section describes alpha3's implemented workflow. Engineering and native-runtime
+evidence are separate; the older archives retain their original interaction.
 
 State a different primary language in the main conversation when needed. English
 is the default and projects Chinese; an explicit Chinese primary projects English.
@@ -169,7 +183,7 @@ before sharing.
 ## Data, updates and removal
 
 DSH storage retains paper aggregates, originals, feedback, decisions and delivery/
-return receipts after removal. Alpha2 storage format 4 reads formats 1–3 in place
+return receipts after removal. Alpha2/alpha3 storage format 4 reads formats 1–3 in place
 (the frozen alpha1 uses format 3);
 older candidates may not reopen newer records. Test upgrades on disposable data.
 
@@ -178,11 +192,17 @@ this and blocks export. In **History**, explicitly restore the intended revision
 if its visible body is identical. This records the actual relationship and retains
 the old entry.
 
-Comments and replies autosave at their source/translation location without a model
+Comments and replies autosave at their accepted or pending source/translation location without a model
 request. **Submit this round of comments** saves the batch and dispatches it through
 the current ordinary Agent in one action. Failed delivery retries that same batch
 and native prompt identity. Import prepares paragraph translation jobs for the
 already-running ordinary Agent to complete in that turn, with no second Send.
+
+An unaccepted first draft can be read and annotated in **Changes**. Submitted pending
+comments revise that candidate group without accepting it first. The earlier draft,
+original comment ranges and earlier readings stay available. Only a later proven
+actual acceptance adds current source/translation anchors; an ambiguous historical
+range is retained with an explicit delivery warning and a link back to its discussion.
 
 When the complete writing candidate combination reaches DSH's formal turn boundary,
 the Host starts one fresh independent reader automatically. First drafts and
@@ -190,8 +210,10 @@ main-chat revisions use this same path; unrelated answers, translation-only jobs
 and the reader's own turn do not start more paper readers. Findings and limits are
 read only. A stopped/failed reading can retry its saved scope without goal/evidence
 forms. Only the user accepts/rejects; automatic reading is not automatic acceptance.
-Alpha2 package/public-install checks have completed; visible comments/one-submit
-interaction and the remaining native matrix still need their own actual checks.
+Alpha2's package/public-install and representative Web comments/one-submit path have
+[bounded acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711258312).
+Alpha3's engineering review does not extend those observations to its new UI or
+pending-comment loop; use separately versioned native receipts to assess those paths.
 The controlled DOCX reader's completed output, separate authorized human decision
 and downloaded files retain their exact scope; the reader is not a scientific-quality
 pass. The frozen alpha1 retains its earlier interaction.

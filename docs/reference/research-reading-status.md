@@ -11,7 +11,7 @@ Desktop workflow and final sidebar usability remain open. Earlier Word/Mac resul
 
 ## Current E language and independent-revision scope
 
-The current public [0.5.0-alpha.2 prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
+The historical [0.5.0-alpha.2 prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
 is fixed to `bad9ddf`, [package-reviewed](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)
 and [actually downloaded/installed](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503).
 All 40 installed files and four live Skill paths matched. A configured Web host's
@@ -31,9 +31,9 @@ but the draft remains pending: four concerns, one question and six limits are re
 They identify unsupported cost/effect claims, mixed workflow terms, an ambiguous
 recipient and the implementation-evidence boundary; draft quality is not accepted.
 
-## Unreleased pending-proposal and sidebar changes
+## 0.5.0-alpha.3 pending-proposal and sidebar scope
 
-Current source adds `propose.revises` to the existing candidate owner. It names an
+Version 0.5.0-alpha.3 adds `propose.revises` to the existing candidate owner. It names an
 exact active pending group and supplies complete replacement operations/translations
 against accepted-body selections. A first draft reuses its original empty selection;
 it is never accepted just to enable correction, and projected block IDs are not
@@ -117,9 +117,12 @@ comments, proves the exact second duplicate paragraph/range, retains an older
 candidate comment through an explicit historical warning, and audits blank optional
 metadata in both input and output. It does not rerun the older six Word/SDK cases,
 Word's desktop UI, PDF conversion or font discovery. These are local engineering
-results, not a new installed bundle or model run. The new external UI module, theme,
-keyboard/narrow layout and real pending-comment revision with its automatic fresh
-reader still need the eventual exact new bundle's bounded native validation.
+results, accepted at engineering source `aa2c94a` in the
+[independent review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5814877675).
+That evidence does not include an installed alpha3 bundle or model run. Actual UI
+module loading, theme, keyboard/narrow layout and pending-comment revision with its
+automatic fresh reader require separate exact-package native receipts in PR #5;
+publication, local checks and the older alpha2 native results do not establish them.
 
 ## Earlier alpha2 DOCX reading and file evidence
 

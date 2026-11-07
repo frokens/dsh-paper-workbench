@@ -172,7 +172,7 @@ matching primary-language DOCX receipt and asks in the conversation when the
 delivery or existing-revision choice is unresolved. It reuses the existing return
 record/comparison/proposal/comment owners. Human alignment remains explicit through
 that conversation; neither the Agent nor the automatic reader accepts a return.
-The public [0.5.0-alpha.2 prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
+The historical [0.5.0-alpha.2 prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
 contains this entry, autosaved comments and system reading. Its archive is fixed to
 `bad9ddf`, independently [package-reviewed](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)
 and [downloaded/installed](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503).
@@ -182,6 +182,17 @@ in the same process and retained its old Papers/bindings, with new installed-Hos
 import logs. Neither route establishes a completely cold install or visible alpha2
 UI. Packaging-time status prose in the frozen archive is superseded by these
 Release/PR facts, not by regenerating the package or moving either tag.
+
+Version 0.5.0-alpha.3 adds pending-candidate comments to the existing feedback and
+delivery owners. Proven actual acceptance anchors reach the shared DOCX/PDF comment
+projection; translated comments retain their exact quote at the complete aligned
+primary group. Historical comments retain locatable delivery warnings. The source
+at `aa2c94a` received [independent engineering review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5814877675),
+including one new actual SDK DOCX fixture with exact second-duplicate ranges and
+blank optional properties. That fixture is not a native download, Word-client or
+PDF-converter check. Alpha3 distribution and native observations require their own
+exact package/version receipts; the older file and client evidence below retain
+their original identities.
 
 An actual alpha2 native path import completed current paragraph translations in
 the same turn. A controlled DOCX candidate adds only `observed `, with complete

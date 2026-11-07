@@ -8,8 +8,14 @@
 
 ## 当前状态
 
-当前提供 [0.5.0-alpha.2 测试预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)，
-原包固定源码 `bad9ddf`。主对话文档入口、Word 式批注、系统自动独立审读及保存/审读目标修正已获
+本源码版本为 **0.5.0-alpha.3**。待定中英候选批注、继续修订、侧栏和 Skill 改动已在
+`aa2c94a` 获[独立工程复审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5814877675)。
+工程检查不包含本版本的实际安装、界面加载或模型闭环；这些结果按准确版本和包 SHA
+另在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 记录。
+分发以 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 中实际列出的版本及附件为准。
+
+历史 [0.5.0-alpha.2 测试预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
+原包固定源码 `bad9ddf`。其主对话文档入口、Word 式批注、系统自动独立审读及保存/审读目标修正已获
 [有界代码复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163)和
 [独立包审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)。A–D 的有界代码批次已合入，
 E 在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 继续，完整产品尚未接收。
@@ -28,11 +34,11 @@ alpha2 已[匿名下载并经正式安装接口升级](https://github.com/froken
 首稿保留四项关注、一个问题及六项证据限制，仍待修改，不能据此接收其论文质量。
 完整普通任务入口与 Mac 点击矩阵仍开放。安装使用现有依赖缓存，未声称全冷安装。
 
-后续源码加入待定候选的中英选区批注、继续修订、侧栏阅读层级和 Skill 语境；首稿无需先接受
+alpha3 加入待定候选的中英选区批注、继续修订、侧栏阅读层级和 Skill 语境；首稿无需先接受
 即可提交批注并生成新版。批注保留原候选范围，实际接受时只记录可证明的正文/译文定位；
 不能定位的导出批注保留明确提示和回看入口。本地存储/修订检查和一个新增实际 SDK DOCX
-案例已有工程证据；这批尚未发布，新包的界面加载及真实批注修订/自动审读仍待验收，
-不把源码改动写成原 alpha2 已有能力。
+案例已有工程证据；它们不证明新包的界面加载及真实批注修订/自动审读，
+也不属于原 alpha2 已有能力。
 
 历史 [alpha1](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1) 原包与 tag 保持原件。
 [Mac 原生窗口实证](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
@@ -84,16 +90,17 @@ DSH 对话区或主聊天输入框。
 ## 安装测试包
 
 候选包包含已构建 Host/Client、文档运行时、Skill 和许可，通过 DSH 正式插件入口安装。
-已验证组合包括 DSH `0.2.2-rc.1` Web 和官方 Mac app 自有宿主/profile 的有界安装路径，
-均为 macOS Apple silicon；完整桌面流程及其余平台尚未验收。
+历史 alpha1/alpha2 的有界安装证据覆盖 DSH `0.2.2-rc.1` Web 和官方 Mac app 自有宿主/profile，
+均为 macOS Apple silicon；它们不证明 alpha3 实际加载、完整桌面流程或其余平台。
 候选安装方式与限制见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)。
 
-从 [alpha2 预发布页](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)下载
-`dsh-paper-workbench-0.5.0-alpha.2.tgz` 和校验文件。在 DSH 的“插件 → 添加插件”输入下载文件路径并安装；使用者不需要
-克隆或编译源码。原包为 32,939,556 字节 / 40 文件，SHA256 为
-`154a57dd06594054612179e72d027c5933051549c39e337a9e94bcaa48a99d44`。
+从 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 选择实际列出的 `v0.5.0-alpha.3`，
+下载 `dsh-paper-workbench-0.5.0-alpha.3.tgz` 和同名 `.sha256` 校验文件；未列出的版本不视为已分发。
+核对该附件的字节校验后，在 DSH 的“插件 → 添加插件”输入下载文件路径并安装；使用者不需要
+克隆或编译源码。历史 alpha2 的 32,939,556 字节 / 40 文件及
+`154a57dd06594054612179e72d027c5933051549c39e337a9e94bcaa48a99d44` 只标识原 alpha2。
 包内状态文档保留打包时的快照；后续发布与实测以 Release 和当前仓库/PR 记录为准，不重打原包或移动 tag。
-alpha2 新流程只从主对话接收文件引用和写作意图，默认英文配中文，明确要求中文主稿时才反转；
+alpha3 继续从主对话接收文件引用和写作意图，默认英文配中文，明确要求中文主稿时才反转；
 侧栏批注自动保存、一次提交，写作完成后系统自动审读。接受/拒绝始终由用户决定。
 
 ## 源码开发

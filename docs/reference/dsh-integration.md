@@ -7,7 +7,13 @@
 它是设计依据，不是本插件已安装、宿主全部行为已实测或未来版本兼容的证据。
 实施前记录实际安装的 DSH 发行版和相关包版本，核需要的导出与运行时 API。
 
-当前已公开测试预发布 [0.5.0-alpha.2](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)，
+0.5.0-alpha.3 的待定候选中英批注、继续修订和侧栏/Skill 功能在 `aa2c94a` 获
+[有界独立工程复审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5814877675)。
+此工程记录不包含 alpha3 实际安装、模块加载、主题/键盘/窄栏和原生批注修订/自动读者；
+发布与运行证据分别以 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 的实际附件
+和 PR #5 的准确版本/包 SHA 记录为准，不从旧版本实证推导。
+
+历史已公开测试预发布 [0.5.0-alpha.2](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)，
 固定源码 `bad9ddf4e22b3873b2d565da9de3ea6c159698fb`。主对话入口、批注与自动审读已获
 [有界代码复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163)及
 [独立包审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)。
@@ -22,7 +28,9 @@ alpha2 原生 Agent 已通过路径导入并在同轮完成逐段中英对照和
 接收分别判断。旧 Markdown 读者受系统休眠后的流超时与墙钟取消影响而无输出，原件保留，
 不报作产品性能超时。代表性 DOCX 下载闭环也已获
 [原稿/下载稿独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)，
-完整新交互、首稿和 Mac 可见操作仍需各自证据。
+alpha2 的代表 Web 批注路径、一次从零首稿/自动审读及官方 Mac 升级后任务重开另有
+[有界实证](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711574419)，
+首稿质量和完整任务/桌面矩阵分别判断；它们不验证 alpha3。
 历史 alpha1 原包/tag 与旧表单证据保持原范围。
 
 | 能力 | 已核入口 | 官方源码 |
@@ -70,7 +78,8 @@ alpha2 原生 Agent 已通过路径导入并在同轮完成逐段中英对照和
 分发的前置，也不能在未发布时写可用的 npm 安装命令。
 
 准确附件和宿主正式安装步骤见[安装指南](../install.md)。原生 API 安装路径已有独立实证，
-alpha1 的 Mac 正式安装页已有有界观察，alpha2 可见界面仍待验。Git URL 的源码安装路径只能
+alpha1 的 Mac 正式安装页、alpha2 的升级重开和代表 Web 交互各有原版本有界观察。
+alpha3 工程检查不含新包界面或模型验证。Git URL 的源码安装路径只能
 作为开发方案，不能替代已构建用户包。包内状态文字冻结于打包交接时，后续状态以 Release、
 当前仓库与 PR 实证为准；文档变化不重打原包或移动 tag。
 
@@ -95,6 +104,7 @@ alpha1 的 Mac 正式安装页已有有界观察，alpha2 可见界面仍待验�
 | --- | --- |
 | macOS Apple silicon / Node 25.9 / DSH 0.2.2-rc.1 Web | alpha2 公开附件匿名下载、正式 API 升级及原有普通任务读取已独立核验；声明最低 Node 24.9，不从一次实测推导所有版本 |
 | alpha2 测试预发布 | 固定 bad9ddf / 32,939,556 字节 / 40 文件，独立包审、公开及实际安装已完成；完整新交互与产品仍未接收，alpha1 原件不变 |
+| alpha3 候选批注与继续修订 | aa2c94a 功能获[独立工程复审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5814877675)，57 项专项、4 项存储与一个新增 SDK DOCX 案例保留其范围；本记录不含 alpha3 新包安装/界面/模型结果，另看准确产物与原生验收记录 |
 | Host 与 Skills | 两个既有 Web 宿主的安装文件与四项 live Skill 路径已核；其中已有配置宿主有同进程新增 Host 导入日志，实际 Skill 正文与资源 base 匹配冻结 alpha2；不把另一宿主的来源推断冒称直接缓存观察 |
 | 普通 Agent | 代表翻译、写作与新 fresh reader 路径已有实际结果；不替换主 Agent。已有/新建/恢复/非论文的全部可见侧栏入口及既有 MCP 使用矩阵尚未完成 |
 | 独立审改 | 历史中文删除与复审保留原 concern/limit；alpha2 受控 DOCX 系统自动 fresh 审读已实际完成并存储1项 question/5项 limits。其候选与整稿质量、用户决定分别评核，旧 Markdown 取消记录不改写 |
@@ -103,7 +113,7 @@ alpha1 的 Mac 正式安装页已有有界观察，alpha2 可见界面仍待验�
 | Word 客户端扩展 | 六份 Word16.105 接受/拒绝保留原文本、段落和直接格式范围；命名样式、真实版面、导师批注返稿和两份未执行的 Word 布局 PDF 为扩展未验 |
 | 字体与可见界面 | 显式系统字体目录路径有 PDF、取消及同 profile 重启证据；默认发现阻塞未修复，字体表单和最终界面仍待实际交互 |
 | 升级与卸载 | 原生 remove/install 及同数据恢复已有代表证据；不等于所有用户生命周期或可见安装流程通过 |
-| Mac 桌面应用 | 官方 app 自有宿主/profile 已从正式插件页安装公开 alpha1，40 文件匹配，普通任务侧栏、翻译/候选/真实 fresh reader 有界实证；新主对话入口/自动审读交互、接受拒绝、重启及关闭侧栏自动展开仍待验 |
+| Mac 桌面应用 | alpha1 正式插件页安装、40 文件及旧交互的普通任务侧栏/翻译/候选/fresh reader 有界实证；alpha2 官方升级后任务/侧栏重开另有[工程核对](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711574419)。完整新交互、接受拒绝、重启及关闭侧栏自动展开不由这些观察推导 |
 | Windows、Linux、Intel Mac | 当前发布包不声明支持，未验证 |
 
 独立审改的原始错误、明确恢复和语义边界见[主控复核](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)。

@@ -140,7 +140,7 @@ Host/Client/工具/Skills、重启恢复、升级保全、卸载退出；Word �
 | B | 有界代码与代表原生路径已接收，最终界面收尾开放 | [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2)；[实际职责及待验项](../reference/bilingual-lifecycle-status.md) |
 | C | 代码和代表路径已获有界独立接收并合入，完整产品仍开放 | [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)；[实际证据与限制](../reference/research-reading-status.md) |
 | D | 代码及代表安装路径已获有界独立接收，完整出口仍开放 | [准确六向复审](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398)；[实际 Word 等未验边界](../reference/document-delivery-status.md) |
-| E | alpha2 已公开、包审及代表 API 升级完成，代表原生 DOCX/双语/局部候选/自动 fresh 审读/人类决定/真实文件闭环已获有界接收，完整产品未接收 | [alpha2 预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)、[独立包审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)、[10任务公开安装](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503)、[DOCX与自动读者准确接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)；历史[Word](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)/[Mac](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)证据不改记为新可见交互，默认字体、完整任务入口与最终界面仍开放 |
+| E | alpha2 的代表原生/文件路径获有界接收；alpha3 候选批注/继续修订及侧栏功能已获工程复审，准确分发与原生运行另行验收，完整产品未接收 | [alpha2 预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)、[独立包审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)、[10任务公开安装](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503)、[DOCX与自动读者准确接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)、[aa2c94a 工程复审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5814877675)；旧[Word](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)/[Mac](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)证据不改记为新可见交互，默认字体、完整任务入口与最终界面按原范围保留 |
 
 维护状态只引用真实 PR 和结果，不在本文件堆积轮次日志。
 本次 D 接收依据验收标准允许缺少必验证据时接收有界代码批次的规则。用户现已把 Word
@@ -154,11 +154,13 @@ E 先完成剩余功能及验证，界面美化按用户要求放在功能验收
 同一 PR 的新交互代码已获有界复核，准确 alpha2 包审、发布和实际升级已完成。原生路径
 导入、同轮中文与受控 DOCX 自动 fresh 审读已有实际结果，明确人类决定后的真实下载与
 批注/文本对照也已独立核对；旧 Markdown 睡眠取消保留。
-后续只补受影响缺口：关闭侧栏后的正确展开、自动保存/一次提交和
-完整任务入口，保持问题/限度与用户决策边界。Mac 继续使用官方 app 自有宿主/profile，
+alpha3 工程复审后，只补准确新包的加载和受影响交互：既有待定首稿的中英批注、
+保存/刷新、一次提交、必要修订和系统唯一新读者，以及实际主题/键盘/窄栏；不先接受
+有问题的首稿，不为追求零 finding 重复模型。完整任务入口等保留原范围，保持限度与用户决策边界。
+Mac 继续使用官方 app 自有宿主/profile，
 不复制 Web 配置或凭据，不把旧表单证据改记为新流程通过。
 
-下一步 Word 验收只核真实 DOCX 输入/导出与对照样例：主对话入口、用户确认、原批注与
-新增批注/修改说明、实际文本差异、原件保全和导出属性。桌面 Word 保持停止，不重跑已
+代表 Word 最小文件闭环已有实际原稿/下载稿证据；alpha3 新批注的唯一新增 SDK 文件案例
+保留其工程范围，不改记为原生下载或 Word 客户端。桌面 Word 保持停止，不重跑已
 接收的六件结果、不重复失败批注调用、不继续调 AppleScript，也不据未明原因改系统权限。
 严格返稿、版面及已准备的有效命名样式保留为扩展未验，不写成已解决或阻塞最小闭环。
