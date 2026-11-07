@@ -124,7 +124,7 @@ module loading, theme, keyboard/narrow layout and pending-comment revision with 
 automatic fresh reader require separate exact-package native receipts in PR #5;
 publication, local checks and the older alpha2 native results do not establish them.
 
-## Alpha3 native result and unreleased follow-up
+## Alpha3 native result and alpha4 follow-up
 
 The public alpha3 package was subsequently installed in the same Web host. Actual
 module loading, four live Skill definitions and four exact English/Chinese
@@ -148,7 +148,12 @@ explicit Chinese conversation instruction. The failure, original material,
 earlier reading and pending manuscript remain evidence in their original scope.
 No statement of draft quality follows from a successful tool call.
 
-The current unreleased source uses DSH's official `tools/pre-execute` policy to
+Version 0.5.0-alpha.4's functional source at `7bc5670` received
+[bounded independent review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815408904)
+with 19 candidate/reading checks and five selected Host checks, type checking and
+Host/Client builds. This engineering scope does not include alpha4 installation,
+actual sidebar/theme/keyboard checks or a new fresh recovery. The source uses
+DSH's official `tools/pre-execute` policy to
 validate only this plugin's active owned reader calling its real
 `structured_output`. It reuses `validateReadingOutput` against the same frozen
 material before the tool body can conclude the turn. A mechanical error names
@@ -165,7 +170,7 @@ manuscript language, English delivery templates and time-context messages.
 
 The actual alpha3 final proposal's direct-predecessor diff contained only a build
 digit: the substantive feedback edits were in its folded intermediate proposal.
-The unreleased view derives a cumulative comparison through the same native
+The alpha4 view derives a cumulative comparison through the same native
 session/turn boundary, reconstructing the immutable candidate prefix at that
 turn's start and reusing the existing acceptance projection and text-diff owner.
 The final card shows that comparison first, with its exact starting candidate IDs
@@ -177,7 +182,7 @@ explicit unavailable comparison. An empty accepted body is not presented as an
 earlier candidate baseline. Old candidates, differences and readings stay fixed.
 
 Alpha3's native equal-width tabs also overlapped at the ordinary narrow sidebar
-width. The unreleased Client retains the same native SegmentedTabs and puts its
+width. The alpha4 Client retains the same native SegmentedTabs and puts its
 intrinsic-width list inside a horizontal scroll container. Native selection,
 focus, keyboard handling and theme tokens remain with that primitive. Source
 checks and builds do not establish installed layout, theme or keyboard behavior.
