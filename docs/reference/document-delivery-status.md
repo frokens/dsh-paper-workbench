@@ -1,8 +1,10 @@
 # Document delivery and return work in progress
 
-D is in implementation. It has not completed independent PR review, installation
-of its candidate package, Microsoft Word round trips or final UI acceptance.
-The complete A–E objective remains open.
+D is under independent PR review. Candidate packages have been installed and
+upgraded in an exterior disposable profile; configured PDF delivery, cancellation
+and same-profile restart have representative actual evidence. Microsoft Word
+round trips and final UI acceptance are still open. The complete A–E objective
+has not been achieved.
 
 The current Word projection consumes the primary ProseMirror document and actual
 step/mirror history. Text and paragraph-mark revisions share one SDK export path;
@@ -88,9 +90,16 @@ outside that block stay with their existing owner. Closing the draft form does n
 write; applying an unchanged choice does not reload. Paper actions join normal
 shutdown, while the global editor owns the admitted configuration action across a
 dependent Paper reload, avoiding a self-wait. Actual installed reload, PDF delivery,
-cancellation and final candidate verification are still required.
+cancellation and same-profile graceful exit/restart have representative alpha.2
+evidence: the cancelled request did not create a receipt, a new one-page bilingual
+reason PDF retained its missing-font warning, and the saved PDF was byte-identical
+after restart. Its optional Info/XMP and generated annotation properties were
+checked; the actual page was opened. This evidence covers the configured path and
+does not repair the default font-discovery failure.
 
-The repaired candidate source passes 94 owner/SDK checks and type checking. Direct
+The alpha.2 source passed the complete 94 owner/SDK checks. The subsequent comment
+provenance correction and font failure-state presentation passed the 11 affected
+return/font checks and type checking; unaffected evidence is retained. Direct
 SDK accept/reject projections cover empty-to-multiple paragraphs, split/merge,
 inverse history, nonzero B, complete native formats, comments and source evidence.
 Managed-process intake covers retained Markdown/resources and joined cancellation.

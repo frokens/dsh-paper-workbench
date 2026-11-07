@@ -91,8 +91,10 @@ application, read the current settings again before retrying.
 
 This configuration uses DSH's existing provider and editor. It does not repair the
 default font scan or its graceful exit. Shared changes affect other previews and
-may exclude Office fonts. Installed PDF/reload/cancellation acceptance remains open;
-check missing-font warnings and rendered pages before sharing.
+may exclude Office fonts. The configured test profile has actual PDF, cancellation,
+reload and same-profile graceful restart evidence. Default discovery and complete
+product acceptance remain open. Check missing-font warnings and rendered pages
+before sharing.
 
 ## Data, updates and removal
 

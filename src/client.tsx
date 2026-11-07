@@ -1607,6 +1607,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                   <button disabled={busy} onClick={() => void run({ action: "pdf_font_settings" })}>{t("readPdfFonts")}</button>
                   {pdfFonts && <>
                     {pdfFonts.diagnostic && <p role="alert">{pdfFonts.diagnostic}</p>}
+                    {pdfFonts.canEdit && <>
                     <p>{t("fontCurrent")}: {pdfFonts.directories === null ? t("fontAutomatic") : pdfFonts.directories.join(", ")}</p>
                     <p className="pw-muted">{t("fontShared")}</p><p className="pw-muted">{t("fontNotes")}</p>
                     {!!pdfFonts.fallbacks?.length && <p className="pw-muted">{t("fontFallbacks")}: {pdfFonts.fallbacks.map(group => group.join(" → ")).join("; ")}</p>}
@@ -1619,8 +1620,9 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                       <button disabled={busy || !pdfFonts.canEdit || !fontAutomatic && !fontFolders.trim() || JSON.stringify(fontDraftDirectories) === JSON.stringify(pdfFonts.directories)}
                         onClick={() => void run({ action: "configure_pdf_fonts", directories: fontDraftDirectories,
                           expectedDirectories: pdfFonts.directories, sharedPreviews: true })}>{t("fontApply")}</button>
-                      <button disabled={busy} onClick={() => setPdfFonts(undefined)}>{t("fontClose")}</button>
                     </div>
+                    </>}
+                    <button disabled={busy} onClick={() => setPdfFonts(undefined)}>{t("fontClose")}</button>
                   </>}
                 </details>
               </>}

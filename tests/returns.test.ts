@@ -170,6 +170,13 @@ test("repeated returned wording cannot choose a different occurrence for text or
       commentIds: [comparison.comments[0].id], mappings: [], expectedRevision: 0, textOnly: true })), /exact current source/);
     assert.equal(paperView(current).blocks[0].text, "Y X");
     assert.equal(current.candidates.some(candidate => candidate.returnedFrom), false);
+    const sameText = returned(editRange(paper, 1, 3, ""), file.base64);
+    assert.equal(paperView(sameText).blocks[0].text, "X");
+    const sameComparison = compareReturn(sameText, "return");
+    assert.equal(sameComparison.comments[0].state, "unresolved", "P and R retain different original occurrences even when their current text matches.");
+    assert.deepEqual(sameComparison.comments[0].sources, []);
+    assert.throws(() => copyReturnComments(sameText, copyReturnCommentsRequest.parse({ action: "copy_return_comments", requestId: "equal-text-copy", returnId: "return",
+      commentIds: [sameComparison.comments[0].id], mappings: [], expectedRevision: sameText.revision, textOnly: true })), /exact current source/);
   }
 });
 

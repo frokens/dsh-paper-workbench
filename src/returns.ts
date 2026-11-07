@@ -220,11 +220,12 @@ export function compareReturn(paper: Paper, returnId: string, mappings: Mappings
         const original = blockId ? source.get(blockId) : undefined;
         if (!block || !blockId || !original || range.from > range.to || range.to > block.text.length)
           throw new Error("Verify this comment's returned paragraph alignment first.");
+        const comparison = comparisons.get(block.sourceIndex) ?? compareText(original.text, block.text, Math.min(deadline, performance.now() + 200));
+        if (comparison.problem) throw new Error(comparison.problem);
         const node = [...current.content.content].find(item => item.attrs.id === blockId && item.type.name === "paragraph");
         if (node?.textContent === block.text) sources.push({ ...original.selection, revision: paper.revision,
           from: range.from, to: range.to, quote: block.text.slice(range.from, range.to) });
         else {
-          const comparison = comparisons.get(block.sourceIndex) ?? compareText(original.text, block.text, Math.min(deadline, performance.now() + 200));
           const unchanged = unchangedReturnRange(comparison, range.from, range.to);
           sources.push(mapSelection(paper, { ...original.selection, ...unchanged, quote: original.text.slice(unchanged.from, unchanged.to) }));
         }
