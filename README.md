@@ -1,6 +1,6 @@
 # Paper Workbench for DeepSeek Harness
 
-面向科研论文的双语阅读、反馈定位、局部修订、独立审读和 Word 往返协作插件。
+面向科研论文的双语阅读、反馈定位、局部修订、独立审读和 Word 文件交付插件。
 
 复用 DeepSeek Harness（DSH）的通用 Agent、工具、研究能力和插件运行时，在同一个
 普通任务的原生对话中提供可持续迭代的论文侧栏。用户可以从材料开始写作，也可以上传已有论文，
@@ -24,7 +24,9 @@ alpha2 尚未公开发布、安装或经新合同原生验收，仍待独立包�
 候选仍待用户决定，不能扩称整稿质量或中英文同步修订通过。
 
 三组合成案例的六份 Microsoft Word 原生接受/拒绝结果已获[有界接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)，
-覆盖对应文本、段落和直接格式；有效命名样式与真实版面仍待核验。导师批注返稿未完成，
+覆盖对应文本、段落和直接格式，原失败和未保存返稿继续保留。本轮 Word 必选收敛为主对话上传/路径、
+用户确认改动、下载真实 DOCX，并能对照原稿/下载稿的文本与批注变化；该最小文件闭环仍需准确新流程证据。
+桌面 Word 自动化、有效命名样式、真实版面及复杂导师返稿为扩展验证，不阻塞这个最小目标。
 Mac 新交互、默认字体发现和最终界面仍开放。原生读者发现一项实际候选译文的来源覆盖不足，
 原候选与意见保留待定，不能以中文显示正确代替来源语义核验。
 支持组合及证据边界见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/install.md)、
@@ -38,7 +40,7 @@ Mac 新交互、默认字体发现和最终界面仍开放。原生读者发现�
 3. 一键提交本轮批注给当前普通 Agent；主聊天也可补充方向和处理任意其他任务。
 4. 整轮论文候选完成后，系统自动启动新的独立读者；侧栏显示真实差异、问题和证据限度，用户不填写审读配置。
 5. 逐处接受、拒绝或继续讨论，保留历史并恢复中断的工作。
-6. 导出干净 Word、原生修订 Word、双语工作稿和 PDF；接收导师返稿后继续迭代。
+6. 确认所需修改后下载真实 DOCX，保留/定位原批注，查看实际改动的新批注或修改说明，并与原稿对照；继续复用干净稿、原生修订稿、双语稿和 PDF 导出。严格客户端往返与复杂返稿比较属于扩展能力。
 
 安装后，DSH 原有对话界面和主 Agent 核心架构保持原样。插件侧栏对已有、新建、恢复
 及非论文普通任务均可用，不设“创建论文 Agent”的单独入口，不要求切换角色、preset
@@ -53,7 +55,7 @@ DSH 对话区或主聊天输入框。
 | [产品设计](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/product-design.md) | 用户问题、使用流程、范围及不可破坏的产品行为 |
 | [架构设计](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/architecture.md) | 文档模型、状态、修订、翻译、审读及格式适配 |
 | [DSH 接入与分发](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/dsh-integration.md) | 已核源码扩展点、安装、发布包和真实运行要求 |
-| [验收标准](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/acceptance.md) | 工程、真实 DSH、Word 往返及安装验收 |
+| [验收标准](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/reference/acceptance.md) | 工程、真实 DSH、Word 文件闭环及安装验收 |
 | [实施规划](https://github.com/frokens/dsh-paper-workbench/blob/main/docs/plans/implementation-plan.md) | 依赖顺序、职责批次、出口和剩余目标 |
 | [协作与审查](https://github.com/frokens/dsh-paper-workbench/blob/main/CONTRIBUTING.md) | 分支、Draft PR、独立审查、退修和合并 |
 | [工作规则](https://github.com/frokens/dsh-paper-workbench/blob/main/AGENTS.md) | 人与 Agent 均需遵守的稳定约束 |

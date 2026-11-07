@@ -100,6 +100,14 @@ diagnostics and retain the original. Supported existing body revisions require a
 explicit accept/reject projection. Revisions in preserved headers, footers, notes
 or unsupported structures must first be handled in Word.
 
+The required Word file workflow is bounded: attach a DOCX or provide its path in
+the native main conversation, confirm the desired changes, then download the real
+DOCX from the same backend. Compare its text with the preserved original, locate
+the original comments, and inspect new comments/change explanations for the actual
+edits. The acceptance sample must include both actual files and a short text/comment
+comparison, including anchors and optional file properties. File/XML checks do not
+claim Microsoft Word desktop execution or arbitrary layout fidelity.
+
 For Markdown, the ordinary Agent investigates the main file and referenced images,
 bibliography and optional CSL with DSH's file tools, then passes readable file
 references to the same import owner. Links use the existing investigation/download
@@ -117,7 +125,8 @@ output requires complete current translated paragraph groups. Delivered files ar
 immutable receipts that can be downloaded again. Exact source and return originals
 are available separately from metadata-clean derived exports.
 
-For a returned primary-language DOCX, attach it in the main conversation. The
+The existing return route is an extension of that minimum file workflow. For a
+returned primary-language DOCX, attach it in the main conversation. The
 ordinary Agent uses its file reference and the actual embedded delivery marker.
 Missing/ambiguous baselines or unresolved-revision choices require clarification
 there; the sidebar has no return upload, delivery-ID or manual-mapping form.
@@ -178,7 +187,11 @@ The alpha2 candidate still needs independent package and native acceptance;
 the frozen public alpha1 retains its earlier interaction.
 
 Developer fixtures use `npm run fixture:word -- prepare <new-test-directory>` and
-refuse to overwrite files. Microsoft Word must create the actual accepted, rejected
-and returned copies before verification. SDK settling, schema checks and preview
-PDFs do not establish those actions. See [D status](reference/document-delivery-status.md)
-and [earlier native evidence](reference/native-slice-status.md) for open gates.
+refuse to overwrite files. Their strict client checks require actual Word-created
+accepted/rejected/returned files; SDK settling, schema checks and preview PDFs do
+not establish those actions. Desktop automation, native accept/reject, SaveAs PDF,
+defined-style/layout checks and complex three-way return are extension checks,
+not required gates for the current DOCX file loop. Existing six native Word results
+and failed/unsaved return evidence stay in their original scope; no Word/AppleScript
+retry is needed for the narrowed target. See [D status](reference/document-delivery-status.md)
+for the file workflow and retained extension evidence.

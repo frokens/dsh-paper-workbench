@@ -6,9 +6,27 @@ Candidate packages have been installed and upgraded in an exterior disposable
 profile; configured PDF delivery, cancellation and same-profile restart have
 representative actual evidence. Later E checks added six actual Word accept/reject
 results and bounded Mac installation/sidebar/model observations, described below.
-Actual mentor return/comments, Word layout/defined styles, the complete ordinary-task
-entry matrix, font-form interaction and final UI acceptance remain open. This accepts a
+Actual mentor return/comments and Word layout/defined styles remain unverified
+extension capabilities. The complete ordinary-task entry matrix, font-form interaction,
+the current DOCX file loop and final UI acceptance remain open. This accepts a
 bounded code batch under the acceptance rules, not the complete D exit or A–E product.
+
+## Current required Word file scope
+
+The user narrowed this round to native main-conversation DOCX attachment/path input,
+the same backend, human confirmation of desired edits, and a real downloaded DOCX.
+Acceptance compares the actual original/output text and comments: original comment
+text and anchors remain locatable, actual changes have new comments or visible
+change explanations, the input original is preserved, and optional output properties
+are checked. A redistributable input/output pair with a short comparison is required;
+offline SDK/XML fixtures alone do not prove the native main-conversation path.
+
+Existing `w:ins` / `w:del`, clean/tracked/bilingual/PDF export and return owners are
+retained. No backend is added or removed for this scope change. Microsoft Word desktop
+automation, actual client accept/reject, SaveAs PDF, named styles/layout fidelity and
+complex E/R/P return/strict client round trips are extension checks. Their old missing
+evidence does not block this minimum file loop, and arbitrary layout fidelity is not
+promised. The narrowed loop is not marked accepted by this documentation change.
 
 The current Word projection consumes the primary ProseMirror document and actual
 step/mirror history. Text and paragraph-mark revisions share one SDK export path;
@@ -124,8 +142,9 @@ These checks are distinct from actual Word, installed Host/model and user accept
 The frozen alpha.5 package remains bound to the reviewed code head 8b82844. The
 subsequent acceptance-status documentation does not regenerate that package or
 claim new SDK, model, PDF or installation execution. E continues the remaining
-functional and distribution work; the actual Word requirement stays open in D's
-complete exit and final acceptance. Final visual refinement follows functional
+functional and distribution work; the current DOCX file requirement stays open,
+while strict Word client round trips are extensions under the user's revised scope.
+Final visual refinement follows functional
 acceptance.
 
 ## Current E prerelease consumers
@@ -170,7 +189,7 @@ the candidate stays pending and the original audit remains unchanged. This is no
 evidence for the current main-conversation input, autosave/one-submit or automatic
 trigger, nor for native accept/reject, restart or closed-sidebar auto-opening.
 
-## Actual Word results and remaining client gates
+## Retained actual Word results and extension limits
 
 The [independently checked Word16.105 window](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)
 produced six real accepted/rejected DOCX files from the teacher, paragraph
@@ -185,7 +204,7 @@ The structure input has no styles.xml: its CustomBody name is an undefined
 reference. This fixture therefore provides no evidence for retaining or losing
 a real named style. Its original input and expected arrays remain unchanged.
 A separate one-style input with an actual style definition is prepared for the
-next bounded check; SDK/schema validation of that input is not Word acceptance.
+optional extension check; SDK/schema validation of that input is not Word acceptance.
 
 The teacher return was edited in Word memory, but its comment action failed and
 the return was not saved. A later native comment call lost its connection and
@@ -198,11 +217,13 @@ Application-filled raw properties stay with the audit originals; metadata-clean
 delivery derivatives remain a separate concern.
 
 The two Word-native layout PDFs were not executed after the stop. Word layout,
-real defined-style retention and the actual E/R/P return/comment path remain open.
-The existing comments/return owner will consume a genuinely saved return after
-the formal UI or an actually connected document interface is available. The same
-failed native comment automation is not retried to manufacture a result.
+real defined-style retention and the actual E/R/P return/comment path remain open
+extensions. These facts and the six successful files are retained unchanged; no
+Word rerun or further AppleScript adjustment is part of the narrowed file acceptance.
+The existing comments/return owner remains available for a genuinely saved return.
 The last Word document-connection inventory was empty. Neither that result nor
 the native window-control error establishes a system-permission fault or a
-verified repair. The next check needs a usable client and actual saved output;
-it does not require another model run or a changed runtime.
+verified repair. A future strict client extension needs an actually usable client
+and saved output. The current minimum instead checks actual DOCX input/download
+files, text/comment differences, anchors, preserved originals and optional metadata;
+it does not claim the client-control issue is resolved.

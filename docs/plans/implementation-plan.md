@@ -28,18 +28,19 @@
 
 ## 3. 依赖顺序与职责批次
 
-### A. 可安装原生切片与 Word 最小往返
+### A. 可安装原生切片与 Word 文件闭环
 
 目标：在真实 DSH 里打开插件，对一个合成 DOCX 的准确片段提出修改，由用户接收，
-导出真正 Word 修订并重新导入。尽早证明 Host/Client、文档模型和分发路径成立。
+下载含可定位批注/修改说明的真实 DOCX，与原稿对照差异。继续复用原生修订和既有重新
+导入能力，尽早证明 Host/Client、文档模型和分发路径成立。
 
 交付：一个清楚的 bundle/包、必要构建与锁文件、共享 Host 操作、最小论文标签页、
 DOCX 适配与原生修订、合成夹具和相关测试、实测安装说明/技术选择。
 
 必验：实际 bundle 安装、宿主加载与卸载、已有/新建/恢复/非论文任务的统一侧栏入口、
 原生对话与主 Agent 不变、无专用 Agent 创建流程、原生工具代表调用、选区与原片段对应、
-真实 DOCX 结构和 Word 接受/拒绝。Word 暂不可用时保留明确未验项，报告阻塞范围；
-可推进不依赖该证据的工作，但不能将此出口写成完整通过。
+真实输入/下载 DOCX 的文本、批注锚点、变化、原件保全及可选属性。实际 Word 接受/拒绝
+属于保留原证据的扩展检查，不是本轮最小文件闭环的门槛。
 
 排除：大规模模板、实时多人协作、复杂 PDF 恢复、全平台无证据声明。
 审查通过后接收本切片，后续批次继续。
@@ -72,15 +73,20 @@ DOCX 适配与原生修订、合成夹具和相关测试、实测安装说明/�
 
 排除：父会话自评冒称独立、虚构结果、全局替换 system prompt、无限审改循环。
 
-### D. 导师返稿、完整导出及格式边界
+### D. 文件交付、格式边界及扩展返稿
 
 依赖 A–C。
 
-交付：以选定导师基准输出原生修订与理由批注，三方返稿比较，干净/修订/双语 DOCX
-和 PDF，Markdown 完整入口；按证据扩展 LaTeX/文本 PDF/OCR 并准确声明边界。
+交付：主对话 DOCX 上传/路径进入同一后台，用户确认所需修改，下载保留原批注并有新增
+批注/修改说明的真实 DOCX，提供原稿/下载稿对照样例。继续复用原生修订、干净/双语
+DOCX、PDF、三方返稿比较和 Markdown 入口，不为缩小目标新增或删除后台；其他格式按证据声明。
 
-必验：实际 Word 返稿与批注、字段/公式/表图/脚注等支持域、来源和锚点歧义、元信息、
-字体/分页和渲染；确认工作台内接受不清除对导师可见的差异。
+必验：实际输入/导出文件、原批注文本与锚点、真实文本差异、新批注/说明、原件保全和
+可选属性；确认工作台内接受不清除交付可见差异，复杂对象按支持域报告。
+
+扩展：桌面 Microsoft Word 自动化、客户端接受/拒绝、SaveAs PDF、命名样式/版面及
+复杂导师返稿三方合并/严格往返。过去未验不阻塞最小 Word 文件闭环；已有六件客户端
+结果及原失败按原范围保留，不重复 Word 或继续调 AppleScript。
 
 排除：任意格式无损、未实现平台支持、将排版标红冒充 Word 原生修订。
 
@@ -132,11 +138,12 @@ Host/Client/工具/Skills、重启恢复、升级保全、卸载退出；Word �
 | B | 有界代码与代表原生路径已接收，最终界面收尾开放 | [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2)；[实际职责及待验项](../reference/bilingual-lifecycle-status.md) |
 | C | 代码和代表路径已获有界独立接收并合入，完整产品仍开放 | [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)；[实际证据与限制](../reference/research-reading-status.md) |
 | D | 代码及代表安装路径已获有界独立接收，完整出口仍开放 | [准确六向复审](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398)；[实际 Word 等未验边界](../reference/document-delivery-status.md) |
-| E | 主语言链、公开附件安装、独立审改、六份 Word 结果及 Mac 原生代表流程已获有界接收，当前新交互与整体仍未接收 | [公开预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)、[9 任务安装工程复现](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)、[独立审改](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)、[Word 实际范围](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)、[Mac 原生正向证据](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)；主对话入口、Word 式批注、自动审读需新包原生验收，真实返稿/版面/命名样式、字体和完整任务入口仍开放 |
+| E | 主语言链、公开附件安装、独立审改、六份 Word 结果及 Mac 原生代表流程已获有界接收，当前新交互与整体仍未接收 | [公开预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)、[9 任务安装工程复现](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)、[独立审改](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)、[Word 实际范围](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)、[Mac 原生正向证据](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)；主对话入口、Word 式批注、自动审读及最小 DOCX 文件闭环需准确新流程证据，字体和完整任务入口仍开放；严格 Word 返稿/版面/命名样式归扩展 |
 
 维护状态只引用真实 PR 和结果，不在本文件堆积轮次日志。
-本次 D 接收依据验收标准允许缺少必验证据时接收有界代码批次的规则，不取消真实
-Word、完整 Desktop、全普通任务入口或字体表单实际交互。公开附件已匿名下载并经原生 API
+本次 D 接收依据验收标准允许缺少必验证据时接收有界代码批次的规则。用户现已把 Word
+必选收敛为文件闭环，严格客户端往返归扩展；完整 Desktop、全普通任务入口或字体表单
+实际交互仍按各自范围验收。公开附件已匿名下载并经原生 API
 独立安装；Mac 的正式插件页安装和代表论文侧栏也已实际观察，不能扩称全冷依赖、完整流程
 或新交互通过。alpha1 包固定实现提交 `46957f2`，本轮代码变更不重打该包、改版本或移动 tag。
 E 先完成剩余功能及验证，界面美化按用户要求放在功能验收之后。
@@ -146,8 +153,7 @@ E 先完成剩余功能及验证，界面美化按用户要求放在功能验收
 fresh 审读及真实覆盖问题的自主修正，保持用户决策边界。Mac 继续使用官方 app 自有宿主/profile，
 不复制 Web 配置或凭据，不把旧表单证据改记为新流程通过。
 
-Word 保持暂停。仅在正式 UI 或实际连通的文档接口可用后，补真实批注返稿、版面及已准备的
-有效命名样式代表例。保留异常和未保存状态，不自动重试失败的原生批注调用，不重复已接收的
-六份 Word 结果或无关模型案例；原生控制恢复前不发送前台事件。
-当前没有证据确认控制错误的原因或修复方法，不据此更改系统权限、安全设置或重建环境。
-若用户选择手工协助，由主控先确认正式界面可用，再只完成缺少的操作及保存证据。
+下一步 Word 验收只核真实 DOCX 输入/导出与对照样例：主对话入口、用户确认、原批注与
+新增批注/修改说明、实际文本差异、原件保全和导出属性。桌面 Word 保持停止，不重跑已
+接收的六件结果、不重复失败批注调用、不继续调 AppleScript，也不据未明原因改系统权限。
+严格返稿、版面及已准备的有效命名样式保留为扩展未验，不写成已解决或阻塞最小闭环。
