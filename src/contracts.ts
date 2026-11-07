@@ -9,6 +9,10 @@ export const selectionSchema = z.object({
   quote: z.string(),
 });
 export type Selection = z.infer<typeof selectionSchema>;
+export const paperLanguageSchema = z.enum(["en", "zh"]);
+export type PaperLanguage = z.infer<typeof paperLanguageSchema>;
+export const translationLanguageFor = (primary: PaperLanguage): PaperLanguage => primary === "en" ? "zh" : "en";
+export const languageNameFor = (language: PaperLanguage) => language === "en" ? "English" : "Chinese";
 export const operationSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("replace"),
@@ -78,6 +82,7 @@ export const createRequest = z.object({
   action: z.literal("create"),
   name: z.string().min(1).max(250),
   brief: z.string().max(20000),
+  primaryLanguage: paperLanguageSchema.default("en"),
 });
 export const readingRequest = z.object({
   action: z.literal("read_independently"),
@@ -170,6 +175,7 @@ export const uiRequest = z.discriminatedUnion("action", [
     name: z.string().min(1).max(250),
     base64: z.string().max(24_000_000),
     format: sourceFormatSchema.default("docx"),
+    primaryLanguage: paperLanguageSchema.default("en"),
     resources: sourceResourcesSchema.default([]),
     revisionMode: z.enum(["accept", "reject"]).optional(),
   }),

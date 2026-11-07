@@ -10,6 +10,7 @@ import type {
   Selection,
   UiRequest,
   translationSelectionSchema,
+  PaperLanguage,
 } from "./contracts.js";
 import type { z } from "zod";
 import type { paperView, previewAcceptance, compareRevision } from "./model.js";
@@ -70,9 +71,12 @@ const en = {
   feedback: "Feedback",
   history: "History",
   select:
-    "Select source or Chinese text to annotate it. Click a source cursor to split a paragraph.",
+    "Select source or translated text to annotate it. Click a source cursor to split a paragraph.",
   source: "Source",
-  translation: "Chinese projection",
+  translation: "Translation",
+  primaryLanguage: "New document primary language",
+  language_en: "English",
+  language_zh: "Chinese",
   selected: "Selected text",
   replacement: "Replacement",
   reason: "Reason",
@@ -137,8 +141,8 @@ const en = {
   submittedDirections: "Submitted user directions",
   draftParagraphs: "Draft paragraphs",
   unfinishedReading: "This reading has no completed valid result yet.",
-  bilingualChanged: "The following Chinese input changed and needs a bilingual recheck; unchanged source evidence is retained.",
-  sourceEvidenceRetained: "The source-language body still matches the completed reading. This does not cover changed Chinese wording.",
+  bilingualChanged: "The following translation changed and needs a bilingual recheck; unchanged source evidence is retained.",
+  sourceEvidenceRetained: "The primary body still matches the completed reading. This does not cover changed translation wording.",
   queued: "Queued",
   running: "Reading in progress",
   failed: "Failed",
@@ -153,7 +157,7 @@ const en = {
   comparisonBaseline: "Word comparison baseline",
   comparisonHelp: "Rejecting all Word revisions restores this version. A returned file is compared with the body actually delivered and the current paper.",
   variant: "Working copy",
-  cleanCopy: "Clean", trackedCopy: "Native revisions", bilingualCopy: "English and Chinese",
+  cleanCopy: "Clean", trackedCopy: "Native revisions", bilingualCopy: "Bilingual working copy",
   includeReasons: "Add change reasons as paragraph comments",
   exportFile: "Export file", deliveryHistory: "Delivered files", downloadAgain: "Download again",
   pdfCopy: "PDF is a static reading copy. Use DOCX to accept or reject native Word revisions.",
@@ -169,7 +173,7 @@ const en = {
   chooseParagraph: "Choose its delivered paragraph", updateReturn: "Update comparison", returnBefore: "Delivered wording", returnAfter: "Returned wording",
   proposeReturn: "Save selected text changes as a candidate", textOnlyReturn: "Text candidates keep the current formatting and paragraph order. The original returned DOCX is retained for format and structural changes.",
   noReturnChanges: "No new text change is ready in the aligned paragraphs. Check unresolved locations below.",
-  returnComments: "Comments in the returned file", noDelivery: "Export an English clean or tracked DOCX before comparing its return.",
+  returnComments: "Comments in the returned file", noDelivery: "Export a primary-language clean or tracked DOCX before comparing its return.",
   returnStatus_ready: "Ready to propose", returnStatus_conflict: "Overlapping local change",
   returnStatus_already_applied: "Already in the current body", returnStatus_wrong_delivery: "Wrong delivered file",
   copyReturnComment: "Copy comment text to feedback", copiedReturnComment: "Already copied to feedback",
@@ -194,7 +198,7 @@ const en = {
     "Choose text within one editable source paragraph or one translation group.",
   changed:
     "The paper changed. Select the current text again; your draft is retained.",
-  noTranslation: "No current Chinese projection for this source.",
+  noTranslation: "No current translation for this source.",
   copiedScope: "This scope is atomic; necessary dependencies are included.",
   restoreBeforeExport:
     "An earlier restoration needs its intended comparison restored before Word export. Choose that historical version in History and restore it explicitly; the existing records are retained.",
@@ -221,9 +225,12 @@ const zh: typeof en = {
   proposals: "候选修改",
   feedback: "反馈",
   history: "历史",
-  select: "选择原文或中文译文添加批注；点击原文中的位置可提出拆段。",
+  select: "选择原文或译文添加批注；点击原文中的位置可提出拆段。",
   source: "主语言正文",
-  translation: "中文译文",
+  translation: "译文",
+  primaryLanguage: "新论文主语言",
+  language_en: "英文",
+  language_zh: "中文",
   selected: "所选文字",
   replacement: "替换内容",
   reason: "修改理由",
@@ -287,8 +294,8 @@ const zh: typeof en = {
   submittedDirections: "用户已提交方向",
   draftParagraphs: "首稿段落",
   unfinishedReading: "本次审读尚无已完成的有效结果。",
-  bilingualChanged: "下列中文输入已变，需要复核双语含义；未受影响的原文证据仍保留。",
-  sourceEvidenceRetained: "主语言正文仍与已完成审读一致；此结论不覆盖改变后的中文措辞。",
+  bilingualChanged: "下列译文已变，需要复核双语含义；未受影响的原文证据仍保留。",
+  sourceEvidenceRetained: "主语言正文仍与已完成审读一致；此结论不覆盖改变后的译文措辞。",
   queued: "等待启动",
   running: "正在审读",
   failed: "审读失败",
@@ -319,7 +326,7 @@ const zh: typeof en = {
   chooseParagraph: "选择对应的交付段落", updateReturn: "更新对照", returnBefore: "交付时文字", returnAfter: "返稿文字",
   proposeReturn: "将所选文字变化保存为候选", textOnlyReturn: "文字候选保留当前格式和段落顺序。格式及结构变化请核对保留的原始返稿。",
   noReturnChanges: "已对应的段落中暂无可直接提议的新文字变化，请检查下方待核对的位置。",
-  returnComments: "返稿中的批注", noDelivery: "先导出英文干净或修订 DOCX，再比较对应返稿。",
+  returnComments: "返稿中的批注", noDelivery: "先导出主语言干净或修订 DOCX，再比较对应返稿。",
   returnStatus_ready: "可保存为候选", returnStatus_conflict: "与本地修改重叠",
   returnStatus_already_applied: "当前正文已包含", returnStatus_wrong_delivery: "交付文件不匹配",
   copyReturnComment: "复制批注文字为反馈", copiedReturnComment: "已复制到反馈",
@@ -341,7 +348,7 @@ const zh: typeof en = {
   structural: "段落操作",
   exactRange: "请在同一可编辑原文段落或一个译文句群中选择文字。",
   changed: "正文已更新，请重新选择当前文字；草稿仍保留。",
-  noTranslation: "此原文尚无当前有效的中文译文。",
+  noTranslation: "此原文尚无当前有效的译文。",
   copiedScope: "所示范围将整体处理，已包含必要依赖。",
   restoreBeforeExport:
     "较早的恢复记录缺少准确的 Word 修订来源。请在历史中选择原本要恢复的版本并明确恢复后再导出；已有记录仍会保留。",
@@ -398,6 +405,7 @@ function FrozenReading({ packet, t }: { packet: ReturnType<typeof readingPacket>
     <h2>{t("frozenReading")}</h2>
     <p>{t("frozenReadingScope")}</p>
     <p className="pw-muted">{t("revision")} {packet.sourceRevision}</p>
+    <p className="pw-muted">{t("source")} · {t(`language_${packet.primaryLanguage}`)} / {t("translation")} · {t(`language_${packet.translationLanguage}`)}</p>
     <h3>{t("readingGoal")}</h3><p>{packet.goal}</p>
     <h3>{t("brief")}</h3><p>{packet.brief}</p>
     <h3>{t("readingEvidence")}</h3><p>{packet.evidence}</p>
@@ -441,6 +449,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     [comparison, setComparison] = React.useState<Reply["comparison"]>(),
     [compareAt, setCompareAt] = React.useState(0);
   const [newName, setNewName] = React.useState("New draft.docx"),
+    [newPrimaryLanguage, setNewPrimaryLanguage] = React.useState<PaperLanguage>("en"),
     [newBrief, setNewBrief] = React.useState(""),
     [readingGoal, setReadingGoal] = React.useState(""),
     [readingEvidence, setReadingEvidence] = React.useState("");
@@ -493,6 +502,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     setReturnedComparison(undefined); setReturnMappings([]); setSelectedReturns([]); setReturnDeliveryId("");
     setPdfFonts(undefined); setFontFolders(""); setFontAutomatic(true);
     setImportFiles([]); setResourcePaths({}); setResourceIncluded({});
+    setNewPrimaryLanguage("en");
     return () => controller.current?.abort();
   }, [sessionId]);
   const previous = React.useRef<string | undefined>(undefined);
@@ -617,6 +627,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
       action: "import",
       name: file.name,
       format: "docx",
+      primaryLanguage: newPrimaryLanguage,
       base64: await fileBase64(file),
       ...(mode ? { revisionMode: mode } : {}),
     });
@@ -637,6 +648,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
       setError("Markdown is limited to 4 MiB, with at most 256 resource files totaling 16 MiB."); return;
     }
     if (await run({ action: "import", format: "markdown", name: primary.name, base64: await fileBase64(primary),
+      primaryLanguage: newPrimaryLanguage,
       resources: await Promise.all(resources.map(async ({ file, index }) => ({ path: resourcePaths[index] ?? relativeResource(primary, file), base64: await fileBase64(file) }))) }))
       setImportFiles([]);
   }
@@ -728,6 +740,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
       <style>{`.paper-workbench{height:100%;display:flex;flex-direction:column;box-sizing:border-box;color:inherit;font:14px/1.6 inherit;--pw-line:color-mix(in srgb,currentColor 15%,transparent);--pw-soft:color-mix(in srgb,currentColor 4%,transparent)}.paper-workbench *{box-sizing:border-box}.paper-workbench button,.paper-workbench select,.paper-workbench textarea{font:inherit;color:inherit;border:1px solid var(--pw-line);border-radius:7px;background:transparent;padding:6px 10px;max-width:100%}.paper-workbench button{cursor:pointer}.paper-workbench button:disabled{opacity:.45;cursor:default}.paper-workbench button:focus-visible,.paper-workbench textarea:focus-visible,.paper-workbench select:focus-visible,.paper-workbench article:focus-visible{outline:2px solid #688bb8;outline-offset:2px}.paper-workbench .pw-head{padding:14px 16px 8px;border-bottom:1px solid var(--pw-line)}.paper-workbench .pw-scroll{overflow:auto;flex:1;padding:8px 16px 24px}.paper-workbench .pw-actions{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:10px 0}.paper-workbench .pw-tabs button[aria-selected=true]{background:var(--pw-soft);font-weight:600}.paper-workbench label{display:block;margin:9px 0}.paper-workbench textarea{display:block;width:100%;min-height:76px}.paper-workbench article{border:1px solid var(--pw-line);border-radius:9px;padding:12px;margin:12px 0}.paper-workbench .pw-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.paper-workbench .pw-source{font:16px/1.8 Georgia,'Times New Roman',serif;white-space:pre-wrap}.paper-workbench .pw-chinese,.paper-workbench .pw-diff{white-space:pre-wrap;overflow-wrap:anywhere}.paper-workbench .pw-muted{opacity:.65;font-size:12px}.paper-workbench .pw-error{border:1px solid #ad5858;border-radius:8px;padding:10px;white-space:pre-wrap}.paper-workbench .pw-review{border:1px solid #688bb8;padding:12px;border-radius:9px;background:var(--pw-soft)}.paper-workbench ins{background:#66b88922;text-decoration:underline;text-decoration-thickness:2px}.paper-workbench del{background:#ce686822;text-decoration:line-through}.paper-workbench blockquote{margin:8px 0;padding-left:12px;border-left:3px solid #8296b4;white-space:pre-wrap}.paper-workbench h2{font-size:17px;margin:4px 0}.paper-workbench h3{font-size:14px;margin:10px 0}.paper-workbench .pw-primary{border-color:#688bb8;font-weight:600}.paper-workbench .pw-tag{display:inline-block;border:1px solid var(--pw-line);border-radius:4px;padding:0 5px;font-size:11px;margin-right:5px}.paper-workbench .pw-stale{opacity:.65}.paper-workbench summary{cursor:pointer}`}</style>
       <header className="pw-head">
         <h2>{paper?.name ?? view?.reading?.paper.name ?? t("title")}</h2>
+        {paper && <p className="pw-muted">{t("source")} · {t(`language_${paper.primaryLanguage}`)} / {t("translation")} · {t(`language_${paper.translationLanguage}`)}</p>}
         <div className="pw-actions">
           <span className="pw-muted" role="status">
             {view ? (connected ? t("live") : t("offline")) : t("loading")}
@@ -782,9 +795,13 @@ function Workbench({ sessionId, call, observe, t }: Props) {
             {t("upload")} / {t("link")} / {t("createDraft")}
           </summary>
           <label>{t("draftName")}<input aria-label={t("draftName")} value={newName} onChange={e => setNewName(e.target.value)} /></label>
+          <label>{t("primaryLanguage")}<select aria-label={t("primaryLanguage")} value={newPrimaryLanguage} disabled={busy}
+            onChange={event => setNewPrimaryLanguage(event.target.value as PaperLanguage)}>
+            <option value="en">{t("language_en")}</option><option value="zh">{t("language_zh")}</option>
+          </select></label>
           <label>{t("brief")}<textarea value={newBrief} onChange={e => setNewBrief(e.target.value)} /></label>
           <button disabled={busy || !newName.trim()} onClick={() => void (async () => {
-            if (await run({ action: "create", name: newName.trim(), brief: newBrief })) setTab("feedback");
+            if (await run({ action: "create", name: newName.trim(), brief: newBrief, primaryLanguage: newPrimaryLanguage })) setTab("feedback");
           })()}>{t("saveDraft")}</button>
           <label>
             {t("revisionMode")}
@@ -887,7 +904,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                     >
                       <div className="pw-pair">
                         <div>
-                          <span className="pw-muted">{t("source")}</span>
+                          <span className="pw-muted">{t("source")} · {t(`language_${paper.primaryLanguage}`)}</span>
                           <div
                             className="pw-source"
                             data-paper-block={block.id}
@@ -930,7 +947,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
                           )}
                         </div>
                         <div>
-                          <span className="pw-muted">{t("translation")}</span>
+                          <span className="pw-muted">{t("translation")} · {t(`language_${paper.translationLanguage}`)}</span>
                           {paper.translations
                             .filter(
                               (tr) =>

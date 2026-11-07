@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Node as PMNode } from "prosemirror-model";
 import { z } from "zod";
 import type { Paper, Reading } from "./records.js";
-import { readingRequest, readingOutputSchema, type Selection } from "./contracts.js";
+import { readingRequest, readingOutputSchema, translationLanguageFor, type Selection } from "./contracts.js";
 import { schema, documentAt, projectCandidates, paperView, mapSelection, translationViews } from "./model.js";
 
 export function readingBlocks(document: z.infer<ReturnType<typeof z.json>>) {
@@ -48,6 +48,7 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
       translations: translationViews(paper),
       candidateTranslations: projection.translations,
       brief: paper.brief,
+      primaryLanguage: paper.primaryLanguage,
       warnings: paper.warnings,
     },
   };
@@ -63,6 +64,8 @@ export function readingPacket(paper: Pick<Paper, "id" | "name">, reading: Readin
     requestedCandidateIds: reading.requestedCandidateIds,
     goal: reading.goal, evidence: reading.evidence,
     brief: reading.material.brief, warnings: reading.material.warnings,
+    primaryLanguage: reading.material.primaryLanguage,
+    translationLanguage: translationLanguageFor(reading.material.primaryLanguage),
     baselineBlocks: readingBlocks(reading.material.baselineDocument),
     candidateBlocks: readingBlocks(reading.material.candidateDocument),
     candidates: reading.material.candidates, feedback: reading.material.feedback,
@@ -116,7 +119,7 @@ function translationUnits(document: Paper["document"], translations: ReturnType<
   const blocks = readingBlocks(document);
   return new Map(translations.filter(t => t.state === "current").map(translation => {
     const candidate = translation.jobId.startsWith("candidate:");
-    // A candidate's Chinese group acquires a real projection id on acceptance.
+    // A candidate translation group acquires a real projection id on acceptance.
     // Its existing candidate identity/group remains the same reviewed input.
     const group = translations.filter(t => t.jobId === translation.jobId).findIndex(t => t.id === translation.id);
     const key = candidate ? `${translation.jobId}:${group}` : translation.id;

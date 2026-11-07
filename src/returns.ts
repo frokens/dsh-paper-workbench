@@ -11,7 +11,7 @@ export function recordDocumentReturn(paper: Paper, raw: unknown): Paper {
   const returned = documentReturnSchema.parse(raw);
   const delivery = paper.documentDeliveries.find(item => item.id === returned.deliveryId);
   if (!delivery || delivery.format !== "docx" || delivery.variant === "bilingual")
-    throw new Error("Choose an English clean or tracked DOCX delivery for return comparison.");
+    throw new Error("Choose a primary-language clean or tracked DOCX delivery for return comparison.");
   const previous = paper.documentReturns.find(item => item.id === returned.id);
   if (previous) {
     if (previous.deliveryId !== returned.deliveryId || previous.originalBase64 !== returned.originalBase64

@@ -49,6 +49,14 @@ restart that profile. This failure does not replace an already linked paper.
 
 ## Documents and delivery
 
+For a new draft or source import, choose its primary language before creating or
+uploading it. English is the default and projects Chinese; an explicit Chinese
+primary projects English. The choice belongs to that Paper and is retained when
+linking it from another ordinary task. It does not follow the interface language,
+and linking does not change it. Existing records retain the earlier English default.
+The source and translation headings display the selected pair. Translation jobs,
+candidate projections and frozen independent-reading material use the same choice.
+
 DOCX text paragraphs are editable. Fields, equations, tables, figures, notes and
 other complex objects stay in the source package as read-only blocks. Read the import
 diagnostics and retain the original. Supported existing body revisions require an
@@ -65,11 +73,11 @@ stop intake. LaTeX, PDF and OCR import are not complete supported routes.
 In **History**, select the comparison baseline. Rejecting all native Word revisions
 restores it; accepting workbench candidates does not erase the teacher's comparison.
 Export clean, tracked or bilingual DOCX/PDF through **Document delivery**. Bilingual
-output requires complete current Chinese paragraph groups. Delivered files are
+output requires complete current translated paragraph groups. Delivered files are
 immutable receipts that can be downloaded again. Exact source and return originals
 are available separately from metadata-clean derived exports.
 
-For a returned English DOCX, select the file actually delivered and explicitly
+For a returned primary-language DOCX, select the file actually delivered and explicitly
 resolve revisions in the return. Comparison uses delivered E, returned R and current
 P. Changed or ambiguous paragraph identifiers require human alignment. Exact
 conflict-free text changes become pending candidates and preserve unrelated local

@@ -10,6 +10,7 @@ import {
   returnMappingsSchema,
   sourceFormatSchema,
   sourceResourceSchema,
+  paperLanguageSchema,
 } from "./contracts.js";
 
 const diffSchema = z.array(
@@ -116,6 +117,7 @@ export const readingSchema = z.object({
     translations: z.array(translationViewSchema),
     candidateTranslations: z.array(translationViewSchema),
     brief: z.string(),
+    primaryLanguage: paperLanguageSchema.default("en"),
     warnings: z.array(z.string()),
   }),
   status: z.enum(["queued", "running", "completed", "failed", "cancelled", "interrupted"]),
@@ -127,6 +129,7 @@ export type Reading = z.infer<typeof readingSchema>;
 export const paperSchema = z.object({
   id: z.string(),
   name: z.string(),
+  primaryLanguage: paperLanguageSchema.default("en"),
   brief: z.string().default(""),
   revision: z.number().int().nonnegative(),
   document: z.json(),

@@ -138,6 +138,41 @@ async function seed(host: Awaited<ReturnType<typeof open>>) {
   await host.domain.table("bindings").put("task", { paperId: paper.id });
   return paper;
 }
+
+test("explicit primary language survives real Host create, bilingual export, DOCX intake, linking and same-data reopen", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-language-"));
+  let host = await open(root), runtime = host.ctx.plugin(LocalSubprocessRuntime);
+  await runtime;
+  try {
+    let view = await host.invoke({ action: "create", name: "Chinese primary.docx", brief: "保留职责。", primaryLanguage: "zh" });
+    const id = view.paper.id;
+    assert.equal(view.paper.primaryLanguage, "zh"); assert.equal(view.paper.translationLanguage, "en");
+    view = await host.invoke({ action: "propose", requestId: "source", reason: "Supplied synthetic roles.",
+      operations: [{ kind: "replace", selection: view.paper.blocks[0].selection, replacement: "规划器选择，执行者执行。" }] });
+    view = await host.invoke({ action: "decide", candidateIds: [view.paper.candidates[0].id], decision: "accepted", expectedRevision: 0 });
+    view = await host.invoke({ action: "request_translation", requestId: "en", sources: [view.paper.blocks[0].selection], replaces: [] });
+    await host.service.handle({ action: "complete_translation", jobId: view.paper.translationJobs[0].id,
+      groups: [{ sourceIndexes: [0], text: "The planner selects; the worker executes." }] }, "task", false, new AbortController().signal);
+    const output = await host.service.handle({ action: "export", requestId: "bilingual-en", variant: "bilingual", format: "docx",
+      includeReasons: false, expectedRevision: 1, baselineRevision: 0 }, "task", true, new AbortController().signal) as { base64: string };
+    const inspected = await host.service.engine({ action: "inspect", base64: output.base64 }, new AbortController().signal) as {
+      blocks: { text: string; runs: { nativeFormat: string }[] }[] };
+    assert.deepEqual(inspected.blocks.map(block => block.text), ["规划器选择，执行者执行。", "The planner selects; the worker executes."]);
+    assert.match(inspected.blocks[1].runs[0].nativeFormat, /w:val="en-US"/);
+    const clean = await host.service.handle({ action: "export", requestId: "clean-zh", variant: "clean", format: "docx",
+      includeReasons: false, expectedRevision: 1, baselineRevision: 0 }, "task", true, new AbortController().signal) as { base64: string };
+    view = await host.invoke({ action: "import", name: "Returned primary.docx", format: "docx", base64: clean.base64, primaryLanguage: "zh" });
+    assert.notEqual(view.paper.id, id); assert.equal(view.paper.primaryLanguage, "zh");
+    assert.equal(view.paper.blocks[0].text, "规划器选择，执行者执行。");
+    view = await host.invoke({ action: "link", paperId: id, primaryLanguage: "en" });
+    assert.equal(view.paper.primaryLanguage, "zh", "Linking cannot overwrite the existing Paper's language choice.");
+    await host.close(); await runtime.dispose();
+    host = await open(root); runtime = host.ctx.plugin(LocalSubprocessRuntime); await runtime;
+    view = await host.invoke({ action: "read" });
+    assert.equal(view.paper.id, id); assert.equal(view.paper.primaryLanguage, "zh"); assert.equal(view.paper.translationLanguage, "en");
+    assert.equal(view.paper.blocks[0].text, "规划器选择，执行者执行。");
+  } finally { await host.close(); await runtime.dispose(); await rm(root, { recursive: true }); }
+});
 function storedPaper(host: Awaited<ReturnType<typeof open>>) {
   const paper = host.domain.table("papers").get("paper");
   assert.ok(paper && "history" in paper);
