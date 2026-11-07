@@ -1,9 +1,11 @@
 # Candidate installation
 
-A–C have received bounded independent acceptance. D is under implementation and
-review. A complete public Release has not been published. This page records the
+A–C and D's code/representative installed paths have received bounded independent
+acceptance; see the [D review](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
+The complete D exit remains open. A complete public Release has not been published. This page records the
 candidate's formal installation path and support boundaries; it does not establish
-full product, Microsoft Word, Desktop or cross-platform acceptance.
+full product, Microsoft Word, Desktop, all ordinary-task entries, actual font-form
+interaction, public installation or cross-platform acceptance.
 
 ## Package and dependency
 

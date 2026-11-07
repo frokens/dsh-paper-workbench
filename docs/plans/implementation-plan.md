@@ -125,7 +125,10 @@ Host/Client/工具/Skills、重启恢复、升级保全、卸载退出；Word �
 | A | 有界代码切片已合入，完整出口仍未接收 | [PR #1](https://github.com/frokens/dsh-paper-workbench/pull/1)；[实际证据及未验项](../reference/native-slice-status.md) |
 | B | 有界代码与代表原生路径已接收，最终界面收尾开放 | [PR #2](https://github.com/frokens/dsh-paper-workbench/pull/2)；[实际职责及待验项](../reference/bilingual-lifecycle-status.md) |
 | C | 代码和代表路径已获有界独立接收并合入，完整产品仍开放 | [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)；[实际证据与限制](../reference/research-reading-status.md) |
-| D | 实现中，尚未独立接收 | [当前工作进展与未验边界](../reference/document-delivery-status.md) |
-| E | 未开始 | 待真实用户安装及最终接收 |
+| D | 代码及代表安装路径已获有界独立接收，完整出口仍开放 | [准确六向复审](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398)；[实际 Word 等未验边界](../reference/document-delivery-status.md) |
+| E | 只读准备中，剩余功能与最终验收尚未完成 | 主语言选择、公开安装、实际完整流程及最终界面；D 的实际 Word 必验继续保留 |
 
 维护状态只引用真实 PR 和结果，不在本文件堆积轮次日志。
+本次 D 接收依据验收标准允许缺少必验证据时接收有界代码批次的规则，不取消真实
+Word、Desktop、全普通任务入口、字体表单实际交互或公开安装。E 先完成剩余功能及
+验证，界面美化按用户要求放在功能验收之后。

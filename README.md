@@ -18,7 +18,9 @@ C 批代码与代表路径已获有界独立接收并合入，见 [PR #3](https:
 尚未发布完整产品。下列完整体验仍是实施
 目标，不能视为已全部交付。当前职责、支持域和实际证据见
 [原生切片状态](docs/reference/native-slice-status.md)及实现 PR。
-D 批正在实现，见[交付与返稿工作进展](docs/reference/document-delivery-status.md)；该进展不是最终安装或 Word 接收。
+D 批代码及代表安装路径已获[有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398)，
+见[交付与返稿状态](docs/reference/document-delivery-status.md)。实际 Word、Desktop、全普通任务入口、
+字体表单交互、公开安装及完整 D 出口仍开放；E 继续剩余功能和最终验收。
 
 ## 目标体验
 

@@ -1,10 +1,13 @@
 # Document delivery and return work in progress
 
-D is under independent PR review. Candidate packages have been installed and
-upgraded in an exterior disposable profile; configured PDF delivery, cancellation
-and same-profile restart have representative actual evidence. Microsoft Word
-round trips and final UI acceptance are still open. The complete A–E objective
-has not been achieved.
+D's code and representative installed paths received bounded independent
+[six-direction acceptance at 8b82844](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
+Candidate packages have been installed and upgraded in an exterior disposable
+profile; configured PDF delivery, cancellation and same-profile restart have
+representative actual evidence. Actual Microsoft Word round trips, Desktop,
+the complete ordinary-task entry matrix, browser interaction with the font form,
+public Release installation and final UI acceptance remain open. This accepts a
+bounded code batch under the acceptance rules, not the complete D exit or A–E product.
 
 The current Word projection consumes the primary ProseMirror document and actual
 step/mirror history. Text and paragraph-mark revisions share one SDK export path;
@@ -116,3 +119,10 @@ SDK accept/reject projections cover empty-to-multiple paragraphs, split/merge,
 inverse history, nonzero B, complete native formats, comments and source evidence.
 Managed-process intake covers retained Markdown/resources and joined cancellation.
 These checks are distinct from actual Word, installed Host/model and user acceptance.
+
+The frozen alpha.5 package remains bound to the reviewed code head 8b82844. The
+subsequent acceptance-status documentation does not regenerate that package or
+claim new SDK, model, PDF or installation execution. E continues the remaining
+functional and distribution work; the actual Word requirement stays open in D's
+complete exit and final acceptance. Final visual refinement follows functional
+acceptance.
