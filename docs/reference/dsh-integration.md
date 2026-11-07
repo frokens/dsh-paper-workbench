@@ -8,10 +8,15 @@
 实施前记录实际安装的 DSH 发行版和相关包版本，核需要的导出与运行时 API。
 
 当前已公开测试预发布 [0.5.0-alpha.1](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)，
-固定实现提交 `46957f2c4dc6b40433f6bbe5fef0ab23f230768f`。后续纯文档提交不重打包或移动 tag。
+固定实现提交 `46957f2c4dc6b40433f6bbe5fef0ab23f230768f`，不改写其包或移动 tag。
 独立审查者已匿名取得同一附件，经原生 remove/install API 复现安装，核对 40 个文件和四项 Skill
 来源，并确认 9 个普通任务、原数据及模型设置保留，见[实际安装证据](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)。
 该路径使用现有依赖缓存，没有点击可见安装界面；不能扩称全冷安装、完整任务入口或桌面验收。
+
+本分支另备 `0.5.0-alpha.2` 本地候选，收纳主对话入口、批注与自动审读的新合同；
+`26a020c` 的[代码退修复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163)
+有界闭合，不代表候选包或新原生流程通过。alpha2 的准确源头、TGZ/字节/校验及四项 Skills
+由同一 PR 独立包审；当前不公开发布、不安装，也不把 alpha1 的安装来源当作 alpha2 证明。
 
 | 能力 | 已核入口 | 官方源码 |
 | --- | --- | --- |
@@ -80,7 +85,8 @@
 | 组合或能力 | 当前证据与限制 |
 | --- | --- |
 | macOS Apple silicon / Node 25.9 / DSH 0.2.2-rc.1 Web | alpha1 公开附件匿名下载及原生 API 安装已独立核验；声明最低 Node 24.9，不从一次实测推导所有版本 |
-| Host 与 Skills | 实际加载安装包 Host，四项 Skill 路径匹配安装根；后续原生写作/审读的实际 Skill 正文和资源 base 匹配冻结包 |
+| alpha2 本地候选 | 沿现有构建/打包流程准备独立版本，待准确包审、实际安装及新交互原生验证；未公开发布，不复用旧版安装通过结论 |
+| Host 与 Skills | alpha1 实际加载安装包 Host，四项 Skill 路径匹配安装根；后续原生写作/审读的实际 Skill 正文和资源 base 匹配冻结包；alpha2 安装来源尚待核 |
 | 普通 Agent | 代表翻译、写作与新 fresh reader 路径已有实际结果；不替换主 Agent。已有/新建/恢复/非论文的全部可见侧栏入口及既有 MCP 使用矩阵尚未完成 |
 | 独立审改 | 真实意见绑定准确选区，中文删除候选和一位新读者复审获有界接收；两项 concern 与五项 limit 保留，受控稿英文投影为零，不代表整稿质量或双语同步通过 |
 | DOCX 与 PDF | SDK/已安装消费者导出已核；另有六份 Word16.105 原生接受/拒绝的文本、段落和直接格式实证。有效命名样式、Word 真实版面与导师批注返稿仍未完成，两份 Word 原生布局 PDF 未执行 |

@@ -10,8 +10,10 @@
 
 当前提供 [0.5.0-alpha.1 测试预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)，
 安装包固定对应实现提交 `46957f2`，不改写该包或 tag。A–D 的有界代码批次已合入，
-E 在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 继续。当前分支正在收敛主对话文档入口、
-Word 式批注和系统自动独立审读；这些新交互尚未形成经原生验收的新发布包，完整产品尚未接收。
+E 在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 继续。本分支的 `0.5.0-alpha.2` 是独立本地候选，
+包含主对话文档入口、Word 式批注、系统自动独立审读及保存/审读目标修正；代码在 `26a020c`
+获得[有界独立复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163)。
+alpha2 尚未公开发布、安装或经新合同原生验收，仍待独立包审，完整产品尚未接收。
 
 独立核验已从公开附件匿名下载，经 DSH 原生安装接口安装，并确认 9 个普通任务可读、安装文件与原包一致、
 原数据及模型设置保留。随后 [Mac 原生窗口实证](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
@@ -65,8 +67,10 @@ DSH 对话区或主聊天输入框。
 
 从 [alpha1 预发布页](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)下载
 `dsh-paper-workbench-0.5.0-alpha.1.tgz` 和校验文件。在 DSH 的“插件 → 添加插件”输入下载文件路径并安装；使用者不需要
-克隆或编译源码。alpha1 保留其旧交互及已验范围；它不包含本分支尚待新候选验收的交互变更。
-新流程只从主对话接收文件引用和写作意图，默认英文配中文，明确要求中文主稿时才反转；
+克隆或编译源码。alpha1 保留其旧交互及已验范围；它不包含 alpha2 的交互变更。
+alpha2 本地候选文件为 `dsh-paper-workbench-0.5.0-alpha.2.tgz`，准确源码、字节与校验回执由同一 PR
+交接；没有公开 alpha2 下载地址。独立包审后才能推进其实际安装验证，不能把 alpha1 的安装结果移用。
+alpha2 新流程只从主对话接收文件引用和写作意图，默认英文配中文，明确要求中文主稿时才反转；
 侧栏批注自动保存、一次提交，写作完成后系统自动审读。接受/拒绝始终由用户决定。
 
 ## 源码开发

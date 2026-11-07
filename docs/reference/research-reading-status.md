@@ -107,8 +107,10 @@ saved scope and needs no goal/evidence form.
 Unrelated turns and owned readers never trigger this process. Translation-only
 jobs do not separately launch scientific readers; paired candidate translations
 are always frozen and baseline changes retain their existing applicability checks.
-The user alone decides acceptance. A new package/native check remains necessary
-for this changed trigger, independent of the historical fresh-reader evidence.
+The user alone decides acceptance. The distinct local `0.5.0-alpha.2` candidate
+contains this changed entry/trigger and the reconnect/version/frozen-goal repairs.
+Independent package and native checks remain necessary; it is not publicly released,
+and the historical fresh-reader evidence does not validate its automatic trigger.
 
 The exact owned child can retrieve this same frozen packet through the formal
 paper `read` action. The Host resolves its existing `Paper.readings.childId`, not

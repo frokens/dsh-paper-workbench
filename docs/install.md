@@ -8,6 +8,14 @@ is available; it is not a complete-product release. Its attachment is fixed to
 implementation commit `46957f2c4dc6b40433f6bbe5fef0ab23f230768f`. Later repository
 source and documentation do not rebuild or replace that attachment.
 
+The distinct **0.5.0-alpha.2 local review candidate** contains main-conversation
+file input, autosaved comments/one submission and automatic completed-turn reading,
+including the comment reconnect/version and frozen-goal repairs reviewed at
+[`26a020c`](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163).
+It is not publicly released or installed/accepted under the new native contract.
+Its source, archive and checksum receipt are handed off in the same PR for an
+independent package check before installation. The alpha1 release stays unchanged.
+
 ## Package and dependency
 
 The tarball contains built Host/Client JavaScript, the self-contained DOCX engine,
@@ -19,9 +27,9 @@ The declared combination is **macOS Apple silicon, Node.js 24.9 or later, DSH
 Mac application's own existing host/profile is the desktop acceptance route.
 Its [alpha1 native installation/sidebar check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
 has bounded real evidence, including ordinary-task translation and fresh reading.
-That window used the old forms/manual trigger. The current source's main-chat
-input, comments and automatic-reading interaction awaits a new reviewed package
-and native check; it is not contained in the frozen alpha1. Other combinations
+That window used the old forms/manual trigger. The alpha2 candidate's main-chat
+input, comments and automatic-reading interaction awaits independent package
+and native checks; it is not contained in the frozen alpha1. Other combinations
 remain unverified.
 
 The [independent public-attachment check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)
@@ -44,6 +52,12 @@ links. The plugin's own MIT license is unchanged.
 
 ## Formal entry
 
+The public links below install the frozen alpha1 and retain its old interaction.
+For alpha2 review, use the separately supplied
+`dsh-paper-workbench-0.5.0-alpha.2.tgz` and its exact checksum after the package
+check; no alpha2 public download is available or implied. The same formal DSH
+installation steps apply, but actual alpha2 installation remains unexecuted.
+
 1. Download the [alpha1 tarball](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.1/dsh-paper-workbench-0.5.0-alpha.1.tgz)
    and its [SHA256 file](https://github.com/frokens/dsh-paper-workbench/releases/download/v0.5.0-alpha.1/dsh-paper-workbench-0.5.0-alpha.1.tgz.sha256).
    The tarball is 32,932,855 bytes; its SHA256 is
@@ -52,8 +66,8 @@ links. The plugin's own MIT license is unchanged.
 3. Enter the downloaded tarball's local file path and choose **Install**.
 4. Read the result. If DSH requests a restart, restart that same host/profile.
 5. The native sidebar is available in ordinary tasks without replacing the main
-   Agent. Frozen alpha1 retains its historical workflow. In the clarified current
-   source, document input belongs to the original main conversation: attach a
+   Agent. Frozen alpha1 retains its historical workflow. In alpha2,
+   document input belongs to the original main conversation: attach a
    file, mention @file, supply a path/link, or request a new draft. The ordinary
    Agent calls the shared backend and the associated document opens in the sidebar.
 
@@ -68,8 +82,8 @@ restart that profile. This failure does not replace an already linked paper.
 
 ## Documents and delivery
 
-This section describes the current source workflow, awaiting a reviewed new package
-and native check. The frozen alpha1 retains its historical interaction.
+This section describes the alpha2 candidate workflow, awaiting independent package
+and native checks. The frozen alpha1 retains its historical interaction.
 
 State a different primary language in the main conversation when needed. English
 is the default and projects Chinese; an explicit Chinese primary projects English.
@@ -139,7 +153,7 @@ before sharing.
 ## Data, updates and removal
 
 DSH storage retains paper aggregates, originals, feedback, decisions and delivery/
-return receipts after removal. Current source storage format 4 reads formats 1–3 in place
+return receipts after removal. Alpha2 storage format 4 reads formats 1–3 in place
 (the frozen alpha1 uses format 3);
 older candidates may not reopen newer records. Test upgrades on disposable data.
 
@@ -160,7 +174,7 @@ main-chat revisions use this same path; unrelated answers, translation-only jobs
 and the reader's own turn do not start more paper readers. Findings and limits are
 read only. A stopped/failed reading can retry its saved scope without goal/evidence
 forms. Only the user accepts/rejects; automatic reading is not automatic acceptance.
-These entry and trigger changes need a reviewed new package and native acceptance;
+The alpha2 candidate still needs independent package and native acceptance;
 the frozen public alpha1 retains its earlier interaction.
 
 Developer fixtures use `npm run fixture:word -- prepare <new-test-directory>` and

@@ -145,8 +145,9 @@ matching primary-language DOCX receipt and asks in the conversation when the
 delivery or existing-revision choice is unresolved. It reuses the existing return
 record/comparison/proposal/comment owners. Human alignment remains explicit through
 that conversation; neither the Agent nor the automatic reader accepts a return.
-This changed entry, autosaved comments and system reading need a reviewed new
-package/native check. They do not alter the frozen alpha1 or prove a saved Word return.
+The local `0.5.0-alpha.2` candidate contains this changed entry, autosaved comments
+and system reading. It still needs independent package/native checks and is not
+publicly released. It does not alter the frozen alpha1 or prove a saved Word return.
 
 An installed alpha1 controlled path exercised Chinese primary text, English
 candidate projections, projection correction, content feedback and explicit human
