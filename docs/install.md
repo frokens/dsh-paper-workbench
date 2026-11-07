@@ -65,7 +65,7 @@ downloaded anonymously, installed through DSH's native API, matched all 40 packa
 files and four live Skill paths, and read ten ordinary tasks without changing
 their data, model defaults or the existing UI target. The dependency cache already
 existed. This is API installation evidence, not a visible-UI or completely cold
-installation test. See the [current support matrix](reference/dsh-integration.md#4-支持矩阵)
+installation test. See the [current support matrix](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.4/docs/reference/dsh-integration.md#4-支持矩阵)
 for Word, Desktop, task-entry and font limits.
 
 DSH's installer obtains the exact public dependency `pandoc-wasm@1.1.0` and its
