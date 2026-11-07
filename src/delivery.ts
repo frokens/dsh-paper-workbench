@@ -46,6 +46,9 @@ export function recordDocumentDelivery(paper: Paper, raw: DocumentDelivery): Pap
   const delivery = documentDeliverySchema.parse(raw);
   documentAt(paper, delivery.revision); documentAt(paper, delivery.baselineRevision);
   if (delivery.baselineRevision > delivery.revision) throw new Error("The comparison baseline is later than the delivered body.");
+  if (new Set(delivery.commentWarningIds).size !== (delivery.commentWarningIds?.length ?? 0)
+    || delivery.commentWarningIds?.some(id => !paper.feedback.some(feedback => feedback.id === id)))
+    throw new Error("A delivery warning needs its retained original comment reference.");
   if (delivery.format === "docx") {
     const expected = [...documentAt(paper, delivery.revision).content.content].filter(node => node.type.name === "paragraph").map(node => node.attrs.id);
     if (JSON.stringify(delivery.anchors.map(anchor => anchor.blockId)) !== JSON.stringify(expected)

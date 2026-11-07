@@ -110,3 +110,23 @@ test("an active revision retains its returned-change origin for duplicate propos
   assert.throws(() => proposeReturnChanges(paper, proposeReturnRequest.parse({ action: "propose_return", requestId: "duplicate-return", returnId: "return",
     changeIds: ["change"], mappings: [], expectedRevision: 0, textOnly: true })), /already have a pending candidate/);
 });
+
+test("a fresh exact source can revise an older conflicting proposal without claiming an unavailable historical comparison", () => {
+  let paper = change(initial(["Alpha beta."]), "Alpha", "First");
+  const original = structuredClone(paper.candidates[0]);
+  paper = change(paper, "Alpha", "Human");
+  paper = decideMany(paper, [paper.candidates[1].id], "accepted", 0);
+  assert.equal(paperView(paper).blocks[0].text, "Human beta.");
+  assert.match(paperView(paper).candidates[0].conflict!, /overlaps/);
+  const revised = change(paper, "Human", "Revised", { revises: [original.id] });
+  const latest = revised.candidates.at(-1)!;
+  assert.deepEqual(revised.candidates[0], original);
+  assert.equal(paperView(revised).blocks[0].text, "Human beta.");
+  assert.equal(revised.revision, 1);
+  assert.equal(latest.proposalDiff, undefined);
+  assert.match(latest.proposalComparisonIssue!, /earlier proposal.*current projection/);
+  assert.deepEqual(latest.diffs[0], [{ kind: "delete", text: "Human" }, { kind: "insert", text: "Revised" }]);
+  const selection = paperView(paper).blocks[0].selection;
+  assert.throws(() => propose(paper, proposeRequest.parse({ action: "propose", requestId: "bad-new-source", revises: [original.id], reason: "Invalid exact source.",
+    operations: [{ kind: "replace", selection: { ...selection, quote: "Alpha beta." }, replacement: "Unverified replacement." }] })), /exact source|selected range/);
+});

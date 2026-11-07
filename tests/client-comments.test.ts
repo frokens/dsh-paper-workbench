@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import ts from "typescript";
+import { feedbackTargetSchema } from "../src/contracts.js";
 
 // Execute the component's exact callbacks with controlled RPC/stream timing.
 // This covers client state mechanics, not React rendering or native UI behavior.
@@ -23,10 +24,10 @@ function callback(component: string, hook: string, contains: string, scope: Reco
   }).outputText;
   return new Function(...Object.keys(scope), `${compiled}\nreturn selected;`)(...Object.values(scope)) as () => unknown;
 }
-function editor() {
-  const draft = { id: randomUUID(), target: { kind: "source", selections: [
+function editor(target = feedbackTargetSchema.parse({ kind: "source", selections: [
     { paperId: "paper", revision: 0, blockId: "paragraph", from: 4, to: 11, quote: "Planner" },
-  ] } };
+  ] })) {
+  const draft = { id: randomUUID(), target };
   const state = { text: "Clarify the Planner's action.", saving: false, error: "" };
   const scope = {
     draft, sessionId: "ordinary-task", cache: new Map([[draft.id, state.text]]),
@@ -97,6 +98,28 @@ test("connection recovery keeps the document and drafts while normal stream comp
   assert.equal(stream.state.connection, "offline");
   assert.strictEqual(stream.state.view, stream.view); assert.strictEqual(stream.state.drafts, stream.drafts);
   stop();
+});
+
+test("candidate English and Chinese autosaves retain indexed proposal anchors and dirty text through Refresh", async () => {
+  for (const target of [
+    { kind: "candidate_source", selection: { candidateId: "pending", sourceRevision: 0, operationIndex: 0, paragraphIndex: 2, from: 4, to: 11, quote: "Planner" } },
+    { kind: "candidate_translation", selection: { candidateId: "pending", sourceRevision: 0, translationIndex: 1, from: 0, to: 3, quote: "规划器" } },
+  ]) {
+    const edit = editor(feedbackTargetSchema.parse(target)), requests: object[] = [], save = edit.scope.call;
+    edit.scope.call = async (...args) => {
+      requests.push(structuredClone(args[1]));
+      if (requests.length === 1) throw new Error("Controlled candidate save failure.");
+      return save(...args);
+    };
+    await assert.rejects(edit.flush(), /candidate save failure/);
+    const stream = connection(edit), stop = stream.connect(); stop();
+    const stopAgain = stream.connect();
+    try {
+      assert.deepEqual(edit.draft.target, target); assert.equal(edit.scope.cache.get(edit.draft.id), edit.state.text);
+      await edit.flush(); assert.deepEqual(requests[1], requests[0]);
+      assert.equal(edit.scope.version.current, 1); assert.equal(edit.scope.saved.current, edit.state.text);
+    } finally { stopAgain(); }
+  }
 });
 
 test("a connection failure keeps its diagnostic separate from action errors and saved comment state", async () => {

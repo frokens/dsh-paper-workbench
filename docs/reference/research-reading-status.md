@@ -47,12 +47,38 @@ and linked feedback must be retained explicitly. No separate draft repository,
 qualification version or compatibility endpoint is introduced.
 
 The new proposal stores a program-computed `proposalDiff` between the prior projected
-combination and the replacement. Its ordinary `diffs` still compare the accepted
+combination and the replacement when that prior projection is available. If an older
+proposal conflicts with the now-accepted body, `proposalComparisonIssue` explicitly
+records the unavailable comparison while preserving its original operations, diffs
+and readings. A replacement with valid current source selections remains allowed;
+its own source validation is unchanged. Its ordinary `diffs` still compare the accepted
 source with the proposed operations and govern the eventual decision/export chain.
 The two comparison baselines are labeled separately. Proposal/relation/differences
 publish in one durable update. A complete revised writing turn uses the same unique
 fresh-reader hook; individual proposal calls do not launch readers. Earlier reading
 results retain their old combination and cannot certify the replacement.
+
+Pending primary/translation selections now use the same Feedback and Batch owners.
+Their `candidate_source` / `candidate_translation` targets retain the exact candidate,
+accepted-source basis, operation/result-paragraph or translation index, offsets and
+quote. Returned selectable content is derived from the existing acceptance plan's
+actual structure, including split/merge/dependencies. It is not a committed block or
+prospective accepted revision. Autosave, replies, resolution, version conflicts,
+Refresh and one frozen batch use the existing lifecycle; pending feedback requires
+revision of its exact candidate lineage. The accepted body stays unchanged. A fresh
+reading retains original `feedbackCandidates` as context while its reviewed candidate
+IDs name only the new actual combination.
+
+Actual acceptance appends a proven `acceptedAnchor` in the same durable update as
+the body, using that exact plan and actual new translation identities. Original
+targets stay fixed. Complete operation-result scope must match, so a surviving quote
+alone cannot justify reattachment when a combined decision changes its context.
+Unproven anchors remain historical; undo/restore and translation corrections use the
+existing mapping/version rules. DOCX/PDF share the comment projection. Supported
+accepted candidate comments export at proven ranges; translated comments retain the
+exact quote and explicitly attach to the complete aligned primary group. Historical
+comments produce delivery warnings with persisted, locatable `commentWarningIds`;
+their referenced evidence cannot be deleted or rewritten after that delivery.
 
 The Client reuses DSH's exact-version Button, SegmentedTabs and ConnectionIndicator
 module and theme tokens. Connection/recovery is distinct from per-comment save
@@ -77,14 +103,23 @@ Local checks cover pending bilingual first-draft correction without a body commi
 unchanged paragraphs/translations and old material, both diff baselines, dependency
 and feedback preservation, stale/concurrent refusal, durable failure/reopen and one
 new turn-level reading. Existing affected lifecycle, reading and comment-recovery
-checks pass with type checking and the Host/Client build. Initial fixture failures
-from object-prototype comparison and a narrow async-generator type are retained;
-the corrected checks compare complete serialized values and body identity.
-This is local engineering evidence, not a new installed bundle or model run. The
-new external UI module still needs actual DSH loading with the eventual exact new
-bundle. Pending-candidate source/translation selection comments are also not yet
-supported: the current Feedback targets bind accepted source/translation, so a
-pending draft can currently be revised through the native main conversation only.
+checks pass with type checking and the Host/Client build (57 focused model/client/
+reading/delivery checks and four selected Host storage checks). Candidate-feedback checks additionally cover exact
+duplicate-text ranges, split/merge/dependency results, translation version changes,
+historical scope retention and delivery-warning references. Selected Host checks
+cover one batch/retry, one new reader, cancelled and failed durable acceptance,
+atomic body/anchor publication and reopening. Initial fixture failures from
+object-prototype comparison, a narrow async-generator type and invalid test UUIDs
+are retained alongside corrected checks.
+
+One new actual SDK DOCX case exports/re-inspects candidate source and translated
+comments, proves the exact second duplicate paragraph/range, retains an older
+candidate comment through an explicit historical warning, and audits blank optional
+metadata in both input and output. It does not rerun the older six Word/SDK cases,
+Word's desktop UI, PDF conversion or font discovery. These are local engineering
+results, not a new installed bundle or model run. The new external UI module, theme,
+keyboard/narrow layout and real pending-comment revision with its automatic fresh
+reader still need the eventual exact new bundle's bounded native validation.
 
 ## Earlier alpha2 DOCX reading and file evidence
 

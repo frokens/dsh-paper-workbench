@@ -915,6 +915,101 @@ test("pending draft revision is durable, refuses a late old acceptance and trigg
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 
+test("candidate feedback shares durable batch delivery and acceptance anchors publish atomically with the body", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-candidate-comments-"));
+  const englishId = randomUUID(), chineseId = randomUUID(), acceptedNoteId = randomUUID(), replyId = randomUUID();
+  let host = await open(root);
+  try {
+    const document = importDocument([{ sourceIndex: 0, text: "", editable: true, style: null, reason: null, runs: [] }]);
+    await host.domain.table("papers").put("paper", { ...fixture(), document, baseline: document });
+    await host.domain.table("bindings").put("task", { paperId: "paper" });
+    let starts = 0;
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts++; return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} };
+    } });
+    const empty = (await host.invoke({ action: "read" })).paper.blocks[0].selection;
+    let view = await host.invoke({ action: "propose", requestId: "draft", reason: "Synthetic draft.",
+      operations: [{ kind: "fill_draft", selection: empty, paragraphs: ["A first claim.", "A second claim."] }],
+      translations: [{ operationIndexes: [0], paragraphIndexes: [0], text: "第一项表述。" }, { operationIndexes: [0], paragraphIndexes: [1], text: "第二项表述。" }] });
+    const earlier = structuredClone(storedPaper(host).candidates[0]);
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const oldReading = JSON.parse(JSON.stringify(storedPaper(host).readings[0]));
+    const content = view.paper.candidates[0].content!;
+    view = await host.invoke({ action: "save_feedback", id: englishId, expectedVersion: 0, target: { kind: "candidate_source", selection: content.sourceBlocks[1].selection }, comment: "Keep the condition." });
+    view = await host.invoke({ action: "save_feedback", id: chineseId, expectedVersion: 0, target: { kind: "candidate_translation", selection: content.translations[1].selection }, comment: "保留条件。" });
+    const batch = { action: "submit_batch", requestId: "candidate-round", feedbackIds: [englishId, chineseId], feedbackVersions: [{ id: englishId, version: 1 }, { id: chineseId, version: 1 }], direction: "Clarify the supported mechanism." };
+    await host.invoke(batch); await host.invoke(batch);
+    assert.equal(host.calls.length, 1); assert.equal(storedPaper(host).batches[0].direction, batch.direction);
+    host.boundary.lastTurn = 2; host.boundary.openTurnStartSeq = 100;
+    view = await host.invoke({ action: "propose", requestId: "revised", revises: [earlier.id], feedbackIds: [englishId, chineseId], reason: "Use a bounded mechanism statement.",
+      operations: [{ kind: "fill_draft", selection: empty, paragraphs: ["A bounded mechanism.", "A second claim."] }],
+      translations: [{ operationIndexes: [0], paragraphIndexes: [0], text: "一个有界机制。" }, { operationIndexes: [0], paragraphIndexes: [1], text: "第二项表述。" }] });
+    assert.ok(view.paper.feedback.every(item => item.state === "historical"));
+    assert.equal(starts, 1);
+    await host.service.completeWritingTurn(host.parent, 2, new AbortController().signal);
+    assert.equal(starts, 2); assert.deepEqual(storedPaper(host).readings[1].candidateIds, [view.paper.candidates[1].id]);
+    assert.deepEqual(storedPaper(host).readings[1].material.feedbackCandidates, [earlier]);
+    const current = view.paper.candidates[1];
+    view = await host.invoke({ action: "save_feedback", id: acceptedNoteId, expectedVersion: 0, target: { kind: "candidate_source", selection: current.content!.sourceBlocks[1].selection }, comment: "A note on this exact candidate." });
+    const decision = { action: "decide", candidateIds: [current.id], decision: "accepted", expectedRevision: 0 };
+    const held = host.hold(), blockingSave = host.invoke({ action: "save_feedback", id: replyId, replyTo: acceptedNoteId, expectedVersion: 0,
+      target: { kind: "candidate_source", selection: current.content!.sourceBlocks[1].selection }, comment: "Retain the exact discussion." });
+    await held.started;
+    const cancellation = new AbortController(), cancelled = assert.rejects(host.invoke(decision, cancellation.signal), /Controlled queued acceptance cancellation/);
+    cancellation.abort(new Error("Controlled queued acceptance cancellation.")); held.release();
+    await blockingSave; await cancelled;
+    assert.equal(storedPaper(host).revision, 0); assert.ok(storedPaper(host).feedback.every(item => !item.acceptedAnchor));
+    const before = JSON.stringify(storedPaper(host));
+    host.setFailure(true); await assert.rejects(host.invoke(decision), /Injected durable write failure/); host.setFailure(false);
+    assert.equal(JSON.stringify(storedPaper(host)), before, "Neither the body nor its anchor receipt can publish after a failed write.");
+    view = await host.invoke(decision);
+    assert.equal(view.paper.revision, 1); assert.equal(view.paper.feedback.find(item => item.id === acceptedNoteId)!.sources[0].blockId, view.paper.blocks[1].id);
+    assert.deepEqual(JSON.parse(JSON.stringify(storedPaper(host).readings[0])), oldReading);
+    await host.close(); host = await open(root);
+    view = await host.invoke({ action: "read" });
+    assert.equal(view.paper.feedback.find(item => item.id === acceptedNoteId)!.state, "current");
+    assert.equal(view.paper.feedback.find(item => item.id === englishId)!.state, "historical");
+    await host.invoke(batch); assert.equal(host.calls.length, 0, "A saved submission receipt does not send again after reopening.");
+    assert.equal(storedPaper(host).readings.length, 2);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("candidate warning references survive export retry and download, and a concurrent comment change refuses the receipt", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-candidate-warning-"));
+  let host = await open(root);
+  try {
+    const document = importDocument([{ sourceIndex: 0, text: "", editable: true, style: null, reason: null, runs: [] }]);
+    await host.domain.table("papers").put("paper", { ...fixture(), document, baseline: document });
+    await host.domain.table("bindings").put("task", { paperId: "paper" });
+    let view = await host.invoke({ action: "propose", requestId: "draft", reason: "A controlled source statement.",
+      operations: [{ kind: "replace", selection: (await host.invoke({ action: "read" })).paper.blocks[0].selection, replacement: "One supported statement." }],
+      translations: [{ operationIndexes: [0], text: "一项有依据的表述。" }] });
+    const commentId = randomUUID(), target = { kind: "candidate_translation", selection: view.paper.candidates[0].content!.translations[0].selection };
+    await host.invoke({ action: "save_feedback", id: commentId, expectedVersion: 0, target, comment: "Preserve the qualification." });
+    view = await host.invoke({ action: "decide", candidateIds: [view.paper.candidates[0].id], decision: "accepted", expectedRevision: 0 });
+    const anchors = view.paper.blocks.map((block, index) => ({ blockId: block.id, nativeId: (index + 1).toString(16).padStart(8, "0").toUpperCase() }));
+    let entered!: () => void, release!: () => void, count = 0;
+    const started = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { release = resolve; });
+    host.service.engine = async () => { count++; if (count === 1) { entered(); await gate; } return { base64: "ZmlsZQ==", anchors }; };
+    const request = { action: "export", requestId: "warning-delivery", expectedRevision: 1, baselineRevision: 0, variant: "tracked", format: "docx", includeReasons: false };
+    const exporting = assert.rejects(host.service.handle(request, "task", true, new AbortController().signal), /comment changed during export/);
+    await started;
+    await host.invoke({ action: "save_feedback", id: commentId, expectedVersion: 1, target, comment: "Preserve the exact source qualification." });
+    release(); await exporting;
+    assert.equal(storedPaper(host).documentDeliveries.length, 0);
+    const output = await host.service.handle(request, "task", true, new AbortController().signal) as { commentWarningIds: string[]; warnings: string[] };
+    assert.deepEqual(output.commentWarningIds, [commentId]); assert.equal(output.warnings.length, 1);
+    host.service.engine = async () => { throw new Error("An immutable receipt must not regenerate output."); };
+    assert.deepEqual(await host.service.handle(request, "task", true, new AbortController().signal), output);
+    assert.deepEqual(await host.service.handle({ action: "download_delivery", deliveryId: request.requestId }, "task", true, new AbortController().signal), output);
+    await host.close(); host = await open(root);
+    view = await host.invoke({ action: "read" });
+    assert.deepEqual(view.paper.documentDeliveries[0].commentWarningIds, [commentId]);
+    assert.equal(view.paper.feedback[0].submitted, true);
+    await assert.rejects(host.invoke({ action: "delete_feedback", id: commentId, expectedVersion: 2 }), /already part of submitted work/);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
 test("new user directions in the same native writing turn create one replacement reading even when candidates stay unchanged", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-auto-steering-")), host = await open(root);
   try {

@@ -11,6 +11,8 @@ import type {
   Selection,
   UiRequest,
   translationSelectionSchema,
+  candidateSourceSelectionSchema,
+  candidateTranslationSelectionSchema,
 } from "./contracts.js";
 import type { z } from "zod";
 import type { paperView, previewAcceptance, compareRevision } from "./model.js";
@@ -32,10 +34,14 @@ type Reply = View & {
   comparison?: ReturnType<typeof compareRevision>;
   returnComparison?: ReturnType<typeof compareReturn>;
   pdfFonts?: OfficeFontSettings;
+  warnings?: string[];
+  commentWarningIds?: string[];
 };
 type Picked =
   | { kind: "source"; value: Selection }
-  | { kind: "translation"; value: z.infer<typeof translationSelectionSchema> };
+  | { kind: "translation"; value: z.infer<typeof translationSelectionSchema> }
+  | { kind: "candidate_source"; value: z.infer<typeof candidateSourceSelectionSchema> }
+  | { kind: "candidate_translation"; value: z.infer<typeof candidateTranslationSelectionSchema> };
 type Props = {
   sessionId: SessionId;
   call: (
@@ -189,8 +195,15 @@ const en = {
   previousProposals: "Earlier proposals",
   revisedProposal: "View the revised proposal",
   notices: "Source notes",
-  pendingDraft: "The first draft is a pending proposal. Read its text and paired translation in Changes before deciding.",
+  pendingDraft: "The first draft is pending. Read and annotate its text and paired translation in Changes before deciding.",
   unchangedText: "Unchanged text",
+  historical: "Earlier proposal range",
+  candidateComparisonUnavailable: "The earlier proposal cannot be fully compared with the current source. Its original proposal and reading remain available.",
+  noCandidateTranslation: "No paired candidate translation for this range.",
+  emptyProposedText: "No text remains in this proposed range.",
+  candidateRange: "Proposed result range",
+  deliveryNotes: "Delivery notes",
+  historicalDiscussion: "This discussion stays at its original proposal range. Select current proposed text to submit new content feedback.",
 };
 const zh: typeof en = {
   chatDocumentInput: "请在主对话框上传文档、@文件、提供路径或链接，或直接告诉当前 Agent 从头写作。文档会自动在此打开。",
@@ -329,8 +342,15 @@ const zh: typeof en = {
   previousProposals: "较早的候选",
   revisedProposal: "查看后续候选",
   notices: "原稿提示",
-  pendingDraft: "首稿仍是待处理候选，可在候选修改中阅读正文与完整译文，再决定是否接受。",
+  pendingDraft: "首稿仍待处理，可在候选修改中阅读并批注正文与完整译文，再决定是否接受。",
   unchangedText: "未改动的内容",
+  historical: "较早候选的原始范围",
+  candidateComparisonUnavailable: "旧候选已不能与当前正文完整比较；原候选和审读仍保留。本稿展示可靠的当前正文差异。",
+  noCandidateTranslation: "此范围尚无配对候选译文。",
+  emptyProposedText: "此建议范围已无文字。",
+  candidateRange: "候选结果范围",
+  deliveryNotes: "交付提示",
+  historicalDiscussion: "这条讨论保留在原候选范围。请在当前候选重新选区，提交新的内容反馈。",
 };
 declare module "@deepseek-ai/dsh-client-ui-slots" {
   interface LocaleNamespaceMap {
@@ -401,6 +421,16 @@ function FrozenReading({ packet, t }: { packet: ReturnType<typeof readingPacket>
 type FeedbackTarget = PaperView["feedback"][number]["target"];
 type CommentDraft = { id: string; target: FeedbackTarget; replyTo?: string };
 type CommentFlush = () => Promise<void>;
+const candidateSourceKey = (selection: z.infer<typeof candidateSourceSelectionSchema>) => `${selection.candidateId}:${selection.operationIndex}:${selection.paragraphIndex}`;
+const candidateTranslationKey = (selection: z.infer<typeof candidateTranslationSelectionSchema>) => `${selection.candidateId}:${selection.translationIndex}`;
+function pickedTarget(picked: Picked): FeedbackTarget {
+  switch (picked.kind) {
+    case "source": return { kind: "source", selections: [picked.value] };
+    case "translation": return { kind: "translation", selection: picked.value };
+    case "candidate_source": return { kind: "candidate_source", selection: picked.value };
+    case "candidate_translation": return { kind: "candidate_translation", selection: picked.value };
+  }
+}
 
 function MarkedText({ text, from, to, ranges = [] }: { text: string; from?: number; to?: number; ranges?: { from: number; to: number }[] }) {
   const start = Math.max(0, from ?? 0), end = Math.min(text.length, to ?? 0);
@@ -466,8 +496,8 @@ function CommentEditor({ draft, record, locked, call, sessionId, t, register, ca
       saved.current = record.comment; version.current = record.version; latest.current = record.comment; setText(record.comment);
     }
   }, [record?.version, saving]);
-  if (locked) return <div className="pw-comment-text"><p>{record?.comment}</p><small>{t(submitted ? "submittedComment" : "saved")}</small></div>;
-  return <div className="pw-comment-editor">
+  if (locked) return <div className="pw-comment-text"><p>{text}</p><small>{t(latest.current !== saved.current ? "notSaved" : submitted ? "submittedComment" : "saved")}</small></div>;
+  return <div className="pw-comment-editor" data-comment-id={draft.id}>
     <textarea aria-label={t("comment")} placeholder={t(draft.replyTo ? "replyPlaceholder" : "comment")}
       value={text} onChange={event => {
         const value = event.target.value; latest.current = value; cache.set(draft.id, value); setText(value);
@@ -488,6 +518,8 @@ function Workbench({ sessionId, call, observe, t }: Props) {
   const [view, setView] = React.useState<View>(), [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false), [connection, setConnection] = React.useState<"loading" | "live" | "offline">("loading"), [refresh, setRefresh] = React.useState(0);
   const [connectionError, setConnectionError] = React.useState("");
+  const [operationWarnings, setOperationWarnings] = React.useState<string[]>([]);
+  const [operationCommentWarningIds, setOperationCommentWarningIds] = React.useState<string[]>([]);
   const [tab, setTab] = React.useState<WorkbenchTab>("reading"), [picked, setPicked] = React.useState<Picked>();
   const [drafts, setDrafts] = React.useState<CommentDraft[]>([]), [submitting, setSubmitting] = React.useState(false);
   const [selected, setSelected] = React.useState<string[]>([]), [preview, setPreview] = React.useState<Reply["preview"]>();
@@ -507,6 +539,8 @@ function Workbench({ sessionId, call, observe, t }: Props) {
   }, []);
   React.useEffect(() => {
     setView(undefined);
+    setOperationWarnings([]);
+    setOperationCommentWarningIds([]);
     setPicked(undefined); setDrafts([]); setSelected([]); setPreview(undefined); setComparison(undefined); cache.current.clear(); submission.current = undefined;
     return () => { controller.current?.abort(); submittingController.current?.abort(); };
   }, [sessionId]);
@@ -531,14 +565,17 @@ function Workbench({ sessionId, call, observe, t }: Props) {
   React.useEffect(() => {
     const current = new Set(pendingKey?.split("\n") ?? []);
     setSelected(ids => ids.filter(candidateId => current.has(candidateId)));
+    setPicked(value => value && (value.kind === "candidate_source" || value.kind === "candidate_translation") && !current.has(value.value.candidateId) ? undefined : value);
     setPreview(undefined);
   }, [paper?.id, pendingKey]);
   async function run(request: object, outerSignal?: AbortSignal) {
-    const active = new AbortController(); controller.current?.abort(); controller.current = active; setBusy(true); setError("");
+    const active = new AbortController(); controller.current?.abort(); controller.current = active; setBusy(true); setError(""); setOperationWarnings([]); setOperationCommentWarningIds([]);
     try {
       const response = await call(sessionId, request, outerSignal ? AbortSignal.any([active.signal, outerSignal]) : active.signal);
       if (active.signal.aborted) return;
       if (response.base64) download(response.base64, response.name!);
+      if (response.warnings) setOperationWarnings(response.warnings);
+      if (response.commentWarningIds) setOperationCommentWarningIds(response.commentWarningIds);
       if (response.preview) setPreview(response.preview);
       if (response.comparison) setComparison(response.comparison);
       if (response.pdfFonts) { setPdfFonts(response.pdfFonts); setFontFolders((response.pdfFonts.directories ?? response.pdfFonts.systemDirectories).join("\n")); }
@@ -546,24 +583,34 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     } catch (failure) { if (!active.signal.aborted) setError(failure instanceof Error ? failure.message : String(failure)); }
     finally { if (controller.current === active) setBusy(false); }
   }
-  function capture(event: React.SyntheticEvent<HTMLDivElement>) {
+  function capture(event: React.SyntheticEvent<HTMLElement>) {
+    if (event.target instanceof Element && event.target.closest("textarea,input,button,summary")) return;
     const selection = window.getSelection();
     if (!selection || !paper || !selection.rangeCount) return;
     const range = selection.getRangeAt(0), start = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer as Element : range.startContainer.parentElement;
     const end = range.endContainer.nodeType === Node.ELEMENT_NODE ? range.endContainer as Element : range.endContainer.parentElement;
-    const element = start?.closest("[data-paper-block],[data-translation]");
+    const selector = "[data-paper-block],[data-translation],[data-candidate-source],[data-candidate-translation]";
+    const element = start?.closest(selector);
     if (!element || !event.currentTarget.contains(element) || !range.toString()) return;
-    if (element !== end?.closest("[data-paper-block],[data-translation]")) { setError(t("exactRange")); return; }
+    if (element !== end?.closest(selector)) { setError(t("exactRange")); return; }
     const prefix = document.createRange(); prefix.selectNodeContents(element); prefix.setEnd(range.startContainer, range.startOffset);
     const from = prefix.toString().length, quote = range.toString(), blockId = element.getAttribute("data-paper-block");
     if (blockId) {
       const block = paper.blocks.find(item => item.id === blockId);
       if (!block?.editable || block.text.slice(from, from + quote.length) !== quote) { setError(t("exactRange")); return; }
       setPicked({ kind: "source", value: { ...block.selection, from, to: from + quote.length, quote } });
-    } else {
+    } else if (element.hasAttribute("data-translation")) {
       const translation = paper.translations.find(item => item.id === element.getAttribute("data-translation"));
       if (!translation || translation.state !== "current" || translation.text.slice(from, from + quote.length) !== quote) { setError(t("changed")); return; }
       setPicked({ kind: "translation", value: { translationId: translation.id, version: translation.version, from, to: from + quote.length, quote } });
+    } else if (element.hasAttribute("data-candidate-source")) {
+      const block = paper.candidates.flatMap(candidate => candidate.content?.sourceBlocks ?? []).find(item => candidateSourceKey(item.selection) === element.getAttribute("data-candidate-source"));
+      if (!block || block.text.slice(from, from + quote.length) !== quote) { setError(t("changed")); return; }
+      setPicked({ kind: "candidate_source", value: { ...block.selection, from, to: from + quote.length, quote } });
+    } else {
+      const translation = paper.candidates.flatMap(candidate => candidate.content?.translations ?? []).find(item => candidateTranslationKey(item.selection) === element.getAttribute("data-candidate-translation"));
+      if (!translation || translation.text.slice(from, from + quote.length) !== quote) { setError(t("changed")); return; }
+      setPicked({ kind: "candidate_translation", value: { ...translation.selection, from, to: from + quote.length, quote } });
     }
     setCorrection(undefined);
   }
@@ -577,11 +624,38 @@ function Workbench({ sessionId, call, observe, t }: Props) {
   }
   function anchorBlock(target: FeedbackTarget) {
     if (target.kind === "source") return target.selections[0]?.blockId;
+    if (target.kind !== "translation") return undefined;
     const translation = paper?.translations.find(item => item.id === target.selection.translationId);
     return (translation?.mappedSources[0] ?? translation?.sources[0])?.blockId;
   }
+  function locateFeedback(id: string) {
+    const item = paper?.feedback.find(item => item.id === id);
+    if (!item) return;
+    if (item.sources.length) locate(item.sources.map(source => source.blockId));
+    else if (item.target.kind === "candidate_source" || item.target.kind === "candidate_translation") locate([item.target.selection.candidateId], "candidate");
+    else { const block = anchorBlock(item.target); if (block) locate([block]); }
+    requestAnimationFrame(() => {
+      const element = [...(body.current?.querySelectorAll<HTMLElement>("[data-feedback-id]") ?? [])].find(element => element.dataset.feedbackId === id);
+      for (let parent = element?.parentElement; parent; parent = parent.parentElement) if (parent instanceof HTMLDetailsElement) parent.open = true;
+      element?.scrollIntoView({ block: "center", behavior: "smooth" }); element?.focus();
+    });
+  }
+  function warningLinks(ids: string[] = []) {
+    return <div className="pw-actions">{ids.map(id => {
+      const item = paper?.feedback.find(item => item.id === id);
+      if (!item) return null;
+      const quote = item.target.kind === "source" ? item.target.selections.map(source => source.quote).join(" … ") : item.target.selection.quote;
+      return <Button size="sm" variant="outline" key={id} onClick={() => locateFeedback(id)}>{t("locate")} · {quote.slice(0, 60)}{quote.length > 60 ? "…" : ""}</Button>;
+    })}</div>;
+  }
   function addComment(target: FeedbackTarget, replyTo?: string) {
-    setDrafts(items => [...items, { id: crypto.randomUUID(), target, ...(replyTo ? { replyTo } : {}) }]);
+    const draftId = crypto.randomUUID();
+    setDrafts(items => [...items, { id: draftId, target, ...(replyTo ? { replyTo } : {}) }]);
+    setPicked(undefined);
+    requestAnimationFrame(() => {
+      const editor = [...(body.current?.querySelectorAll<HTMLElement>("[data-comment-id]") ?? [])].find(element => element.dataset.commentId === draftId);
+      editor?.scrollIntoView({ block: "center", behavior: "smooth" }); editor?.querySelector("textarea")?.focus();
+    });
   }
   async function removeComment(id: string, version: number) {
     if (version && !await run({ action: "delete_feedback", id, expectedVersion: version })) return;
@@ -595,7 +669,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
       active.signal.throwIfAborted();
       const current = await call(sessionId, { action: "read" }, active.signal);
       if (!current.paper || current.paper.id !== paper?.id) throw new Error(t("changed"));
-      const feedbackIds = current.paper.feedback.filter(item => !item.resolved
+      const feedbackIds = current.paper.feedback.filter(item => item.state === "current" && !item.resolved
         && !current.paper!.feedback.find(parent => parent.id === item.replyTo)?.resolved
         && !current.paper!.batches.some(saved => saved.feedbackIds.includes(item.id))).map(item => item.id);
       const feedbackVersions = feedbackIds.map(id => ({ id, version: current.paper!.feedback.find(item => item.id === id)!.version }));
@@ -612,33 +686,72 @@ function Workbench({ sessionId, call, observe, t }: Props) {
   }
   const pending = paper?.candidates.filter(candidate => candidate.status === "pending") ?? [];
   const pendingDraft = !!pending.length && !!paper?.blocks.every(block => !block.text.trim());
-  const round = paper?.feedback.filter(item => !item.resolved && !paper.feedback.find(root => root.id === item.replyTo)?.resolved
+  const round = paper?.feedback.filter(item => item.state === "current" && !item.resolved && !paper.feedback.find(root => root.id === item.replyTo)?.resolved
     && !paper.batches.some(batch => batch.feedbackIds.includes(item.id))) ?? [];
-  function threads(blockId: string) {
+  function threads(blockId: string | undefined, candidateId?: string) {
     if (!paper) return null;
     const all = [...paper.feedback.map(item => ({ id: item.id, target: item.target, ...(item.replyTo ? { replyTo: item.replyTo } : {}) })), ...drafts.filter(draft => !paper.feedback.some(item => item.id === draft.id))];
-    return all.filter(item => !item.replyTo && (paper.feedback.find(record => record.id === item.id)?.sources[0]?.blockId ?? anchorBlock(item.target)) === blockId).map(root => {
+    return all.filter(item => {
+      if (item.replyTo) return false;
+      const record = paper.feedback.find(record => record.id === item.id);
+      if (candidateId) return (item.target.kind === "candidate_source" || item.target.kind === "candidate_translation")
+        && item.target.selection.candidateId === candidateId && (!record?.acceptedAnchor || record.state !== "current");
+      return (record?.sources[0]?.blockId ?? anchorBlock(item.target)) === blockId;
+    }).map(root => {
       const rootRecord = paper.feedback.find(item => item.id === root.id), entries = [root, ...all.filter(item => item.replyTo === root.id)];
       return <aside className={`pw-comment ${rootRecord?.resolved ? "pw-resolved" : ""}`} key={root.id}>
         <div className="pw-actions"><strong>{t(rootRecord?.resolved ? "resolvedComment" : "comment")}</strong>
+          {rootRecord && rootRecord.state !== "current" && <span className="pw-tag">{t(rootRecord.state)}</span>}
           {rootRecord && <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "resolve_feedback", id: root.id, expectedVersion: rootRecord.version, resolved: !rootRecord.resolved })}>{t(rootRecord.resolved ? "reopenComment" : "resolveComment")}</Button>}
         </div>
         <blockquote onClick={() => {
           if (rootRecord?.state !== "current") return;
           const source = rootRecord?.sources[0];
-          if (root.target.kind === "source" && source) setPicked({ kind: "source", value: source });
-          if (root.target.kind === "translation") setPicked({ kind: "translation", value: root.target.selection });
+          const target = rootRecord.effectiveTarget;
+          if (target.kind === "source" && source) setPicked({ kind: "source", value: source });
+          if (target.kind === "translation") setPicked({ kind: "translation", value: target.selection });
+          if (target.kind === "candidate_source") setPicked({ kind: "candidate_source", value: target.selection });
+          if (target.kind === "candidate_translation") setPicked({ kind: "candidate_translation", value: target.selection });
         }}>{root.target.kind === "source" ? root.target.selections.map(source => source.quote).join(" … ") : root.target.selection.quote}</blockquote>
         {entries.map(entry => {
           const record = paper.feedback.find(item => item.id === entry.id);
           const submitted = record?.submitted ?? false;
-          return <CommentEditor key={entry.id} draft={entry} record={record} locked={!!record && (submitted || !!rootRecord?.resolved) || submitting}
-            call={call} sessionId={sessionId} t={t} register={register} cache={cache.current} remove={removeComment} submitted={submitted} />;
+          return <div key={entry.id} data-feedback-id={entry.id} tabIndex={-1}><CommentEditor draft={entry} record={record} locked={!!record && (submitted || !!rootRecord?.resolved) || submitting}
+            call={call} sessionId={sessionId} t={t} register={register} cache={cache.current} remove={removeComment} submitted={submitted} /></div>;
         })}
         {!rootRecord?.resolved && rootRecord && <Button size="sm" variant="outline" disabled={submitting} onClick={() => addComment(root.target, root.id)}>{t("replyComment")}</Button>}
-        {rootRecord?.state === "stale" && <small>{t("changed")}</small>}
+        {rootRecord && rootRecord.state !== "current" && <small>{t(rootRecord.state === "historical" ? "historicalDiscussion" : "changed")}</small>}
       </aside>;
     });
+  }
+  function candidateText(candidate: PaperView["candidates"][number]) {
+    const content = candidate.content;
+    if (!content || !paper) return null;
+    const groups: { sourceIndexes: number[]; translation?: (typeof content.translations)[number] }[] = content.translations.map(translation => ({ sourceIndexes: translation.sourceIndexes, translation }));
+    content.sourceBlocks.forEach((_, index) => {
+      if (!groups.some(group => group.sourceIndexes.includes(index))) groups.push({ sourceIndexes: [index] });
+    });
+    groups.sort((a, b) => Math.min(...a.sourceIndexes) - Math.min(...b.sourceIndexes));
+    return <section className="pw-candidate-text">{groups.map((group, groupIndex) => <div className="pw-pair" key={groupIndex}>
+      <div><small>{t("candidateRange")} · {t(`language_${paper.primaryLanguage}`)}</small>
+        {group.sourceIndexes.map(index => {
+          const block = content.sourceBlocks[index], key = candidateSourceKey(block.selection);
+          const selected = picked?.kind === "candidate_source" && candidateSourceKey(picked.value) === key ? picked.value : undefined;
+          const ranges = paper.feedback.flatMap(item => item.state === "current" && !item.resolved && item.target.kind === "candidate_source"
+            && candidateSourceKey(item.target.selection) === key ? [item.target.selection] : []);
+          return <div className="pw-source" data-candidate-source={key} key={key}><MarkedText text={block.text} ranges={ranges} from={selected?.from} to={selected?.to} />
+            {!block.text && <small>{t("emptyProposedText")}</small>}</div>;
+        })}
+      </div><div><small>{t("pairedTranslation")} · {t(`language_${paper.translationLanguage}`)}</small>
+        {group.translation ? (() => {
+          const translation = group.translation!, key = candidateTranslationKey(translation.selection);
+          const selected = picked?.kind === "candidate_translation" && candidateTranslationKey(picked.value) === key ? picked.value : undefined;
+          const ranges = paper.feedback.flatMap(item => item.state === "current" && !item.resolved && item.target.kind === "candidate_translation"
+            && candidateTranslationKey(item.target.selection) === key ? [item.target.selection] : []);
+          return <div className="pw-chinese" data-candidate-translation={key}><MarkedText text={translation.text} ranges={ranges} from={selected?.from} to={selected?.to} /></div>;
+        })() : <p className="pw-muted">{t("noCandidateTranslation")}</p>}
+      </div>
+    </div>)}</section>;
   }
   function readingResult(reading: PaperView["readings"][number], compact = false, findings = reading.findings) {
     const heading = <><span>{t("automaticReading")}</span><span className="pw-tag">{t(reading.status)}</span>
@@ -697,6 +810,8 @@ function Workbench({ sessionId, call, observe, t }: Props) {
 .pw-tabs{margin:12px 0;overflow-x:auto}
 .pw-tabs button{white-space:nowrap}
 .pw-submit-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
+.pw-selection-bar{border-top:1px solid var(--pw-line);padding-top:8px;margin-top:10px}
+.pw-selection-bar>small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .paper-workbench article,.pw-archived{border:1px solid var(--pw-line);border-radius:var(--dsw-radius-lg,12px);padding:16px;margin:0 0 20px;overflow-wrap:anywhere}
 .pw-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:24px}
 .pw-source,.pw-chinese{font-size:16px;line-height:1.85;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -716,6 +831,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
 .pw-tag{display:inline-block;font-size:11px;font-weight:500;line-height:1.7;border:1px solid var(--pw-line);border-radius:5px;padding:1px 6px;white-space:nowrap;vertical-align:middle}
 .pw-reason{color:var(--pw-muted);font-size:13px;margin:8px 0 16px}
 .pw-change,.pw-translation{margin:16px 0}
+.pw-candidate-text>.pw-pair{border-top:1px solid var(--pw-line);padding-top:16px;margin-top:16px}
 .pw-translation{border-top:1px solid var(--pw-line);padding-top:8px}
 .pw-unchanged{font-size:13px;color:var(--pw-muted);margin:8px 0;white-space:normal}
 .pw-unchanged>span{white-space:pre-wrap}
@@ -751,9 +867,14 @@ function Workbench({ sessionId, call, observe, t }: Props) {
         })) as [SegmentedTab<WorkbenchTab>, ...SegmentedTab<WorkbenchTab>[]]} />}
       {!!paper && <div className="pw-submit-bar"><small>{t("readyComments")} · {round.length}</small>
         <Button size="sm" variant="primary" disabled={busy || submitting || !round.length} onClick={() => void submitRound()}>{t(submitting ? "submittingRound" : "submitRound")}</Button></div>}
+      {picked && <div className="pw-selection-bar"><small>{picked.value.quote}</small><div className="pw-actions">
+        <Button size="sm" variant="outline" disabled={submitting} onClick={() => addComment(pickedTarget(picked))}>{t("addComment")}</Button>
+        <Button size="sm" variant="toolbar" onClick={() => { setPicked(undefined); setCorrection(undefined); }}>{t("clearSelection")}</Button>
+      </div></div>}
     </header>
     <div className="pw-scroll" ref={body}>
       {error && <p className="pw-error" role="alert">{error}</p>}
+      {!!operationWarnings.length && <section className="pw-notices" role="status"><h3>{t("deliveryNotes")}</h3>{operationWarnings.map((warning, index) => <p key={index}>{warning}</p>)}{warningLinks(operationCommentWarningIds)}</section>}
       {view?.reading && <FrozenReading packet={view.reading} t={t} />}
       {view && !paper && !view.reading && <><h3>{t("empty")}</h3><p>{t("chatDocumentInput")}</p><p className="pw-muted">{t("scope")}</p></>}
       {paper && <>
@@ -767,7 +888,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
           </section>)}
           {(pendingDraft ? [] : paper.blocks).map(block => {
             const sourceSelection = picked?.kind === "source" && picked.value.blockId === block.id ? picked.value : undefined;
-            const commentRanges = paper.feedback.filter(item => !item.replyTo && !item.resolved && item.state === "current" && item.target.kind === "source")
+            const commentRanges = paper.feedback.filter(item => !item.replyTo && !item.resolved && item.state === "current" && item.effectiveTarget.kind === "source")
               .flatMap(item => item.sources.filter(source => source.blockId === block.id));
             const selectedTranslation = picked?.kind === "translation" ? paper.translations.find(item => item.id === picked.value.translationId && item.mappedSources.some(source => source.blockId === block.id)) : undefined;
             const chosen = !!sourceSelection || !!selectedTranslation;
@@ -783,16 +904,13 @@ function Workbench({ sessionId, call, observe, t }: Props) {
               </div><div><small>{t("translation")} · {t(`language_${paper.translationLanguage}`)}</small>
                 {paper.translations.filter(translation => translation.state !== "superseded" && (translation.state === "current" ? translation.mappedSources : translation.sources)[0]?.blockId === block.id).map(translation => <div key={translation.id} className={translation.state === "stale" ? "pw-muted" : ""}>
                   <small>{t(translation.state)}</small><div className="pw-chinese" data-translation={translation.id}><MarkedText text={translation.text}
-                    ranges={paper.feedback.flatMap(item => !item.replyTo && !item.resolved && item.state === "current" && item.target.kind === "translation"
-                      && item.target.selection.translationId === translation.id && item.target.selection.version === translation.version ? [item.target.selection] : [])}
+                    ranges={paper.feedback.flatMap(item => !item.replyTo && !item.resolved && item.state === "current" && item.effectiveTarget.kind === "translation"
+                      && item.effectiveTarget.selection.translationId === translation.id && item.effectiveTarget.selection.version === translation.version ? [item.effectiveTarget.selection] : [])}
                     from={picked?.kind === "translation" && picked.value.translationId === translation.id ? picked.value.from : undefined}
                     to={picked?.kind === "translation" && picked.value.translationId === translation.id ? picked.value.to : undefined} /></div></div>)}
                 {!paper.translations.some(translation => translation.state === "current" && translation.mappedSources.some(source => source.blockId === block.id)) && <p className="pw-muted">{t("translationInConversation")}</p>}
               </div></div>
-              {chosen && picked && <div className="pw-actions"><Button size="sm" variant="outline" onClick={() => addComment(picked.kind === "source" ? { kind: "source", selections: [picked.value] } : { kind: "translation", selection: picked.value })}>{t("addComment")}</Button>
-                {picked.kind === "translation" && <Button size="sm" variant="outline" onClick={() => setCorrection(picked.value.quote)}>{t("correction")}</Button>}
-                <Button size="sm" variant="outline" onClick={() => { setPicked(undefined); setCorrection(undefined); }}>{t("clearSelection")}</Button>
-              </div>}
+              {chosen && picked?.kind === "translation" && <div className="pw-actions"><Button size="sm" variant="outline" onClick={() => setCorrection(picked.value.quote)}>{t("correction")}</Button></div>}
               {chosen && correction !== undefined && picked?.kind === "translation" && <section><textarea aria-label={t("correction")} value={correction} onChange={event => setCorrection(event.target.value)} />
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => void (async () => { if (await run({ action: "correct_translation", selection: picked.value, replacement: correction })) { setCorrection(undefined); setPicked(undefined); } })()}>{t("correct")}</Button></section>}
               {threads(block.id)}
@@ -801,7 +919,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
             </article>;
           })}
         </div>
-        {tab === "proposals" && <section id={`${panelId}-proposals-panel`} role="tabpanel" aria-labelledby={`${panelId}-proposals-tab`}>
+        {tab === "proposals" && <section id={`${panelId}-proposals-panel`} role="tabpanel" aria-labelledby={`${panelId}-proposals-tab`} onMouseUp={capture} onKeyUp={capture}>
           <p className="pw-muted">{t("automaticReadingNotice")}</p>
           <div className="pw-actions"><Button size="sm" variant="outline" disabled={busy || !pending.length} onClick={() => void run({ action: "preview", candidateIds: "all" })}>{t("previewAll")}</Button>
             <Button size="sm" variant="outline" disabled={busy || !selected.length} onClick={() => void run({ action: "preview", candidateIds: selected })}>{t("previewSelected")}</Button>
@@ -818,12 +936,15 @@ function Workbench({ sessionId, call, observe, t }: Props) {
             <span className="pw-tag">{t(candidate.status)}</span><h3>{t("proposal")}</h3></div>
             <details className="pw-reason"><summary>{t("proposalReason")}</summary><p>{candidate.reason}</p></details>
             {candidate.proposalDiff && <section className="pw-change"><h3>{t("previousProposalDiff")}</h3><Diff parts={candidate.proposalDiff} collapseEqual={t("unchangedText")} /></section>}
-            <details className="pw-change" open={!candidate.proposalDiff}><summary>{t("acceptedSourceDiff")}</summary>
+            {candidate.proposalComparisonIssue && <div className="pw-notices"><p>{t("candidateComparisonUnavailable")}</p><details><summary>{t("evidence")}</summary><p>{candidate.proposalComparisonIssue}</p></details></div>}
+            <details className="pw-change" open={!candidate.proposalDiff && !candidate.content}><summary>{t("acceptedSourceDiff")}</summary>
               {candidate.diffs.map((parts, index) => <Diff parts={parts} key={index} />)}
             </details>
-            {!!candidate.translations.length && <section className="pw-translation"><h3>{t("pairedTranslation")} · {t(`language_${paper.translationLanguage}`)}</h3>
+            {candidateText(candidate)}
+            {!candidate.content && !!candidate.translations.length && <section className="pw-translation"><h3>{t("pairedTranslation")} · {t(`language_${paper.translationLanguage}`)}</h3>
               {candidate.translations.map((translation, index) => <p className="pw-chinese" key={index}>{translation.text}</p>)}
             </section>}
+            {threads(undefined, candidate.id)}
             {candidate.conflict && <p className="pw-error">{candidate.conflict}</p>}
             {candidate.currentSelections.some(source => source.quote) && <Button size="sm" variant="outline" onClick={() => locate(candidate.currentSelections.map(source => source.blockId))}>{t("locate")}</Button>}
             {candidate.status === "pending" && <div className="pw-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "preview", candidateIds: [candidate.id] })}>{t("preview")}</Button>
@@ -840,9 +961,9 @@ function Workbench({ sessionId, call, observe, t }: Props) {
         </section>}
         {tab === "feedback" && <section id={`${panelId}-feedback-panel`} role="tabpanel" aria-labelledby={`${panelId}-feedback-tab`}>
           <p>{t("commentsInDocument")}</p><p className="pw-muted">{t("savedDiscussions")} · {paper.feedback.filter(item => !item.replyTo).length} / {t("readyComments")} · {round.length}</p>
-          {paper.feedback.filter(item => !item.replyTo).map(item => <article key={item.id}><p>{item.comment}</p><small>{t(item.resolved ? "resolvedComment" : "comment")}</small>
+          {paper.feedback.filter(item => !item.replyTo).map(item => <article key={item.id}><blockquote>{item.target.kind === "source" ? item.target.selections.map(source => source.quote).join(" … ") : item.target.selection.quote}</blockquote><p>{item.comment}</p><small>{t(item.resolved ? "resolvedComment" : item.state === "current" ? "comment" : item.state)}</small>
             {paper.feedback.filter(reply => reply.replyTo === item.id).map(reply => <blockquote key={reply.id}>{reply.comment}</blockquote>)}
-            <Button size="sm" variant="outline" onClick={() => locate(item.sources.length ? item.sources.map(source => source.blockId) : [anchorBlock(item.target)!])}>{t("locate")}</Button></article>)}
+            <Button size="sm" variant="outline" onClick={() => locateFeedback(item.id)}>{t("locate")}</Button></article>)}
           {paper.batches.filter(batch => batch.delivery !== "sent").map(batch => <article key={batch.id}>{batch.error && <p className="pw-error">{batch.error}</p>}<Button size="sm" variant="outline" disabled={busy || submitting} onClick={() => void submitRound(batch)}>{t("retryRound")}</Button></article>)}
         </section>}
         {tab === "readings" && <section id={`${panelId}-readings-panel`} role="tabpanel" aria-labelledby={`${panelId}-readings-tab`}><p className="pw-muted">{t("automaticReadingNotice")}</p>{!paper.readings.length && <p>{t("noReadings")}</p>}{[...paper.readings].reverse().map(reading => readingResult(reading))}</section>}
@@ -855,7 +976,9 @@ function Workbench({ sessionId, call, observe, t }: Props) {
           {paper.sourceResources.map(resource => <p key={resource.path}><Button size="sm" variant="outline" onClick={() => void run({ action: "download_source", resourcePath: resource.path })}>{resource.path}</Button></p>)}
           <p className="pw-muted">{t("returnInConversation")}</p>
           {paper.documentReturns.map(returned => <article key={returned.id}><strong>{returned.name}</strong>{returned.warnings.map((warning, index) => <p key={index}>{warning}</p>)}<Button size="sm" variant="outline" onClick={() => void run({ action: "download_return", returnId: returned.id })}>{t("originalSource")}</Button></article>)}
-          {paper.documentDeliveries.map(delivery => <p key={delivery.id}><Button size="sm" variant="outline" onClick={() => void run({ action: "download_delivery", deliveryId: delivery.id })}>{delivery.name}</Button></p>)}
+          {paper.documentDeliveries.map(delivery => <article key={delivery.id}><Button size="sm" variant="outline" onClick={() => void run({ action: "download_delivery", deliveryId: delivery.id })}>{delivery.name}</Button>
+            {!!delivery.warnings.length && <details><summary>{t("deliveryNotes")} · {delivery.warnings.length}</summary>{delivery.warnings.map((warning, index) => <p key={index}>{warning}</p>)}{warningLinks(delivery.commentWarningIds)}</details>}
+          </article>)}
           <article><p>{t("originalSource")} · {t("revision")} 0</p><div className="pw-actions">
             <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "compare", revision: 0 })}>{t("compareOriginal")}</Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "set_baseline", revision: 0, expectedRevision: paper.revision })}>{t("useComparisonBaseline")}</Button>

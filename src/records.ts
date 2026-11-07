@@ -11,6 +11,7 @@ import {
   sourceFormatSchema,
   sourceResourceSchema,
   paperLanguageSchema,
+  acceptedFeedbackTargetSchema,
 } from "./contracts.js";
 
 const diffSchema = z.array(
@@ -28,6 +29,7 @@ export const candidateSchema = z.object({
   translations: z.array(candidateTranslationSchema),
   revises: z.array(z.string()).optional(),
   proposalDiff: diffSchema.optional(),
+  proposalComparisonIssue: z.string().optional(),
   authoring: z.object({ sessionId: z.string(), turn: z.number().int().positive(), turnStartSeq: z.number().int().nonnegative() }).optional(),
   returnedFrom: z.object({ returnId: z.string(), changeIds: z.array(z.string()), mappings: returnMappingsSchema,
     sourceRevision: z.number().int().nonnegative() }).optional(),
@@ -71,12 +73,14 @@ const feedbackSchema = z.object({
   version: z.number().int().positive().default(1), resolved: z.boolean().default(false), replyTo: z.string().optional(),
   wordCommentId: z.string().optional(),
   returnComment: z.object({ returnId: z.string(), commentId: z.string() }).optional(),
+  acceptedAnchor: acceptedFeedbackTargetSchema.optional(),
 });
 export const documentDeliverySchema = z.object({
   id: z.string(), revision: z.number().int().nonnegative(), baselineRevision: z.number().int().nonnegative(),
   variant: documentVariantSchema, format: documentFormatSchema, includeReasons: z.boolean(),
   name: z.string(), base64: z.string().max(48_000_000), sourceDocxBase64: z.string().max(24_000_000).optional(),
   bytes: z.number().int().nonnegative(), warnings: z.array(z.string()),
+  commentWarningIds: z.array(z.string()).optional(),
   anchors: z.array(z.object({ blockId: z.string(), nativeId: z.string() })),
   translations: z.array(z.object({ id: z.string(), version: z.number().int().positive() })),
   pages: z.number().int().positive().optional(),
@@ -114,6 +118,7 @@ export const readingSchema = z.object({
     candidateDocument: z.json(),
     candidates: z.array(candidateSchema),
     feedback: z.array(feedbackSchema),
+    feedbackCandidates: z.array(candidateSchema).optional(),
     directions: z.array(z.object({
       batchId: z.string(),
       revision: z.number().int().nonnegative(),

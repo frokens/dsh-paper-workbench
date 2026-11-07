@@ -138,15 +138,29 @@ export const translationSelectionSchema = z.object({
   to: z.number().int().nonnegative(),
   quote: z.string(),
 });
-export const feedbackTargetSchema = z.discriminatedUnion("kind", [
-  z.object({
+const sourceFeedbackTarget = z.object({
     kind: z.literal("source"),
     selections: z.array(selectionSchema).min(1).max(100),
-  }),
-  z.object({
+  });
+const translationFeedbackTarget = z.object({
     kind: z.literal("translation"),
     selection: translationSelectionSchema,
-  }),
+  });
+export const acceptedFeedbackTargetSchema = z.discriminatedUnion("kind", [sourceFeedbackTarget, translationFeedbackTarget]);
+const candidateRangeSchema = z.object({
+  candidateId: z.string(),
+  sourceRevision: z.number().int().nonnegative(),
+  from: z.number().int().nonnegative(), to: z.number().int().nonnegative(), quote: z.string(),
+});
+export const candidateSourceSelectionSchema = candidateRangeSchema.extend({
+  operationIndex: z.number().int().nonnegative(), paragraphIndex: z.number().int().nonnegative(),
+});
+export const candidateTranslationSelectionSchema = candidateRangeSchema.extend({ translationIndex: z.number().int().nonnegative() });
+export const feedbackTargetSchema = z.discriminatedUnion("kind", [
+  sourceFeedbackTarget,
+  translationFeedbackTarget,
+  z.object({ kind: z.literal("candidate_source"), selection: candidateSourceSelectionSchema }),
+  z.object({ kind: z.literal("candidate_translation"), selection: candidateTranslationSelectionSchema }),
 ]);
 export const completeTranslationRequest = z.object({
   action: z.literal("complete_translation"),
