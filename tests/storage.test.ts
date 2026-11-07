@@ -19,6 +19,10 @@ import { isJsonValue } from "@deepseek-ai/dsh-util-values";
 import type { SubagentActivationSpec, SubagentResult } from "@deepseek-ai/dsh-subagent";
 import { prepareReading } from "../src/reading.js";
 import { proposeRequest, readingRequest } from "../src/contracts.js";
+import { PDFDocument } from "pdf-lib";
+import type { OfficeToPdfRequest } from "@deepseek-ai/dsh-office-to-pdf";
+import { LocalSubprocessRuntime } from "@deepseek-ai/dsh-subprocess-local";
+import type { SubprocessHandle } from "@deepseek-ai/dsh-subprocess";
 
 function fixture() {
   return createPaper({
@@ -144,6 +148,113 @@ const readingResult: SubagentResult = {
   stopReason: "completed", output: [],
   structured: { interpretation: { problem: "A confirmed statement", mechanism: "Keep it intact", feedbackRole: "Clarification" }, findings: [], limits: ["Synthetic source only"] },
 };
+
+test("document delivery is durable before download and retries return the original receipt after restart", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-document-delivery-"));
+  let host = await open(root);
+  const request = { action: "export", requestId: "delivery", variant: "tracked", format: "docx", includeReasons: false,
+    expectedRevision: 0, baselineRevision: 0 };
+  try {
+    const paper = await seed(host);
+    let calls = 0;
+    host.service.engine = async raw => {
+      calls++;
+      assert.equal((raw as { delivery: { id: string } }).delivery.id, request.requestId);
+      return { base64: "ZmlsZQ==", anchors: [{ blockId: paperView(paper).blocks[0].id, nativeId: "00000001" }] };
+    };
+    const output = await host.service.handle(request, "task", true, new AbortController().signal);
+    assert.equal(isJsonValue(output), true);
+    assert.equal(storedPaper(host).documentDeliveries[0].base64, "ZmlsZQ==");
+    assert.equal(calls, 1);
+    assert.deepEqual(await host.service.handle(request, "task", true, new AbortController().signal), output);
+    assert.equal(calls, 1);
+    const view = await host.invoke({ action: "read" });
+    assert.equal("base64" in view.paper.documentDeliveries[0], false);
+    await host.close(); host = await open(root);
+    host.service.engine = async () => { throw new Error("A retry must not regenerate immutable output."); };
+    assert.deepEqual(await host.service.handle(request, "task", true, new AbortController().signal), output);
+    assert.deepEqual(await host.service.handle({ action: "download_delivery", deliveryId: "delivery" }, "task", true, new AbortController().signal), output);
+    await assert.rejects(host.service.handle({ ...request, includeReasons: true }, "task", true, new AbortController().signal), /different content/);
+    await assert.rejects(host.service.handle(request, "task", false, new AbortController().signal));
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("PDF delivery defers DOCX generation to shared admission and never persists cancelled or failed output", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-document-pdf-")), host = await open(root);
+  try {
+    const paper = await seed(host);
+    const source = await PDFDocument.create(); source.addPage().drawText("A reading copy.");
+    const sharedPdf = await source.save(), before = sharedPdf.slice();
+    let admitted = false, cancelled = false, engineCalls = 0, captured: OfficeToPdfRequest | undefined;
+    host.service.engine = async raw => {
+      engineCalls++; assert.equal(admitted, true);
+      assert.ok((raw as { maxOutputBytes: number }).maxOutputBytes <= 1025);
+      return { base64: "ZmlsZQ==", anchors: [{ blockId: paperView(paper).blocks[0].id, nativeId: "00000001" }] };
+    };
+    host.ctx.provide("officeToPdf", {
+      convert: async (request: OfficeToPdfRequest, signal: AbortSignal) => {
+        captured = request;
+        if (cancelled) return new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+        assert.equal(engineCalls, 0);
+        assert.equal(request.source.bytes, undefined);
+        admitted = true;
+        const input = await request.source.read(signal, 1024);
+        assert.equal(input.version, request.source.version);
+        return { pdf: sharedPdf, missingFonts: [], cacheKey: "cache", generation: "provider" };
+      },
+    });
+    const request = { action: "export", requestId: "pdf", variant: "clean", format: "pdf", includeReasons: false,
+      expectedRevision: 0, baselineRevision: 0 };
+    await host.service.handle(request, "task", true, new AbortController().signal);
+    assert.equal(engineCalls, 1);
+    assert.ok(captured?.source.key.includes(paper.id));
+    const version = JSON.parse(captured!.source.version);
+    assert.equal(version.revision, 0); assert.equal(version.baselineRevision, 0); assert.equal(version.variant, "clean");
+    assert.deepEqual(sharedPdf, before);
+    const saved = storedPaper(host).documentDeliveries[0];
+    assert.equal(saved.format, "pdf"); assert.equal(saved.sourceDocxBase64, "ZmlsZQ==");
+    assert.equal((await PDFDocument.load(Buffer.from(saved.base64, "base64"), { updateMetadata: false })).context.trailerInfo.Info, undefined);
+    cancelled = true;
+    const controller = new AbortController();
+    const pending = host.service.handle({ ...request, requestId: "cancelled" }, "task", true, controller.signal);
+    controller.abort(new Error("Cancelled before source admission."));
+    await assert.rejects(pending, /Cancelled/);
+    assert.equal(engineCalls, 1);
+    assert.equal(storedPaper(host).documentDeliveries.length, 1);
+    await assert.rejects(host.service.handle({ ...request, requestId: "stale", baselineRevision: 1 }, "task", true, new AbortController().signal), /baseline changed/);
+    assert.equal(storedPaper(host).documentDeliveries.length, 1);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("Markdown intake uses the real managed subprocess and SDK, retains original resources and joins cancellation before shutdown", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-markdown-")), host = await open(root);
+  const runtime = host.ctx.plugin(LocalSubprocessRuntime);
+  await runtime;
+  const handles: SubprocessHandle[] = [];
+  const spawn = host.ctx.subprocess.spawn.bind(host.ctx.subprocess);
+  host.ctx.subprocess.spawn = spec => { const handle = spawn(spec); handles.push(handle); return handle; };
+  try {
+    const source = "# Method\n\nThe result remains unverified. 中文原稿。\n";
+    const resource = { path: "refs/source.bib", base64: Buffer.from("@misc{unused, title={A supplied resource}}\n").toString("base64") };
+    const imported = await host.invoke({ action: "import", format: "markdown", name: "source.md", base64: Buffer.from(source).toString("base64"), resources: [resource] });
+    assert.equal(imported.paper.sourceFormat, "markdown");
+    assert.deepEqual(imported.paper.sourceResources, [{ path: resource.path }]);
+    assert.ok(imported.paper.blocks.some(block => block.text.includes("中文原稿")));
+    const stored = host.domain.table("papers").get(imported.paper.id);
+    assert.ok(stored && "history" in stored);
+    assert.equal(Buffer.from(stored.originalBase64, "base64").toString("utf8"), source);
+    assert.deepEqual(stored.sourceResources, [resource]);
+    assert.equal(handles.length, 3, "One Markdown process and two SDK boundaries use the same DSH subprocess service.");
+    assert.deepEqual(await host.service.handle({ action: "download_source", resourcePath: resource.path }, "task", true, new AbortController().signal), { base64: resource.base64, name: "source.bib" });
+    const pending = host.service.handle({ action: "import", format: "markdown", name: "cancelled.md", base64: Buffer.from("# Cancelled\n\n" + "Data. ".repeat(100000)).toString("base64"), resources: [] }, "task", true, new AbortController().signal);
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const rejected = assert.rejects(pending);
+    await host.service.close(); await rejected;
+    assert.equal(host.domain.table("bindings").get("task")?.paperId, imported.paper.id);
+    assert.equal([...host.domain.table("papers").entries()].length, 1);
+    assert.ok((await Promise.all(handles.map(handle => handle.waitForExit()))).every(Boolean));
+  } finally { await host.close(); await runtime.dispose(); await rm(root, { recursive: true }); }
+});
 
 test("production native reading uses the DSH fresh/caller seam, validates structured capture and returns lossless JSON without changing the source", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-reading-")), host = await open(root);
@@ -651,4 +762,51 @@ test("translation send, native read and native completion return lossless JSON t
     await host.close();
     await rm(root, { recursive: true });
   }
+});
+
+test("shared font configuration refuses active paper writes and its owning configuration action can finish across Paper close", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-font-reload-")), host = await open(root);
+  try {
+    await seed(host);
+    const original = await host.invoke({ action: "read" });
+    const entry = { options: { name: "@deepseek-ai/dsh-office-to-pdf", config: { timeoutMs: 60000, fontDirectories: ["/Existing"] } }, fiber: { state: 2 } };
+    let edits = 0;
+    host.ctx.provide("configEditor", { entries: () => [entry], edit: async (_entry: unknown, change: (current: object) => object) => {
+      const next = change(entry.options.config);
+      // Dependency reload closes Paper while ConfigEditor is still applying.
+      await host.service.close();
+      entry.options.config = next as typeof entry.options.config; edits++;
+    } } as never);
+    const held = host.hold();
+    const saving = host.invoke({ action: "feedback", requestId: "held-feedback", target: { kind: "source", selections: [original.paper.blocks[0].selection] }, comment: "Keep this durable feedback." });
+    await held.started;
+    const request = { action: "configure_pdf_fonts", directories: ["/System/Library/Fonts", "/Library/Fonts"], expectedDirectories: ["/Existing"], sharedPreviews: true };
+    await assert.rejects(host.invoke(request), /Finish or cancel active paper/);
+    assert.equal(edits, 0);
+    held.release(); await saving;
+    const configured = await host.service.handle(request, "task", true, AbortSignal.timeout(2000)) as { pdfFonts: { directories: string[] } };
+    assert.deepEqual(configured.pdfFonts.directories, request.directories); assert.equal(edits, 1);
+    const saved = host.domain.table("papers").get("paper");
+    assert.ok(saved && "feedback" in saved); assert.equal(saved.feedback.length, 1);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("an admitted global font edit prevents new paper mutations while its existing owner applies the configuration", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-font-admission-")), host = await open(root);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  try {
+    await seed(host);
+    const entry = { options: { name: "@deepseek-ai/dsh-office-to-pdf", config: { fontDirectories: ["/Existing"] } }, fiber: { state: 2 } };
+    let entered!: () => void; const started = new Promise<void>(resolve => { entered = resolve; });
+    host.ctx.provide("configEditor", { entries: () => [entry], edit: async (_entry: unknown, change: (current: object) => object) => {
+      const next = change(entry.options.config); entered(); await gate; entry.options.config = next as typeof entry.options.config;
+    } } as never);
+    const applying = host.invoke({ action: "configure_pdf_fonts", directories: ["/Library/Fonts"], expectedDirectories: ["/Existing"], sharedPreviews: true });
+    await started;
+    const current = await host.invoke({ action: "read" });
+    await assert.rejects(host.invoke({ action: "feedback", requestId: "late", target: { kind: "source", selections: [current.paper.blocks[0].selection] }, comment: "Not admitted during reload." }), /settings are being applied/);
+    release(); await applying;
+    assert.deepEqual((await host.invoke({ action: "read" })).paper.feedback, []);
+  } finally { release(); await host.close(); await rm(root, { recursive: true }); }
 });

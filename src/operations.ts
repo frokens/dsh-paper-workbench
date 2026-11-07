@@ -13,6 +13,7 @@ export const documentSchema = new Schema({
       attrs: {
         id: {},
         sourceIndex: { default: null },
+        formatFrom: { default: null },
         heading: { default: null },
       },
     },
@@ -47,6 +48,13 @@ export function textDiff(before: string, after: string) {
         : ("equal" as const),
     text: part.value,
   }));
+}
+
+/** Mechanical Step boundaries used when reading an already committed operation. */
+export function operationStepCount(operation: Operation, parts: ReturnType<typeof textDiff>) {
+  if (operation.kind === "replace") return parts.filter(part => part.kind !== "equal").length;
+  if (operation.kind === "merge") return operation.separator ? 2 : 1;
+  return 1;
 }
 
 export function documentFromImport(blocks: ImportedBlock[]) {
@@ -146,7 +154,7 @@ export function transformOperation(
     return transform.split(position + 1 + operation.selection.from, 1, [
       {
         type: documentSchema.nodes.paragraph,
-        attrs: { id: randomUUID(), sourceIndex: null, heading: null },
+        attrs: { id: randomUUID(), sourceIndex: null, formatFrom: node.attrs.formatFrom ?? node.attrs.sourceIndex, heading: null },
       },
     ]);
   }

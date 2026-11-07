@@ -1,74 +1,120 @@
 # Candidate installation
 
-The bounded A code slice was merged; B is under implementation and review. A public Release has not yet
-been published. This page records the formal installation path exercised so far;
-it does not claim full product, Desktop or cross-platform acceptance.
+A–C and D's code/representative installed paths have received bounded independent
+acceptance; see the [D review](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
+The complete D exit remains open. A complete public Release has not been published. This page records the
+candidate's formal installation path and support boundaries; it does not establish
+full product, Microsoft Word, Desktop, all ordinary-task entries, actual font-form
+interaction, public installation or cross-platform acceptance.
 
-## Package
+## Package and dependency
 
-The candidate tarball contains built Host and Client JavaScript, the self contained
-DOCX engine, a local revision Skill, translated display resources, an icon and
-required licenses. No source checkout, compilation, private registry or .NET SDK
-is required by an ordinary installer.
+The tarball contains built Host/Client JavaScript, the self-contained DOCX engine,
+four research/writing Skills, display resources and required license notices.
+No source checkout, compilation, private registry or .NET SDK is required.
 
-Current declared candidate: macOS Apple silicon, Node.js 24.9 or later, DSH
-0.2.2-rc.1. The package restricts its OS and CPU accordingly. Other combinations
-remain unverified.
+The declared combination is **macOS Apple silicon, Node.js 24.9 or later, DSH
+0.2.2-rc.1 Web**. The package restricts its OS and CPU accordingly. Desktop and
+other combinations remain unverified.
+
+DSH's installer obtains the exact public dependency `pandoc-wasm@1.1.0` and its
+WASI shim. The published dependency already includes Pandoc 3.10; no separate Pandoc
+command, compiler or installation-time downloader is needed. First installation
+needs a public npm registry. A plugin tarball alone does not guarantee offline first
+installation. Later Markdown conversion uses the installed runtime and supplied
+resources without downloading images, bibliography files or converters.
+
+See [third-party notices](../THIRD_PARTY_NOTICES.md) for licenses and version/source
+links. The plugin's own MIT license is unchanged.
 
 ## Formal entry
 
-1. Obtain the candidate `.tgz` from the reviewed GitHub Release when it is published.
-   For independent review, use the exact candidate asset provided with the PR.
-2. In the existing DSH profile, open **Plugins**, then **Add plugin**.
+1. Obtain the reviewed candidate tarball from its GitHub Release when published.
+   During review, use the exact candidate asset identified by the PR.
+2. In DSH, open **Plugins**, then **Add plugin**.
 3. Enter the downloaded tarball's local file path and choose **Install**.
 4. Read the result. If DSH requests a restart, restart that same host/profile.
-   An installed package or enabled selection alone does not prove successful loading.
-5. In an ordinary task, open the right sidebar and select **Paper workbench**.
-   Do not switch preset or create a special paper agent. With no linked paper,
-   import a DOCX or explicitly link an existing paper in that sidebar.
+5. In any ordinary task, open the right sidebar and select **Paper workbench**.
+   Import DOCX/Markdown, link an existing paper, or start a draft from materials.
+   These document actions do not create or replace the main Agent.
 
-Updating installed module code may require a host restart. Use DSH's own removal
-and installation actions for a tarball candidate; do not edit the profile manifest
-or patch by hand. Paper aggregates are held in DSH storage and are not deleted by
-plugin removal. Restart, update and removal evidence is tracked separately from
-first installation.
+Use DSH's own installation/removal actions; do not edit its package manifest or
+plugin patch by hand. An installed package or enabled selection alone does not prove
+that Host, Client and tools loaded. Restart, upgrade and removal need separate checks.
 
-## Boundaries
+If a dependency download fails, inspect DSH's installation details, restore network
+access and retry. Do not enable arbitrary build scripts or install another Pandoc.
+If the installed Markdown runtime is missing, reinstall through **Plugins** and
+restart that profile. This failure does not replace an already linked paper.
 
-The sidebar uses DSH Remote calls into the same Host operation as the native paper
-tool. Sidebar data reads and decisions do not enter the agent inbox or write paper JSON
-as chat messages. The earlier command-based prototype exposed this problem and was
-removed; old test messages are retained as failure evidence.
+## Documents and delivery
 
-In B, saving a feedback batch or translation request is separate from **Send to
-current Agent (uses model)**. Only that explicit action queues work on the current
-ordinary Agent. No new paper Agent or provider configuration is needed. A failed
-send remains retryable with the same native request identity.
+DOCX text paragraphs are editable. Fields, equations, tables, figures, notes and
+other complex objects stay in the source package as read-only blocks. Read the import
+diagnostics and retain the original. Supported existing body revisions require an
+explicit accept/reject projection. Revisions in preserved headers, footers, notes
+or unsupported structures must first be handled in Word.
 
-Only ordinary text paragraphs are editable in this slice. Complex DOCX content is
-preserved in the source package and flagged read only; its full client round trip
-matrix belongs to later format validation. Read all import diagnostics. B adds
-translation projections, feedback and revision lifecycle; its actual evidence and
-limits are tracked in [the B status](reference/bilingual-lifecycle-status.md).
-Independent reading, mentor three-way returns and PDF remain unimplemented.
+For Markdown, choose the main file and supply referenced images, bibliography and
+optional CSL with paths relative to it. The folder picker stages files for explicit
+selection; it does not grant arbitrary filesystem or network access. Native
+tables/math/notes and supplied media pass through the converter; complex Word objects
+remain read only. Raw HTML/TeX is literal. Missing resources or conversion warnings
+stop intake. LaTeX, PDF and OCR import are not complete supported routes.
 
-The B data format upgrades the existing A aggregate in place and retains original
-paper data and decisions. It is not a reversible package-only downgrade: the older
-A package does not understand version 2 storage. Retain a backup before test upgrades.
-Paragraph splits/merges are retained in the workbench but Word export currently
-refuses a changed paragraph layout; the structural Word adapter remains later work.
-An earlier B full-document restoration may lack its precise Word comparison.
-The sidebar reports this and blocks export. In History, choose the intended
-historical revision and explicitly restore it, even if its visible body is the
-same. This appends its actual restoration relationship and retains the old record.
+In **History**, select the comparison baseline. Rejecting all native Word revisions
+restores it; accepting workbench candidates does not erase the teacher's comparison.
+Export clean, tracked or bilingual DOCX/PDF through **Document delivery**. Bilingual
+output requires complete current Chinese paragraph groups. Delivered files are
+immutable receipts that can be downloaded again. Exact source and return originals
+are available separately from metadata-clean derived exports.
 
-Developer-only Word fixtures can be generated with
-`npm run fixture:word -- prepare <new-test-directory>`. The command refuses to
-overwrite existing files. Open the tracked fixture in Microsoft Word, save separate
-accepted and rejected copies, then use
-`npm run fixture:word -- verify <same-test-directory>` to inspect those files. The
-verification command does not perform or establish the Word UI actions itself.
+For a returned English DOCX, select the file actually delivered and explicitly
+resolve revisions in the return. Comparison uses delivered E, returned R and current
+P. Changed or ambiguous paragraph identifiers require human alignment. Exact
+conflict-free text changes become pending candidates and preserve unrelated local
+edits. Formatting, moves and unmatched paragraph changes require review in the
+original return; the text-only proposal does not apply them. Supported comment text
+can be copied to feedback only at an exact current range. Rich comments remain in
+the original return.
 
-Word acceptance has partial real-client evidence; the final export's two client
-paths, Desktop activation and public download remain unverified. See the
-[native slice evidence](reference/native-slice-status.md).
+PDF uses DSH's shared Office provider and font configuration. The plugin neither
+replaces shared font settings nor starts another converter. On the test machine,
+default font discovery reproduced a blocked worker; explicit system-font directory
+configuration converted bounded fixtures. This does not fix or establish default
+scan/cancellation behavior. In **Document delivery**, choose PDF and open **PDF font
+settings**. Read the existing folders, review the shared-preview and configuration
+notes, and choose the folders before explicitly applying. **Use tested system
+folders** only fills the draft; **Apply shared font settings** saves it through DSH.
+Closing without applying keeps the existing settings. Existing fallback preferences
+and other raw settings are retained. Saving may remove comments inside the target
+Office settings block. If a request is cancelled or the connection reloads during
+application, read the current settings again before retrying.
+
+This configuration uses DSH's existing provider and editor. It does not repair the
+default font scan or its graceful exit. Shared changes affect other previews and
+may exclude Office fonts. The configured test profile has actual PDF, cancellation,
+reload and same-profile graceful restart evidence. Default discovery and complete
+product acceptance remain open. Check missing-font warnings and rendered pages
+before sharing.
+
+## Data, updates and removal
+
+DSH storage retains paper aggregates, originals, feedback, decisions and delivery/
+return receipts after removal. Storage format 3 reads earlier formats in place;
+older candidates may not reopen newer records. Test upgrades on disposable data.
+
+A historical B restoration may lack its precise Word comparison. The sidebar reports
+this and blocks export. In **History**, explicitly restore the intended revision even
+if its visible body is identical. This records the actual relationship and retains
+the old entry.
+
+Saving feedback or translation requests is separate from **Send to current Agent
+(uses model)**. Only explicit send queues work on the ordinary Agent. Sidebar reads,
+decisions and document actions do not create model requests.
+
+Developer fixtures use `npm run fixture:word -- prepare <new-test-directory>` and
+refuse to overwrite files. Microsoft Word must create the actual accepted, rejected
+and returned copies before verification. SDK settling, schema checks and preview
+PDFs do not establish those actions. See [D status](reference/document-delivery-status.md)
+and [earlier native evidence](reference/native-slice-status.md) for open gates.

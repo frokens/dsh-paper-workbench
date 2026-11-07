@@ -5,7 +5,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
 using W = DocumentFormat.OpenXml.Wordprocessing;
 
-static class Program
+static partial class Program
 {
     static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     const int MaxBytes = 16 * 1024 * 1024;
@@ -57,94 +57,72 @@ static class Program
         var body = document.Body ?? throw new Exception("Missing Word body.");
         if (body.ChildElements.Count > 5000) throw new Exception("DOCX exceeds 5000 top-level blocks.");
         var mode = request.TryGetProperty("revisionMode", out var m) ? m.GetString() : null;
+        // Only the supported primary body can be settled by this adapter. A
+        // revision in a preserved story must never be reported as resolved.
+        OpenXmlPart?[] preservedStories = [main.FootnotesPart, main.EndnotesPart,
+            main.WordprocessingCommentsPart, main.GlossaryDocumentPart, main.StyleDefinitionsPart, main.NumberingDefinitionsPart];
+        if (main.HeaderParts.Cast<OpenXmlPart>().Concat(main.FooterParts).Concat(preservedStories.OfType<OpenXmlPart>())
+            .Any(part => part.RootElement?.Descendants().Any(IsRevision) == true))
+            throw new Exception("This file has revisions outside the supported primary body. Resolve header, footer, note or other preserved-story revisions in Word first; the original file is unchanged.");
         var revisionElements = body.Descendants().Where(IsRevision).ToArray();
         bool revisions = revisionElements.Length != 0;
-        if (revisionElements.Any(e => e is not W.InsertedRun && e is not W.DeletedRun))
-            throw new Exception("This file has structural or formatting revisions. Resolve them in Word first; the original file is unchanged.");
+        if (revisionElements.Any(e => !SupportedRevision(e)))
+            throw new Exception("This file has unsupported structural or formatting revisions. Resolve them in Word first; the original file is unchanged.");
         if (mode is "accept" or "reject")
         {
             Settle(body, mode == "accept");
         }
 
-        if (request.GetProperty("action").GetString() == "export")
+        if (request.GetProperty("action").GetString() is "export" or "normalize")
         {
             if (revisions && mode is not ("accept" or "reject")) throw new Exception("Choose how to resolve existing Word revisions before export.");
-            foreach (var patch in request.GetProperty("paragraphs").EnumerateArray())
+            WordAnchor[] anchors = [];
+            if (request.GetProperty("action").GetString() == "export")
             {
-                int index = patch.GetProperty("sourceIndex").GetInt32();
-                if (index < 0 || index >= body.ChildElements.Count || body.ChildElements[index] is not W.Paragraph p || !Editable(p))
-                    throw new Exception("The export targets an unsupported paragraph.");
-                var original = p.Elements<W.Run>().Select(run => new SourceRun(run, run.InnerText)).ToArray();
-                var originalText = string.Concat(original.Select(run => run.Text));
-                if (originalText != patch.GetProperty("before").GetString()) throw new Exception("Export source no longer matches its paragraph.");
-                var segments = patch.GetProperty("segments").EnumerateArray().ToArray();
-                if (string.Concat(segments.Where(s => s.GetProperty("kind").GetString() != "insert").Select(s => s.GetProperty("text").GetString())) != originalText)
-                    throw new Exception("Export diff does not cover the exact source.");
-                bool tracked = request.GetProperty("tracked").GetBoolean();
-                int offset = 0;
-                var prepared = new List<(string Kind, W.Run[] Runs)>();
-                foreach (var segment in segments)
+                anchors = ProjectWord(body, request.GetProperty("flow"), request.GetProperty("tracked").GetBoolean());
+                if (request.TryGetProperty("comments", out var comments) && comments.GetArrayLength() != 0) AttachComments(main, comments);
+                if (request.TryGetProperty("bilingual", out var bilingual))
                 {
-                    var kind = segment.GetProperty("kind").GetString()!;
-                    var text = segment.GetProperty("text").GetString()!;
-                    if (kind == "insert")
-                    {
-                        var insertion = new W.Run(new W.Text(text) { Space = SpaceProcessingModeValues.Preserve });
-                        var styleSource = segment.GetProperty("styleFrom");
-                        if (styleSource.ValueKind != JsonValueKind.Null)
-                        {
-                            int styleFrom = styleSource.GetInt32();
-                            if (styleFrom < 0 || styleFrom > originalText.Length) throw new Exception("Insertion style source is outside the original paragraph.");
-                            var style = StyleAt(original, styleFrom);
-                            if (style != null) insertion.PrependChild(style);
-                        }
-                        prepared.Add((kind, [insertion]));
-                    }
-                    else
-                    {
-                        var runs = Slice(original, offset, text.Length, kind == "delete" && tracked);
-                        if (kind is not ("equal" or "delete")) throw new Exception("Unknown diff segment.");
-                        prepared.Add((kind, runs));
-                        offset += text.Length;
-                    }
+                    if (request.GetProperty("tracked").GetBoolean()) throw new Exception("A bilingual working copy uses the clean primary body.");
+                    AppendBilingual(body, bilingual);
                 }
-                if (EquivalentRuns(original, prepared.Where(e => e.Kind != "delete").SelectMany(e => e.Runs))) continue;
-                foreach (var child in p.ChildElements.Where(e => e is not W.ParagraphProperties).ToArray()) child.Remove();
-                int revisionId = 0;
-                foreach (var edit in prepared)
-                {
-                    if (edit.Kind == "insert" && tracked) p.Append(new W.InsertedRun(edit.Runs) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
-                    else if (edit.Kind == "delete" && tracked) p.Append(new W.DeletedRun(edit.Runs) { Id = (index * 100000 + revisionId++).ToString(), Author = "" });
-                    else if (edit.Kind != "delete") { foreach (var run in edit.Runs) p.Append(run); }
-                }
+                StampDelivery(main, request);
             }
+            if (request.TryGetProperty("generatedFonts", out var fonts) && fonts.GetBoolean()) GeneratedFonts(main);
             document.Save();
             ClearMetadata(doc);
             var errors = new OpenXmlValidator(FileFormatVersions.Microsoft365).Validate(doc).Take(10).Select(e => e.Description).ToArray();
             if (errors.Length != 0) throw new Exception("Open XML validation failed: " + string.Join("; ", errors));
             doc.Dispose();
-            return new { base64 = NormalizeZip(stream.ToArray()), validation = "Open XML SDK schema validation passed" };
+            int outputLimit = request.TryGetProperty("maxOutputBytes", out var requestedLimit) ? requestedLimit.GetInt32() : MaxBytes;
+            if (outputLimit < 1 || outputLimit > MaxBytes) throw new Exception("Invalid Word output capacity.");
+            return new { base64 = NormalizeZip(stream.ToArray(), outputLimit), anchors, validation = "Open XML SDK schema validation passed" };
         }
 
+        var nativeComments = ExtractComments(main, body);
         var blocks = body.ChildElements.Where(e => e is not W.SectionProperties).Select((e, i) => new
         {
             sourceIndex = body.ChildElements.ToList().IndexOf(e),
+            nativeId = (e as W.Paragraph)?.ParagraphId?.Value,
             text = e.InnerText,
             editable = e is W.Paragraph p && Editable(p),
+            paragraphFormat = (e as W.Paragraph)?.ParagraphProperties?.OuterXml ?? "",
             style = e is W.Paragraph paragraph ? paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value : null,
             runs = e is W.Paragraph para && Editable(para)
-                ? para.Elements<W.Run>().Select(run => new { text = run.InnerText, bold = run.RunProperties?.Bold is { Val: not { Value: false } }, italic = run.RunProperties?.Italic is { Val: not { Value: false } } }).ToArray()
+                ? para.Elements<W.Run>().Select(run => new { text = run.InnerText, bold = run.RunProperties?.Bold is { Val: not { Value: false } }, italic = run.RunProperties?.Italic is { Val: not { Value: false } }, nativeFormat = run.RunProperties?.OuterXml ?? "" }).ToArray()
                 : [],
             reason = e is W.Paragraph simple && Editable(simple) ? null : "Preserved in original DOCX; read only in this release (complex content or anchors)."
         }).ToArray();
         var warnings = new List<string>();
         if (blocks.Any(b => !b.editable)) warnings.Add("Complex blocks remain in the original package and export unchanged. They cannot be edited in this release.");
         if (main.HeaderParts.Any() || main.FooterParts.Any()) warnings.Add("Headers and footers are preserved; not shown in the workbench.");
-        if (main.WordprocessingCommentsPart != null) warnings.Add("Word comments are preserved; comment editing is not implemented in this slice.");
+        if (nativeComments.Any(c => c.Editable)) warnings.Add("Supported Word comment anchors were extracted from a derived source for source feedback; original comment bodies and the original upload remain preserved.");
+        if (nativeComments.Any(c => !c.Editable)) warnings.Add("Some Word comments have unsupported, missing or ambiguous anchors. Those anchored objects remain read only in the source; inspect the original upload.");
         if (revisions && mode == null) warnings.Add("Existing revisions require an explicit accept or reject choice before editing.");
         document.Save();
+        var deliveryMarkers = main.CustomXmlParts.Select(ReadDeliveryMarker).Where(marker => marker != null).ToArray();
         doc.Dispose();
-        return new { blocks, warnings, hasRevisions = revisions, normalizedBase64 = Convert.ToBase64String(stream.ToArray()) };
+        return new { blocks, nativeComments, deliveryMarkers, warnings, hasRevisions = revisions, normalizedBase64 = Convert.ToBase64String(stream.ToArray()) };
     }
 
     static bool IsRevision(OpenXmlElement e) => e is W.TrackChangeType or W.RunTrackChangeType
@@ -184,44 +162,6 @@ static class Program
         return source.LastOrDefault()?.Run.RunProperties?.CloneNode(true) as W.RunProperties;
     }
 
-    static W.Run[] Slice(SourceRun[] source, int start, int length, bool deleted)
-    {
-        var result = new List<W.Run>();
-        int offset = 0;
-        foreach (var run in source)
-        {
-            int from = Math.Max(0, start - offset), to = Math.Min(run.Text.Length, start + length - offset);
-            if (to > from)
-            {
-                var part = new W.Run();
-                if (run.Run.RunProperties != null) part.Append(run.Run.RunProperties.CloneNode(true));
-                var text = run.Text[from..to];
-                if (deleted) part.Append(new W.DeletedText(text) { Space = SpaceProcessingModeValues.Preserve });
-                else part.Append(new W.Text(text) { Space = SpaceProcessingModeValues.Preserve });
-                result.Add(part);
-            }
-            offset += run.Text.Length;
-        }
-        return result.ToArray();
-    }
-
-    static void Settle(W.Body body, bool accept)
-    {
-        foreach (var e in body.Descendants().Where(e => e is W.InsertedRun or W.DeletedRun).Reverse().ToArray())
-        {
-            bool keep = e is W.InsertedRun ? accept : !accept;
-            if (keep)
-            {
-                foreach (var child in e.ChildElements.ToArray())
-                {
-                    child.Remove();
-                    foreach (var deleted in child.Descendants<W.DeletedText>().ToArray()) deleted.Parent!.ReplaceChild(new W.Text(deleted.Text) { Space = deleted.Space }, deleted);
-                    e.InsertBeforeSelf(child);
-                }
-            }
-            e.Remove();
-        }
-    }
 
     static void ClearMetadata(WordprocessingDocument doc)
     {
@@ -233,7 +173,7 @@ static class Program
         if (doc.CustomFilePropertiesPart != null) doc.DeletePart(doc.CustomFilePropertiesPart);
     }
 
-    static string NormalizeZip(byte[] bytes)
+    static string NormalizeZip(byte[] bytes, int limit = MaxBytes)
     {
         using var output = new MemoryStream();
         using (var input = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read))
@@ -244,6 +184,7 @@ static class Program
                 copy.LastWriteTime = new DateTimeOffset(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
                 using var src = entry.Open(); using var dest = copy.Open(); src.CopyTo(dest);
             }
+        if (output.Length > limit) throw new Exception("The Word output exceeds the allowed source capacity.");
         return Convert.ToBase64String(output.ToArray());
     }
 
@@ -265,6 +206,7 @@ static class Program
             body.Append(new W.SectionProperties(new W.PageSize { Width = 11906, Height = 16838 },
                 new W.PageMargin { Top = 1440, Bottom = 1440, Left = 1440, Right = 1440 }));
             main.Document = new W.Document(body);
+            GeneratedFonts(main);
             main.Document.Save();
             ClearMetadata(doc);
             var errors = new OpenXmlValidator(FileFormatVersions.Microsoft365).Validate(doc).Take(10).Select(e => e.Description).ToArray();
@@ -297,6 +239,37 @@ static class Program
             if (variant == "paragraph-mark")
                 main.Document.Body!.Elements<W.Paragraph>().First().ParagraphProperties!.Append(
                     new W.ParagraphMarkRunProperties(new W.Inserted { Id = "12", Author = "" }));
+            if (variant == "header-revision")
+            {
+                var header = main.AddNewPart<HeaderPart>();
+                header.Header = new W.Header(new W.Paragraph(new W.InsertedRun(new W.Run(new W.Text("Unresolved header."))) { Id = "9", Author = "" }));
+                main.Document.Body!.Elements<W.SectionProperties>().Last().PrependChild(new W.HeaderReference { Id = main.GetIdOfPart(header), Type = W.HeaderFooterValues.Default });
+            }
+            if (variant == "footnote-revision")
+            {
+                var notes = main.AddNewPart<FootnotesPart>();
+                notes.Footnotes = new W.Footnotes(new W.Footnote(new W.Paragraph(new W.DeletedRun(new W.Run(new W.DeletedText("Unresolved note."))) { Id = "9", Author = "" })) { Id = 1 });
+                main.Document.Body!.Elements<W.Paragraph>().First().Append(new W.Run(new W.FootnoteReference { Id = 1 }));
+            }
+            if (variant == "custom-format")
+            {
+                var paragraph = main.Document.Body!.Elements<W.Paragraph>().First();
+                paragraph.ParagraphProperties = new W.ParagraphProperties(new W.ParagraphStyleId { Val = "CustomBody" },
+                    new W.KeepNext(), new W.SpacingBetweenLines { After = "160", Line = "300" }, new W.Indentation { FirstLine = "240" });
+                paragraph.Elements<W.Run>().First().RunProperties = new W.RunProperties(
+                    new W.RunFonts { Ascii = "Cambria", HighAnsi = "Cambria", EastAsia = "Songti SC" },
+                    new W.Color { Val = "153E75" }, new W.FontSize { Val = "23" }, new W.Languages { Val = "en-US", EastAsia = "zh-CN" });
+            }
+            if (variant is "comments" or "duplicate-comment-anchors")
+            {
+                var part = main.AddNewPart<WordprocessingCommentsPart>();
+                part.Comments = new W.Comments(new W.Comment(new W.Paragraph(new W.Run(new W.Text("Preserve the confirmed meaning.")))) { Id = "8", Author = "" });
+                var paragraph = main.Document.Body!.Elements<W.Paragraph>().First();
+                paragraph.InsertAfter(new W.CommentRangeStart { Id = "8" }, paragraph.ParagraphProperties!);
+                if (variant == "duplicate-comment-anchors") paragraph.Append(new W.CommentRangeStart { Id = "8" });
+                paragraph.Append(new W.CommentRangeEnd { Id = "8" }, new W.Run(new W.CommentReference { Id = "8" }));
+                part.Comments.Save();
+            }
             ClearMetadata(doc);
             main.Document.Save();
         }

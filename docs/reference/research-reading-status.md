@@ -1,6 +1,8 @@
 # Research writing and independent reading status
 
-Status: C implementation candidate 0.3.0-alpha.4, not independently accepted. The bounded A/B
+Status: C candidate 0.3.0-alpha.4 and its representative native path received bounded
+independent acceptance in [PR #3](https://github.com/frokens/dsh-paper-workbench/pull/3)
+and merged in `163019e08c79c93b4a333a6e3a76cf2cb43fcdca`. The bounded A/B
 code and representative B native path are recorded separately. Word desktop
 round trips, Desktop frontend, public user installation, D/E and final sidebar
 usability remain open.

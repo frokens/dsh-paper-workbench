@@ -1,6 +1,6 @@
 {
   "name": "dsh-paper-workbench",
-  "version": "0.3.0-alpha.4",
+  "version": "0.4.0-alpha.5",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -36,7 +36,8 @@
     "docs/install.md",
     "docs/reference/native-slice-status.md",
     "docs/reference/bilingual-lifecycle-status.md",
-    "docs/reference/research-reading-status.md"
+    "docs/reference/research-reading-status.md",
+    "docs/reference/document-delivery-status.md"
   ],
   "dsh": {
     "bundle": {
@@ -68,10 +69,14 @@
     "@types/react": "19.2.2",
     "diff": "8.0.2",
     "esbuild": "0.25.12",
+    "pdf-lib": "1.17.1",
     "prosemirror-model": "1.25.4",
     "prosemirror-transform": "1.10.5",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
     "zod": "4.4.3"
+  },
+  "dependencies": {
+    "pandoc-wasm": "1.1.0"
   }
 }

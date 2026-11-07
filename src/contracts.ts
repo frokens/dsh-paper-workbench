@@ -48,6 +48,32 @@ export const operationSchema = z.discriminatedUnion("kind", [
 ]);
 export type Operation = z.infer<typeof operationSchema>;
 export const readRequest = z.object({ action: z.literal("read") });
+export const documentVariantSchema = z.enum(["clean", "tracked", "bilingual"]);
+export const documentFormatSchema = z.enum(["docx", "pdf"]);
+export const sourceFormatSchema = z.enum(["docx", "markdown"]);
+export const sourceResourceSchema = z.object({ path: z.string().min(1).max(1000), base64: z.string().max(24_000_000) });
+export const sourceResourcesSchema = z.array(sourceResourceSchema).max(256).refine(resources => resources.reduce((sum, resource) => sum + resource.base64.length, 0) <= 24_000_000, "Source resources exceed the aggregate input limit.");
+export const markdownSourceSchema = z.object({ base64: z.string().max(8_000_000), resources: sourceResourcesSchema.default([]) });
+export const documentExportRequest = z.object({
+  action: z.literal("export"), requestId: z.string().min(1).max(200),
+  variant: documentVariantSchema, format: documentFormatSchema,
+  includeReasons: z.boolean(), expectedRevision: z.number().int().nonnegative(),
+  baselineRevision: z.number().int().nonnegative(),
+});
+export const returnMappingsSchema = z.array(z.object({ sourceIndex: z.number().int().nonnegative(), blockId: z.string() })).max(5000);
+export const compareReturnRequest = z.object({ action: z.literal("compare_return"), returnId: z.string(), mappings: returnMappingsSchema.default([]) });
+export const proposeReturnRequest = z.object({ action: z.literal("propose_return"), requestId: z.string().min(1).max(200),
+  returnId: z.string(), mappings: returnMappingsSchema.default([]), changeIds: z.array(z.string()).min(1).max(100),
+  expectedRevision: z.number().int().nonnegative(), textOnly: z.literal(true),
+});
+export const copyReturnCommentsRequest = z.object({ action: z.literal("copy_return_comments"), requestId: z.string().min(1).max(200),
+  returnId: z.string(), mappings: returnMappingsSchema.default([]), commentIds: z.array(z.string()).min(1).max(100),
+  expectedRevision: z.number().int().nonnegative(), textOnly: z.literal(true),
+});
+const fontDirectoriesSchema = z.array(z.string().min(1).max(2000)).min(1).max(64).nullable();
+export const configurePdfFontsRequest = z.object({ action: z.literal("configure_pdf_fonts"),
+  directories: fontDirectoriesSchema, expectedDirectories: z.array(z.string()).max(64).nullable(), sharedPreviews: z.literal(true),
+});
 export const createRequest = z.object({
   action: z.literal("create"),
   name: z.string().min(1).max(250),
@@ -143,6 +169,8 @@ export const uiRequest = z.discriminatedUnion("action", [
     action: z.literal("import"),
     name: z.string().min(1).max(250),
     base64: z.string().max(24_000_000),
+    format: sourceFormatSchema.default("docx"),
+    resources: sourceResourcesSchema.default([]),
     revisionMode: z.enum(["accept", "reject"]).optional(),
   }),
   z.object({ action: z.literal("link"), paperId: z.string() }),
@@ -202,6 +230,17 @@ export const uiRequest = z.discriminatedUnion("action", [
     selection: translationSelectionSchema,
     replacement: z.string().max(100000),
   }),
-  z.object({ action: z.literal("export"), tracked: z.boolean() }),
+  z.object({ action: z.literal("set_baseline"), revision: z.number().int().nonnegative(), expectedRevision: z.number().int().nonnegative() }),
+  z.object({ action: z.literal("download_delivery"), deliveryId: z.string() }),
+  z.object({ action: z.literal("import_return"), requestId: z.string().min(1).max(200), deliveryId: z.string(),
+    name: z.string().min(1).max(250), base64: z.string().max(24_000_000), revisionMode: z.enum(["accept", "reject"]).optional() }),
+  z.object({ action: z.literal("download_return"), returnId: z.string() }),
+  z.object({ action: z.literal("download_source"), resourcePath: z.string().optional() }),
+  compareReturnRequest,
+  proposeReturnRequest,
+  copyReturnCommentsRequest,
+  z.object({ action: z.literal("pdf_font_settings") }),
+  configurePdfFontsRequest,
+  documentExportRequest,
 ]);
 export type UiRequest = z.infer<typeof uiRequest>;

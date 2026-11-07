@@ -1,3 +1,4 @@
+import { wordProjection } from "../src/word.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Node as PMNode } from "prosemirror-model";
@@ -30,7 +31,6 @@ import {
   addFeedback,
   createBatch,
   migratePaper,
-  exportParagraphs,
   deliveryPrompt,
   markDelivery,
   type Paper,
@@ -118,7 +118,7 @@ test("a multi-paragraph first draft stays one pending group, then persists actua
   assert.deepEqual(paperView(paper).translations.map(translation => translation.mappedSources.map(source => source.blockId)), [[ids[0]], ids.slice(1)]);
   paper = paperSchema.parse(JSON.parse(JSON.stringify(paper)));
   assert.deepEqual([...documentAt(paper, 1).content.content].map(node => node.attrs.id), ids);
-  assert.throws(() => exportParagraphs(paper), /splits and merges/);
+  assert.equal(wordProjection(paper).flow.filter(event => event.kind === "paragraph" && event.change === "insert").length, 2);
   paper = restoreRevision(paper, 0, 1);
   assert.deepEqual(paper.document, empty);
   assert.ok(paperView(paper).translations.every(translation => translation.state === "stale"));
@@ -286,7 +286,7 @@ test("split persists the actual paragraph identity in steps, maps a pending rang
       .attrs.id,
     newId,
   );
-  assert.throws(() => exportParagraphs(paper), /splits and merges/);
+  assert.equal(wordProjection(paper).flow.filter(event => event.kind === "paragraph" && event.change === "insert").length, 1);
   paper = decide(paper, edit, "accepted");
   assert.equal(text(paper, 1), "alpha gamma.");
   paper = undoDecision(paper, paper.decisions.at(-1)!.id, 2);
@@ -693,17 +693,17 @@ test("explicit restoration recovers the selected edit relationship from older fu
   };
   const repaired = restoreRevision(older, 1, 3);
   assert.equal(paperView(older).wordExportNeedsRestore, true);
-  assert.throws(() => exportParagraphs(older), /restore it explicitly/);
+  assert.throws(() => wordProjection(older).flow, /[Rr]estore.*explicitly/);
+  assert.ok(wordProjection(older, 3).flow.every(event => event.kind === "opaque" || event.change === "equal"),
+    "An explicitly selected comparison after the ambiguous legacy restoration has its own exact body and later journal.");
   assert.equal(paperView(repaired).wordExportNeedsRestore, false);
   assert.deepEqual(repaired.document, accepted.document);
   assert.equal(repaired.revision, 4);
   assert.deepEqual(
-    exportParagraphs(repaired)
-      .flatMap((p) => p.segments)
-      .filter((s) => s.kind !== "equal"),
-    exportParagraphs(accepted)
-      .flatMap((p) => p.segments)
-      .filter((s) => s.kind !== "equal"),
+    wordProjection(repaired).flow
+      .filter(event => event.kind !== "opaque" && event.change !== "equal"),
+    wordProjection(accepted).flow
+      .filter(event => event.kind !== "opaque" && event.change !== "equal"),
   );
   assert.equal(
     older.history[2].inverseOf,
