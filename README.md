@@ -12,6 +12,11 @@
 已在 `7bc5670` 获[独立工程复审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815408904)。
 24 项聚焦检查、类型检查与构建不包含本版本的实际安装、界面或审读恢复；这些结果按准确版本和包 SHA
 另在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 记录。
+公开 alpha4 原包固定在 `848889a`，其实际安装/界面与一次同稿审读恢复随后分别获
+[零模型界面复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815592027)和
+[有界恢复复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815679820)。
+当前分支继续修正窄栏键盘移动后的标签裁切和批次创建时误存入口字段；这两处后续源码修正尚未打包、
+安装或作实际界面核验，不属于已发布 alpha4 原包。
 分发以 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 中实际列出的版本及附件为准。
 
 历史 [0.5.0-alpha.2 测试预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
@@ -41,7 +46,10 @@ alpha2 已[匿名下载并经正式安装接口升级](https://github.com/froken
 [有界复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815273201)；
 读者把中文引文挂到英文正文块，结构化工具成功后仍被最终定位校验拒收，原始结果与失败状态保留。
 实际窄栏标签重叠和末次候选仅显示版本号差异也已记录。alpha4 修正这些工程消费者，
-明确双语定位与用户交流语言的职责；新包实际界面与同稿 fresh 恢复仍待核验，稿件仍未接受。
+明确双语定位与用户交流语言的职责。原包实际累计差异和一次同稿 fresh 恢复已有上述独立复核：
+读者以中文完成，保留一项版本锚点关注和四项证据限制，稿件仍未接受。原始数据保全比较失败与旧批次
+入口字段正规化的归因均保留，成功范围见[研究/审读状态](docs/reference/research-reading-status.md#alpha3-native-result-and-alpha4-follow-up)。
+原包键盘选择、焦点和面板正确，但一次向右移动后标签仍被裁切；后续源码修正须另作实际界面核验。
 
 历史 [alpha1](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1) 原包与 tag 保持原件。
 [Mac 原生窗口实证](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)

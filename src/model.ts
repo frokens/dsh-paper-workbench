@@ -1234,7 +1234,10 @@ export function createBatch(
       ...paper.batches,
       {
         id: randomUUID(),
-        ...request,
+        requestId: request.requestId,
+        feedbackIds: request.feedbackIds,
+        direction: request.direction,
+        feedbackVersions: request.feedbackVersions,
         sessionId,
         revision: paper.revision,
         delivery: "ready",

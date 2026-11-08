@@ -531,6 +531,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
   const [variant, setVariant] = React.useState<"clean" | "tracked" | "bilingual">("tracked"), [format, setFormat] = React.useState<"docx" | "pdf">("docx");
   const [pdfFonts, setPdfFonts] = React.useState<OfficeFontSettings>(), [fontFolders, setFontFolders] = React.useState("");
   const controller = React.useRef<AbortController | undefined>(undefined), body = React.useRef<HTMLDivElement>(null);
+  const tabScroll = React.useRef<HTMLDivElement>(null);
   const saves = React.useRef(new Map<string, CommentFlush>()), cache = React.useRef(new Map<string, string>());
   const submission = React.useRef<{ requestId: string; feedbackIds: string[]; direction: string; feedbackVersions?: { id: string; version: number }[] } | undefined>(undefined);
   const submittingController = React.useRef<AbortController | undefined>(undefined);
@@ -541,6 +542,25 @@ function Workbench({ sessionId, call, observe, t }: Props) {
     saves.current.set(key, flush);
     return () => { if (saves.current.get(key) === flush) saves.current.delete(key); };
   }, []);
+  React.useLayoutEffect(() => {
+    const container = tabScroll.current;
+    if (!container) return;
+    const revealTab = () => {
+      const activeTab = container.querySelector<HTMLElement>('[role="tab"]:focus')
+        ?? container.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (!activeTab) return;
+      const left = container.getBoundingClientRect().left + container.clientLeft, right = left + container.clientWidth;
+      const bounds = activeTab.getBoundingClientRect();
+      if (bounds.left < left) container.scrollLeft += bounds.left - left;
+      else if (bounds.right > right) container.scrollLeft += bounds.right - right;
+    };
+    revealTab();
+    const resize = new ResizeObserver(revealTab);
+    resize.observe(container);
+    if (container.firstElementChild) resize.observe(container.firstElementChild);
+    container.addEventListener("focusin", revealTab);
+    return () => { resize.disconnect(); container.removeEventListener("focusin", revealTab); };
+  }, [paper?.id, tab]);
   React.useEffect(() => {
     setView(undefined);
     setOperationWarnings([]);
@@ -866,7 +886,7 @@ function Workbench({ sessionId, call, observe, t }: Props) {
         disconnectedLabel={t("offline")} connectingLabel={t(view ? "reconnecting" : "loading")} recoveredLabel={t("live")}
         reconnectActionLabel={t("refresh")} restartActionLabel={t("refresh")} onReconnect={() => setRefresh(value => value + 1)} />
       {connectionError && <details className="pw-connection-detail"><summary>{t("connectionDetails")}</summary><p>{connectionError}</p></details>}
-      {paper && <div className="pw-tabs"><SegmentedTabs size="sm" className="pw-tab-list" label={t("title")} value={tab} onChange={setTab}
+      {paper && <div className="pw-tabs" ref={tabScroll}><SegmentedTabs size="sm" className="pw-tab-list" label={t("title")} value={tab} onChange={setTab}
         items={tabs.map(key => ({ value: key, id: `${panelId}-${key}-tab`, panelId: `${panelId}-${key}-panel`,
           label: <>{t(key)}{key === "proposals" ? ` ${pending.length}` : key === "feedback" ? ` ${paper.feedback.filter(item => !item.replyTo).length}` : ""}</>,
         })) as [SegmentedTab<WorkbenchTab>, ...SegmentedTab<WorkbenchTab>[]]} /></div>}

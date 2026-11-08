@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createPaper, importDocument, paperView, propose, saveFeedback, deleteFeedback, createBatch, resolveFeedback, decideMany, feedbackLocation, correctTranslation, undoDecision, restoreRevision, projectCandidates, type Paper } from "../src/model.js";
-import { proposeRequest, readingRequest } from "../src/contracts.js";
+import { proposeRequest, readingRequest, uiRequest } from "../src/contracts.js";
 import { paperSchema } from "../src/records.js";
 import { prepareReading, readingPacket } from "../src/reading.js";
 import { wordComments } from "../src/word.js";
@@ -31,6 +31,30 @@ function annotated() {
   paper = saveFeedback(paper, { id: "chinese", expectedVersion: 0, target: translationTarget(paper), comment: "保留未经验证的含义。" });
   return paper;
 }
+
+test("a real UI submit request preserves batch versions and identity through the current storage schema", () => {
+  const paper = annotated(), sessionId = "ordinary-task";
+  const feedbackVersions = paper.feedback.map(({ id, version }) => ({ id, version }));
+  const request = uiRequest.parse({ action: "submit_batch", requestId: "batch-from-ui", direction: "Keep the submitted evidence limits.",
+    feedbackIds: paper.feedback.map(item => item.id), feedbackVersions });
+  assert.ok(request.action === "submit_batch");
+  const created = createBatch(paper, request, sessionId);
+  const reopened = paperSchema.parse(JSON.parse(JSON.stringify(created)));
+  assert.deepEqual(reopened.batches, created.batches);
+  assert.equal("action" in created.batches[0], false);
+  assert.deepEqual(reopened.batches[0].feedbackVersions, feedbackVersions);
+  assert.equal(reopened.batches[0].direction, request.direction);
+  assert.equal(reopened.batches[0].revision, paper.revision);
+  assert.equal(reopened.batches[0].sessionId, sessionId);
+  assert.strictEqual(createBatch(created, request, sessionId), created);
+  assert.strictEqual(createBatch(reopened, request, sessionId), reopened);
+  assert.throws(() => createBatch(reopened, { ...request, feedbackVersions: feedbackVersions.map(item => ({ ...item, version: item.version + 1 })) }, sessionId), /identity was already used/);
+  const older = structuredClone(reopened);
+  delete older.batches[0].feedbackVersions;
+  const { feedbackVersions: _, ...olderRequest } = request;
+  assert.strictEqual(createBatch(older, olderRequest, sessionId), older);
+  assert.deepEqual(paperSchema.parse(JSON.parse(JSON.stringify(older))).batches, older.batches);
+});
 
 test("pending bilingual comments use exact result indexes, CAS and one frozen batch without accepting the draft", () => {
   let paper = annotated();

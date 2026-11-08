@@ -151,7 +151,7 @@ No statement of draft quality follows from a successful tool call.
 Version 0.5.0-alpha.4's functional source at `7bc5670` received
 [bounded independent review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815408904)
 with 19 candidate/reading checks and five selected Host checks, type checking and
-Host/Client builds. This engineering scope does not include alpha4 installation,
+Host/Client builds. That engineering review did not include alpha4 installation,
 actual sidebar/theme/keyboard checks or a new fresh recovery. The source uses
 DSH's official `tools/pre-execute` policy to
 validate only this plugin's active owned reader calling its real
@@ -184,11 +184,59 @@ earlier candidate baseline. Old candidates, differences and readings stay fixed.
 Alpha3's native equal-width tabs also overlapped at the ordinary narrow sidebar
 width. The alpha4 Client retains the same native SegmentedTabs and puts its
 intrinsic-width list inside a horizontal scroll container. Native selection,
-focus, keyboard handling and theme tokens remain with that primitive. Source
-checks and builds do not establish installed layout, theme or keyboard behavior.
-An independently reviewed new package, zero-model native checks and one explicit
-fresh recovery of the same failed-reading owner remain separate validation steps;
-the published alpha3 package/tag and this failed reading are not rewritten.
+focus, keyboard handling and theme tokens remain with that primitive. The public
+alpha4 archive is fixed at source `848889a`. Its same-process installation, all
+40 installed files, live Skills, cumulative 311-part comparison and actual
+light-theme narrow/expanded layout received
+[zero-model independent review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815592027).
+Actual Right/Left/Home/End selection, focus and linked panels were correct, but
+one Right move into the independent-reading tab left almost the whole label
+clipped. The current source follow-up keeps the same primitive and sole tab state;
+its wrapper reveals the focused/selected tab by adjusting only its own horizontal
+scroll position after selection/focus and viewport/list resizing. Its resize and
+focus listeners are disposed with the wrapper effect. This later correction is
+not yet packaged, installed or checked in the actual host.
+
+The public alpha4 package then ran one explicit UI recovery of the same failed
+reading for the same final pending proposal, without another writing submission.
+The sole new child completed in 329.888 seconds. Its actual installed Skill body
+and base matched alpha4, and its actual request header advertised the primary-block
+anchor contract. One successful `structured_output` call, the persisted output and
+the terminal structured value matched and passed the existing exact validator.
+The report was in Chinese, retained one version-anchor concern and four evidence
+limits, and did not require invalid-argument correction. This result received
+[bounded independent review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815679820).
+The version concern is a suggestion for the author to resolve the manuscript's
+version anchor; a later source version does not itself require rewriting the
+manuscript. The findings and limits remain; no acceptance or export occurred.
+
+The observer nevertheless exited with failure at its exact raw-paper preservation
+assertion. Apart from the new Reading, the sole raw-paper difference was removal
+of `action: "submit_batch"` from the old sent batch. The existing `createBatch`
+spread the full UI request into its record, while the formal batch schema does
+not contain that request discriminator. The pinned storage-domain loader parses
+the record through that schema: the pre-recovery formal read already lacked the
+unknown field while the raw disk record retained it, and the next save reflected
+the parsed value. Independent review confirmed that parsing the original paper
+through the current production schema equals the final paper with only the new
+Reading removed. Both old Readings, including the failed raw terminal, and the
+other 71 stored records remained equal. The exact raw comparison failure and
+original exit code remain failures; the schema-level preservation and successful
+reader result are separately bounded evidence. The current source cleanup makes
+`createBatch` write its existing batch fields explicitly, with one regression using
+the real UI request schema through creation, storage round-trip, original versions
+and idempotent retry. It adds no compatibility
+field or store repair and is not yet part of an installed package.
+
+The old and recovered frozen material are separate projections, with two generated
+block IDs, three translation IDs and their references accounting for nine
+identity differences. Independent review found the rest of the complete material
+equal after aligning those generated identities, and all six translation source
+and mapped quotations exact. This is not byte-identical material or a reason to
+rewrite the original failed packet. All prior packages, readings, raw failures
+and manuscript evidence retain their original scope. Package documents are
+build-time snapshots; later exact-package results belong in the Release and
+linked independent reviews.
 
 ## Earlier alpha2 DOCX reading and file evidence
 
