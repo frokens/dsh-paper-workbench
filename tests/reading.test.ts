@@ -21,9 +21,10 @@ test("reading freezes actual submitted directions with their scope and source in
   let paper = fixture();
   paper = addFeedback(paper, { requestId: "f", target: { kind: "source", selections: [paperView(paper).blocks[0].selection] }, comment: "Explain the selection and feedback path." });
   const feedbackId = paper.feedback[0].id, direction = "Write from materials.md; keep the confirmed sentence. Do not investigate Host code, engineering drivers, logs, configuration or credentials. After proposing, request one reader; do not accept or rewrite.";
-  paper = createBatch(paper, { requestId: "batch", feedbackIds: [feedbackId], direction }, "task");
+  paper = createBatch(paper, { requestId: "batch", feedbackIds: [feedbackId], feedbackVersions: [{ id: feedbackId, version: paper.feedback[0].version }], direction }, "task");
   paper = addFeedback(paper, { requestId: "unrelated", target: { kind: "source", selections: [paperView(paper).blocks[2].selection] }, comment: "A separate future task." });
-  paper = createBatch(paper, { requestId: "other-batch", feedbackIds: [paper.feedback[1].id], direction: "Separate unselected feedback scope." }, "task");
+  paper = createBatch(paper, { requestId: "other-batch", feedbackIds: [paper.feedback[1].id],
+    feedbackVersions: [{ id: paper.feedback[1].id, version: paper.feedback[1].version }], direction: "Separate unselected feedback scope." }, "task");
   paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "p", operations: [{ kind: "replace", selection: paperView(paper).blocks[0].selection, replacement: "The Planner selects the action." }], reason: "Clarify selection.", feedbackIds: [feedbackId] }));
   const prepared = prepareReading(paper, { ...request, goal: "Author-supplied shorter reading goal." }, "task");
   assert.deepEqual(prepared.reading.material.directions, [{ batchId: paper.batches[0].id, revision: 0, feedbackIds: [feedbackId], direction }]);
@@ -114,6 +115,25 @@ test("reader findings must quote real reviewed content and candidates; compatibl
   assert.throws(() => validateReadingOutput(reading, { ...output, findings: [{ ...output.findings[0], locations: [] }] }), /needs a location/);
   assert.throws(() => validateReadingOutput(reading, { ...output, findings: [{ ...output.findings[0], candidateIds: ["unknown"] }] }), /outside its reviewed scope/);
   assert.throws(() => validateReadingOutput(reading, { ...output, findings: [{ ...output.findings[0], locations: [{ ...output.findings[0].locations[0], quote: "verified result" }] }] }), /does not locate/);
+});
+
+test("a translated quote under a primary block gets an exact repair location; the bilingual issue survives with a valid primary anchor", () => {
+  let paper = fixture();
+  paper = propose(paper, proposeRequest.parse({ action: "propose", requestId: "bilingual", reason: "Clarify the mechanism.",
+    operations: [{ kind: "replace", selection: paperView(paper).blocks[0].selection, replacement: "The model selects an action." }],
+    translations: [{ operationIndexes: [0], text: "模型选择一项动作。" }] }));
+  const { reading } = prepareReading(paper, request, "task"), packet = readingPacket(paper, reading);
+  const block = packet.candidateBlocks[0], translation = packet.candidateTranslations[0].text;
+  const output = { interpretation: { problem: "角色", mechanism: "决策和执行", feedbackRole: "局部澄清" },
+    findings: [{ kind: "concern", locations: [{ version: "candidate", blockId: block.id, quote: block.text }, { version: "candidate", blockId: block.id, quote: translation }],
+      candidateIds: reading.candidateIds, issue: "检查两语含义。", impact: "含义可能不同。", evidence: translation, suggestion: "核对动作的含义。" }], limits: ["仅合成材料。"] };
+  const frozen = JSON.stringify(reading);
+  assert.throws(() => validateReadingOutput(reading, output), error => error instanceof Error
+    && error.message.includes("Finding 1, location 2") && error.message.includes(block.id)
+    && error.message.includes("candidateBlocks") && error.message.includes("issue/evidence"));
+  const corrected = { ...output, findings: [{ ...output.findings[0], locations: [output.findings[0].locations[0]] }] };
+  assert.equal(validateReadingOutput(reading, corrected).findings[0].evidence, translation);
+  assert.equal(JSON.stringify(reading), frozen);
 });
 
 test("unfinished and failed reading states never certify a reviewed current body or combination", () => {

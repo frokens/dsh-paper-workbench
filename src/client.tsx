@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Button, SegmentedTabs, ConnectionIndicator, type SegmentedTab } from "@deepseek-ai/dsh-client-ui-primitives";
 import type { Context } from "@deepseek-ai/cordis";
 import type {} from "@deepseek-ai/dsh-client-ui-sidebar-right/client";
 import type {} from "@deepseek-ai/dsh-client-locale/client";
@@ -10,6 +11,8 @@ import type {
   Selection,
   UiRequest,
   translationSelectionSchema,
+  candidateSourceSelectionSchema,
+  candidateTranslationSelectionSchema,
 } from "./contracts.js";
 import type { z } from "zod";
 import type { paperView, previewAcceptance, compareRevision } from "./model.js";
@@ -31,10 +34,14 @@ type Reply = View & {
   comparison?: ReturnType<typeof compareRevision>;
   returnComparison?: ReturnType<typeof compareReturn>;
   pdfFonts?: OfficeFontSettings;
+  warnings?: string[];
+  commentWarningIds?: string[];
 };
 type Picked =
   | { kind: "source"; value: Selection }
-  | { kind: "translation"; value: z.infer<typeof translationSelectionSchema> };
+  | { kind: "translation"; value: z.infer<typeof translationSelectionSchema> }
+  | { kind: "candidate_source"; value: z.infer<typeof candidateSourceSelectionSchema> }
+  | { kind: "candidate_translation"; value: z.infer<typeof candidateTranslationSelectionSchema> };
 type Props = {
   sessionId: SessionId;
   call: (
@@ -43,53 +50,63 @@ type Props = {
     signal: AbortSignal,
   ) => Promise<Reply>;
   observe: (sessionId: SessionId, signal: AbortSignal) => AsyncIterable<View>;
-  t: (key: string) => string;
+  t: (key: keyof typeof en) => string;
 };
 export const inject = ["sidebarRightTabs", "slots", "locale", "remote"];
 const id = "dsh-paper-workbench";
+const tabs = ["reading", "proposals", "feedback", "readings", "history"] as const;
+type WorkbenchTab = typeof tabs[number];
 const en = {
+  chatDocumentInput: "Attach a document in the main conversation, mention @file, give a path/link, or ask the ordinary Agent to start a draft. The document opens here automatically.",
+  translationInConversation: "No current translation is available yet. Ask the ordinary Agent in the main conversation to continue or refresh it.",
+  selectForComment: "Select source or translated text, then add a comment. Comments save automatically; submit the round when ready.",
+  addComment: "Add comment",
+  emptyComment: "A saved comment cannot be blank. Delete it or continue typing.",
+  replyPlaceholder: "Reply to this comment",
+  saving: "Saving…",
+  saved: "Saved",
+  notSaved: "Not saved",
+  deleteComment: "Delete",
+  retrySave: "Retry save",
+  reloadComment: "Load saved comment",
+  submittedComment: "Submitted",
+  resolvedComment: "Resolved discussion",
+  resolveComment: "Resolve",
+  reopenComment: "Reopen",
+  replyComment: "Reply",
+  submitRound: "Submit this round of comments",
+  submittingRound: "Submitting…",
+  retryRound: "Retry this comment submission",
+  automaticReading: "Independent reading",
+  automaticReadingNotice: "The system starts a fresh independent reader after the writing round completes. Read its findings and limits before deciding.",
+  retryReading: "Retry stopped reading",
+  commentsInDocument: "Comments and replies stay next to their source. Locate a discussion to continue there.",
+  returnInConversation: "Attach a mentor return in the main conversation. The ordinary Agent checks its delivery and compares it with this paper.",
+  compareOriginal: "Compare with original",
+  useComparisonBaseline: "Use this version for Word comparison",
+  clearSelection: "Clear selection",
+  exportVariant: "Document version",
+  exportFormat: "File format",
   title: "Paper workbench",
   description: "Read, annotate and decide paper revisions in this task",
   refresh: "Refresh",
   loading: "Connecting…",
-  live: "Saved changes are live",
+  live: "Connected",
   offline: "Connection ended. Refresh to reconnect.",
   empty: "No paper is linked to this task.",
   scope: "Import DOCX or Markdown, or link an existing paper in this conversation.",
-  upload: "Import DOCX / Markdown",
-  markdownFolder: "Choose Markdown folder", primaryMarkdown: "Main Markdown file", markdownResources: "Resource files and paths relative to the Markdown",
-  importMarkdown: "Import this Markdown source", originalSource: "Download original source",
-  link: "Link paper",
-  choose: "Choose a paper",
-  revisionMode: "Existing Word revisions",
-  requireChoice: "Ask before resolving",
-  acceptExisting: "Accept existing revisions",
-  rejectExisting: "Reject existing revisions",
+  originalSource: "Download original source",
   reading: "Reading",
   proposals: "Changes",
   feedback: "Feedback",
   history: "History",
-  select:
-    "Select source or Chinese text to annotate it. Click a source cursor to split a paragraph.",
   source: "Source",
-  translation: "Chinese projection",
-  selected: "Selected text",
-  replacement: "Replacement",
-  reason: "Reason",
-  propose: "Save candidate",
+  translation: "Translation",
+  language_en: "English",
+  language_zh: "Chinese",
   comment: "Content feedback",
-  saveFeedback: "Save feedback",
   correction: "Correct translation wording only",
-  content: "Suggest a content change",
   correct: "Save translation correction",
-  translationScope:
-    "Content feedback refers to the whole aligned source group shown below; it does not infer a word-for-word alignment.",
-  readyTranslation: "Prepare translation for this paragraph",
-  translateAll: "Prepare translation for current body",
-  jobs: "Translation requests",
-  send: "Send to current Agent (uses model)",
-  sent: "Sent to current Agent",
-  ready: "Ready to send",
   pending: "Pending",
   accepted: "Accepted",
   rejected: "Rejected",
@@ -107,139 +124,140 @@ const en = {
   rejectAll: "Reject all pending",
   reject: "Reject",
   dependencies: "Required groups included",
-  conflicts: "Needs new selection",
   noChanges: "No candidates yet.",
-  independent: "Independent reading checks a supplied candidate combination; the user still decides.",
   readings: "Independent reading",
-  createDraft: "Start from research materials",
-  draftName: "Draft name",
   brief: "Writing goal and research material references",
-  saveDraft: "Create draft and save writing goal",
   readingGoal: "Reading goal",
   readingEvidence: "Evidence and context for the independent reader",
-  readAll: "Read all pending candidates (uses model)",
-  readSelected: "Read selected candidates (uses model)",
-  readCurrent: "Read current accepted body (uses model)",
-  recheck: "Recheck current body (uses model)",
-  noReadings: "No independent reading has been requested.",
-  readingLimit: "A fresh session isolates conversation history; it does not guarantee factual correctness.",
-  partialReading: "The current accepted combination differs from this reading. Its historical findings remain available; the new combination needs a recheck.",
+  noReadings: "The system has not started a paper reading yet.",
+  bilingualChanged: "Changed translation wording needs a bilingual recheck; the earlier result retains its original scope.",
+  sourceEvidenceRetained: "The primary body still matches this reading. Changed translation wording is outside its reviewed scope.",
+  restoreBeforeExport: "An earlier restoration needs its intended Word comparison restored. In History, restore the intended revision, even if its visible text is identical; existing records are retained.",
   combinationChanged: "The pending combination no longer matches the reviewed material.",
   interpretation: "Reader interpretation",
   evidenceLimits: "Evidence limits",
   readingSource: "Independent session source",
-  readingScope: "Reviewed candidate groups",
-  bodyOnlyReading: "This reading covers the accepted body without pending candidates.",
   frozenReading: "Frozen reading material",
   frozenReadingScope: "This session reads the saved candidate combination. Make paper decisions in the writing task.",
   baselineBody: "Baseline body",
   candidateBody: "Proposed body",
   submittedDirections: "Submitted user directions",
-  draftParagraphs: "Draft paragraphs",
-  unfinishedReading: "This reading has no completed valid result yet.",
-  bilingualChanged: "The following Chinese input changed and needs a bilingual recheck; unchanged source evidence is retained.",
-  sourceEvidenceRetained: "The source-language body still matches the completed reading. This does not cover changed Chinese wording.",
   queued: "Queued",
   running: "Reading in progress",
   failed: "Failed",
   interrupted: "Interrupted; explicit restart required",
   undo: "Undo decision",
   revision: "Revision",
-  baseline:
-    "Word revisions compare the accepted body with the imported baseline. Workbench acceptance keeps that comparison.",
-  exportTracked: "Export tracked DOCX",
-  exportClean: "Export clean DOCX",
-  documents: "Document delivery",
-  comparisonBaseline: "Word comparison baseline",
-  comparisonHelp: "Rejecting all Word revisions restores this version. A returned file is compared with the body actually delivered and the current paper.",
-  variant: "Working copy",
-  cleanCopy: "Clean", trackedCopy: "Native revisions", bilingualCopy: "English and Chinese",
-  includeReasons: "Add change reasons as paragraph comments",
-  exportFile: "Export file", deliveryHistory: "Delivered files", downloadAgain: "Download again",
+  cleanCopy: "Clean",
+  trackedCopy: "Native revisions",
+  bilingualCopy: "Bilingual working copy",
+  exportFile: "Export file",
   pdfCopy: "PDF is a static reading copy. Use DOCX to accept or reject native Word revisions.",
-  pdfFonts: "PDF font settings", readPdfFonts: "Read current font settings", fontAutomatic: "Automatic font discovery",
-  fontFolders: "Font folders (one absolute path per line)", fontListed: "Use the listed font folders", testedFonts: "Use tested system folders",
+  pdfFonts: "PDF font settings",
+  fontAutomatic: "Automatic font discovery",
+  fontFolders: "Font folders (one absolute path per line)",
   fontShared: "These folders apply to all Office PDF previews in this DSH profile. A folder list replaces automatic Office font discovery; missing fonts may be substituted. Fallback preferences and other settings are kept.",
   fontNotes: "Saving rewrites the Office configuration block. Comments inside that settings block may be lost. Closing this form without applying keeps the current settings.",
-  fontApply: "Apply shared font settings", fontClose: "Close font settings", fontReadAgain: "Applying starts a shared settings save. If the request is cancelled or the connection reloads, read the current settings to confirm the result.",
-  fontCurrent: "Current font folders", fontFallbacks: "Retained fallback preferences",
-  returnedFiles: "Returned Word files", returnDelivery: "Delivered file being returned", uploadReturn: "Import returned DOCX",
-  compareReturn: "Compare returned file", originalReturn: "Download original return", returnProjection: "Revisions inside this returned file",
-  returnVersions: "Word baseline / delivered body / current body", manualAlignment: "Verify paragraph alignment",
-  chooseParagraph: "Choose its delivered paragraph", updateReturn: "Update comparison", returnBefore: "Delivered wording", returnAfter: "Returned wording",
-  proposeReturn: "Save selected text changes as a candidate", textOnlyReturn: "Text candidates keep the current formatting and paragraph order. The original returned DOCX is retained for format and structural changes.",
-  noReturnChanges: "No new text change is ready in the aligned paragraphs. Check unresolved locations below.",
-  returnComments: "Comments in the returned file", noDelivery: "Export an English clean or tracked DOCX before comparing its return.",
-  returnStatus_ready: "Ready to propose", returnStatus_conflict: "Overlapping local change",
-  returnStatus_already_applied: "Already in the current body", returnStatus_wrong_delivery: "Wrong delivered file",
-  copyReturnComment: "Copy comment text to feedback", copiedReturnComment: "Already copied to feedback",
+  fontApply: "Apply shared font settings",
+  fontReadAgain: "Applying starts a shared settings save. If the request is cancelled or the connection reloads, read the current settings to confirm the result.",
   unsupported: "Preserved read only",
   cancel: "Cancel request",
-  busy: "Saving…",
   locate: "Locate source",
-  draft: "Unsubmitted feedback",
-  batch: "Save feedback batch",
-  direction: "Direction for this batch",
-  batches: "Submitted batches",
   linkedFeedback: "Linked feedback",
   compare: "Compare with current body",
   restore: "Restore this reviewed revision",
-  noDifference:
-    "No visible body differences. Restoring this version also restores its comparison with the original.",
-  formatChanged: "Formatting or structure changed",
-  split: "Propose paragraph split",
-  merge: "Propose merge with next paragraph",
-  structural: "Paragraph operation",
   exactRange:
     "Choose text within one editable source paragraph or one translation group.",
   changed:
     "The paper changed. Select the current text again; your draft is retained.",
-  noTranslation: "No current Chinese projection for this source.",
   copiedScope: "This scope is atomic; necessary dependencies are included.",
-  restoreBeforeExport:
-    "An earlier restoration needs its intended comparison restored before Word export. Choose that historical version in History and restore it explicitly; the existing records are retained.",
+  accept: "Accepted changes",
+  connectionDetails: "Connection details",
+  reconnecting: "Reconnecting…",
+  readyComments: "Comments and replies ready to submit",
+  savedDiscussions: "Saved discussions",
+  concern: "Concern",
+  question: "Question",
+  impact: "Why it matters",
+  evidence: "Evidence",
+  suggestion: "Suggested next step",
+  findings: "Findings",
+  allReadingDetails: "Read the full review and evidence limits",
+  unlocatedFindings: "Findings without a current source location",
+  reviewedCombination: "Matches this candidate combination",
+  historicalCombination: "Applies to an earlier combination",
+  viewCandidate: "View the related proposal",
+  proposal: "Proposed change",
+  proposalReason: "Reason for this change",
+  previousProposalDiff: "Text changes from the previous proposal",
+  writingTurnDiff: "Text changes since this writing turn's starting proposals",
+  writingTurnComparisonUnavailable: "The starting proposals for this writing turn cannot be compared. Earlier comparisons and the accepted-body difference remain available.",
+  acceptedSourceDiff: "Full difference from the accepted body",
+  pairedTranslation: "Paired translation",
+  previousProposals: "Earlier proposals",
+  revisedProposal: "View the revised proposal",
+  notices: "Source notes",
+  pendingDraft: "The first draft is pending. Read and annotate its text and paired translation in Changes before deciding.",
+  unchangedText: "Unchanged text",
+  historical: "Earlier proposal range",
+  candidateComparisonUnavailable: "The earlier proposal cannot be fully compared with the current source. Its original proposal and reading remain available.",
+  noCandidateTranslation: "No paired candidate translation for this range.",
+  emptyProposedText: "No text remains in this proposed range.",
+  candidateRange: "Proposed result range",
+  deliveryNotes: "Delivery notes",
+  historicalDiscussion: "This discussion stays at its original proposal range. Select current proposed text to submit new content feedback.",
 };
 const zh: typeof en = {
+  chatDocumentInput: "请在主对话框上传文档、@文件、提供路径或链接，或直接告诉当前 Agent 从头写作。文档会自动在此打开。",
+  translationInConversation: "译文尚未完成或已过期，可在主对话请当前 Agent 继续或刷新。",
+  selectForComment: "选择正文或译文后添加批注。批注自动保存，积累完成后提交本轮。",
+  addComment: "添加批注",
+  emptyComment: "已保存的批注不能为空，请删除或继续填写。",
+  replyPlaceholder: "回复此条批注",
+  saving: "正在保存…",
+  saved: "已保存",
+  notSaved: "尚未保存",
+  deleteComment: "删除",
+  retrySave: "重试保存",
+  reloadComment: "载入已保存内容",
+  submittedComment: "已提交",
+  resolvedComment: "讨论已解决",
+  resolveComment: "解决讨论",
+  reopenComment: "重新打开",
+  replyComment: "回复",
+  submitRound: "提交本轮批注",
+  submittingRound: "正在提交…",
+  retryRound: "重新提交这轮批注",
+  automaticReading: "独立审读",
+  automaticReadingNotice: "本轮写作候选完成后，系统自动启动新的独立读者。请查看实际问题与证据限度，再决定是否接受。",
+  retryReading: "重试中断的审读",
+  commentsInDocument: "批注和回复保留在对应原文旁，定位后可继续讨论。",
+  returnInConversation: "请在主对话框上传导师返稿，当前 Agent 会核对实际交付版本并继续比较。",
+  compareOriginal: "与原稿比较",
+  useComparisonBaseline: "以此版本作为 Word 比较基准",
+  clearSelection: "取消选区",
+  exportVariant: "文档版本",
+  exportFormat: "文件格式",
   title: "论文工作台",
   description: "在当前任务阅读、批注和审阅论文修改",
   refresh: "刷新",
   loading: "连接中…",
-  live: "已保存的修改实时同步",
+  live: "已连接",
   offline: "连接已结束，请刷新重连。",
   empty: "当前任务尚未关联论文。",
   scope: "在当前对话中导入 DOCX 或 Markdown，或关联已有论文。",
-  upload: "导入 DOCX／Markdown",
-  markdownFolder: "选择 Markdown 文件夹", primaryMarkdown: "主 Markdown 文件", markdownResources: "资源文件及其相对 Markdown 的路径",
-  importMarkdown: "导入此 Markdown 稿件", originalSource: "下载原始文件",
-  link: "关联论文",
-  choose: "选择论文",
-  revisionMode: "原有 Word 修订",
-  requireChoice: "处理前询问",
-  acceptExisting: "接受原有修订",
-  rejectExisting: "拒绝原有修订",
+  originalSource: "下载原始文件",
   reading: "阅读",
   proposals: "候选修改",
   feedback: "反馈",
   history: "历史",
-  select: "选择原文或中文译文添加批注；点击原文中的位置可提出拆段。",
   source: "主语言正文",
-  translation: "中文译文",
-  selected: "所选文字",
-  replacement: "替换内容",
-  reason: "修改理由",
-  propose: "保存候选",
+  translation: "译文",
+  language_en: "英文",
+  language_zh: "中文",
   comment: "正文内容反馈",
-  saveFeedback: "保存反馈",
   correction: "只纠正译文措辞",
-  content: "提出正文内容修改",
   correct: "保存译文纠正",
-  translationScope: "内容反馈关联下方整个原文句群，不推断逐字对应。",
-  readyTranslation: "准备本段翻译",
-  translateAll: "准备当前正文翻译",
-  jobs: "翻译请求",
-  send: "发送到当前 Agent（调用模型）",
-  sent: "已发送到当前 Agent",
-  ready: "待发送",
   pending: "待处理",
   accepted: "已接受",
   rejected: "已拒绝",
@@ -257,94 +275,86 @@ const zh: typeof en = {
   rejectAll: "拒绝全部待处理",
   reject: "拒绝",
   dependencies: "同时包含必要依赖组",
-  conflicts: "需要重新定位",
   noChanges: "尚无候选修改。",
-  independent: "独立审读针对准确候选组合；是否接受仍由用户决定。",
   readings: "独立审读",
-  createDraft: "从研究材料开始",
-  draftName: "稿件名称",
   brief: "写作目标与研究材料位置",
-  saveDraft: "创建稿件并保存写作目标",
   readingGoal: "审读目标",
   readingEvidence: "提供给独立读者的事实依据与上下文",
-  readAll: "审读全部待处理候选（调用模型）",
-  readSelected: "审读所选候选（调用模型）",
-  readCurrent: "审读当前已接收正文（调用模型）",
-  recheck: "复核当前正文组合（调用模型）",
-  noReadings: "尚未请求独立审读。",
-  readingLimit: "新会话隔离写作者对话；不保证事实一定正确。",
-  partialReading: "当前已接收组合与本次审读材料不同。原意见保留，新组合需要复核。",
+  noReadings: "系统尚未启动论文审读。",
+  bilingualChanged: "译文已变化，需要重新核对两语含义；旧结果保留其原有范围。",
+  sourceEvidenceRetained: "主语言正文仍与本次审读一致，变化后的译文不在其已审范围内。",
+  restoreBeforeExport: "较早的恢复记录需要重新明确 Word 比较关系。请在历史中恢复本来要恢复的版本，即使可见文字相同；已有记录仍会保留。",
   combinationChanged: "待处理候选组合已不同于原审读材料。",
   interpretation: "读者理解",
   evidenceLimits: "证据限制",
   readingSource: "独立会话来源",
-  readingScope: "本次覆盖的候选组",
-  bodyOnlyReading: "本次仅审读已接收正文，不含待处理候选。",
   frozenReading: "冻结审读材料",
   frozenReadingScope: "此会话只读已保存的候选组合。请在写作任务中决定是否接受修改。",
   baselineBody: "基准正文",
   candidateBody: "候选正文",
   submittedDirections: "用户已提交方向",
-  draftParagraphs: "首稿段落",
-  unfinishedReading: "本次审读尚无已完成的有效结果。",
-  bilingualChanged: "下列中文输入已变，需要复核双语含义；未受影响的原文证据仍保留。",
-  sourceEvidenceRetained: "主语言正文仍与已完成审读一致；此结论不覆盖改变后的中文措辞。",
   queued: "等待启动",
   running: "正在审读",
   failed: "审读失败",
   interrupted: "已中断，需要明确重新启动",
   undo: "撤销决定",
   revision: "正文版本",
-  baseline:
-    "Word 修订比较已接受正文与导入基准。在工作台接受后，导出仍保留差异。",
-  exportTracked: "导出修订 DOCX",
-  exportClean: "导出干净 DOCX",
-  documents: "文档交付",
-  comparisonBaseline: "Word 比较基线",
-  comparisonHelp: "在 Word 中拒绝全部修订会还原到此版本。返稿会与实际交付正文及当前正文比较。",
-  variant: "稿件类型",
-  cleanCopy: "干净稿", trackedCopy: "原生修订稿", bilingualCopy: "中英对照稿",
-  includeReasons: "将修改理由附为段落批注",
-  exportFile: "导出文件", deliveryHistory: "已交付文件", downloadAgain: "重新下载",
+  cleanCopy: "干净稿",
+  trackedCopy: "原生修订稿",
+  bilingualCopy: "中英对照稿",
+  exportFile: "导出文件",
   pdfCopy: "PDF 是静态阅读副本；接受或拒绝 Word 原生修订请使用 DOCX。",
-  pdfFonts: "PDF 字体设置", readPdfFonts: "读取当前字体设置", fontAutomatic: "自动发现字体",
-  fontFolders: "字体文件夹（每行一个绝对路径）", fontListed: "使用下列字体文件夹", testedFonts: "填入已验证的系统字体文件夹",
+  pdfFonts: "PDF 字体设置",
+  fontAutomatic: "自动发现字体",
+  fontFolders: "字体文件夹（每行一个绝对路径）",
   fontShared: "这些文件夹适用于当前 DSH 配置的所有 Office PDF 预览。指定文件夹会替代自动发现 Office 字体，缺失字体可能被替代；已有回退字体偏好及其他设置会保留。",
   fontNotes: "保存会重写 Office 配置块，该设置块内部的说明注释可能不保留。关闭表单而不应用，会保持当前设置。",
-  fontApply: "应用共享字体设置", fontClose: "关闭字体设置", fontReadAgain: "应用会开始保存共享设置；若取消等待或连接重载，请再次读取当前设置确认结果。",
-  fontCurrent: "当前字体文件夹", fontFallbacks: "保留的回退字体偏好",
-  returnedFiles: "Word 返稿", returnDelivery: "返稿对应的已交付文件", uploadReturn: "导入返稿 DOCX",
-  compareReturn: "对照返稿", originalReturn: "下载原始返稿", returnProjection: "返稿内部的 Word 修订",
-  returnVersions: "Word 比较基线／交付正文／当前正文", manualAlignment: "核对段落对应",
-  chooseParagraph: "选择对应的交付段落", updateReturn: "更新对照", returnBefore: "交付时文字", returnAfter: "返稿文字",
-  proposeReturn: "将所选文字变化保存为候选", textOnlyReturn: "文字候选保留当前格式和段落顺序。格式及结构变化请核对保留的原始返稿。",
-  noReturnChanges: "已对应的段落中暂无可直接提议的新文字变化，请检查下方待核对的位置。",
-  returnComments: "返稿中的批注", noDelivery: "先导出英文干净或修订 DOCX，再比较对应返稿。",
-  returnStatus_ready: "可保存为候选", returnStatus_conflict: "与本地修改重叠",
-  returnStatus_already_applied: "当前正文已包含", returnStatus_wrong_delivery: "交付文件不匹配",
-  copyReturnComment: "复制批注文字为反馈", copiedReturnComment: "已复制到反馈",
+  fontApply: "应用共享字体设置",
+  fontReadAgain: "应用会开始保存共享设置；若取消等待或连接重载，请再次读取当前设置确认结果。",
   unsupported: "原样保留且只读",
   cancel: "取消本次请求",
-  busy: "保存中…",
   locate: "定位原文",
-  draft: "待提交反馈",
-  batch: "保存反馈批次",
-  direction: "本批整体方向",
-  batches: "已提交批次",
   linkedFeedback: "关联反馈",
   compare: "与当前正文比较",
   restore: "恢复到已审阅的此版本",
-  noDifference: "正文内容没有可见差异；仍可恢复此版本对应的原稿修订关系。",
-  formatChanged: "格式或结构发生变化",
-  split: "提出拆段候选",
-  merge: "提出与下一段合并",
-  structural: "段落操作",
   exactRange: "请在同一可编辑原文段落或一个译文句群中选择文字。",
   changed: "正文已更新，请重新选择当前文字；草稿仍保留。",
-  noTranslation: "此原文尚无当前有效的中文译文。",
   copiedScope: "所示范围将整体处理，已包含必要依赖。",
-  restoreBeforeExport:
-    "较早的恢复记录缺少准确的 Word 修订来源。请在历史中选择原本要恢复的版本并明确恢复后再导出；已有记录仍会保留。",
+  accept: "接收修改",
+  connectionDetails: "连接详情",
+  reconnecting: "正在重新连接…",
+  readyComments: "待提交的批注与回复",
+  savedDiscussions: "已保存的讨论",
+  concern: "关注问题",
+  question: "待澄清",
+  impact: "影响",
+  evidence: "依据",
+  suggestion: "建议",
+  findings: "审读发现",
+  allReadingDetails: "查看完整审读与证据限制",
+  unlocatedFindings: "尚无当前正文定位的发现",
+  reviewedCombination: "对应当前候选组合",
+  historicalCombination: "对应较早的候选组合",
+  viewCandidate: "查看相关候选",
+  proposal: "修改建议",
+  proposalReason: "修改说明",
+  previousProposalDiff: "本次相对上一候选的文字变化",
+  writingTurnDiff: "本轮写作相对起始候选的文字变化",
+  writingTurnComparisonUnavailable: "无法比较本轮写作的起始候选。较早的比较与相对已接受正文的差异仍保留。",
+  acceptedSourceDiff: "相对已接受正文的完整差异",
+  pairedTranslation: "配对译文",
+  previousProposals: "较早的候选",
+  revisedProposal: "查看后续候选",
+  notices: "原稿提示",
+  pendingDraft: "首稿仍待处理，可在候选修改中阅读并批注正文与完整译文，再决定是否接受。",
+  unchangedText: "未改动的内容",
+  historical: "较早候选的原始范围",
+  candidateComparisonUnavailable: "旧候选已不能与当前正文完整比较；原候选和审读仍保留。本稿展示可靠的当前正文差异。",
+  noCandidateTranslation: "此范围尚无配对候选译文。",
+  emptyProposedText: "此建议范围已无文字。",
+  candidateRange: "候选结果范围",
+  deliveryNotes: "交付提示",
+  historicalDiscussion: "这条讨论保留在原候选范围。请在当前候选重新选区，提交新的内容反馈。",
 };
 declare module "@deepseek-ai/dsh-client-ui-slots" {
   interface LocaleNamespaceMap {
@@ -366,19 +376,7 @@ function download(base64: string, name: string) {
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-async function fileBase64(file: File) {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 8192) binary += String.fromCharCode(...bytes.subarray(index, index + 8192));
-  return btoa(binary);
-}
-function relativeResource(primary: File, resource: File) {
-  const source = (primary.webkitRelativePath || primary.name).split("/").slice(0, -1);
-  const target = (resource.webkitRelativePath || resource.name).split("/");
-  while (source.length && target.length && source[0] === target[0]) { source.shift(); target.shift(); }
-  return [...source.map(() => ".."), ...target].join("/");
-}
-function Diff({ parts }: { parts: { kind: string; text: string }[] }) {
+function Diff({ parts, collapseEqual }: { parts: { kind: string; text: string }[]; collapseEqual?: string }) {
   return (
     <div className="pw-diff">
       {parts.map((part, i) =>
@@ -386,6 +384,8 @@ function Diff({ parts }: { parts: { kind: string; text: string }[] }) {
           <ins key={i}>{part.text}</ins>
         ) : part.kind === "delete" ? (
           <del key={i}>{part.text}</del>
+        ) : collapseEqual && part.text.length > 320 ? (
+          <details className="pw-unchanged" key={i}><summary>{collapseEqual}</summary><span>{part.text}</span></details>
         ) : (
           <span key={i}>{part.text}</span>
         ),
@@ -398,6 +398,7 @@ function FrozenReading({ packet, t }: { packet: ReturnType<typeof readingPacket>
     <h2>{t("frozenReading")}</h2>
     <p>{t("frozenReadingScope")}</p>
     <p className="pw-muted">{t("revision")} {packet.sourceRevision}</p>
+    <p className="pw-muted">{t("source")} · {t(`language_${packet.primaryLanguage}`)} / {t("translation")} · {t(`language_${packet.translationLanguage}`)}</p>
     <h3>{t("readingGoal")}</h3><p>{packet.goal}</p>
     <h3>{t("brief")}</h3><p>{packet.brief}</p>
     <h3>{t("readingEvidence")}</h3><p>{packet.evidence}</p>
@@ -421,1280 +422,615 @@ function FrozenReading({ packet, t }: { packet: ReturnType<typeof readingPacket>
     </div>)}
   </article>;
 }
-function Workbench({ sessionId, call, observe, t }: Props) {
-  const [view, setView] = React.useState<View>();
-  const [error, setError] = React.useState(""),
-    [busy, setBusy] = React.useState(false),
-    [connected, setConnected] = React.useState(false),
-    [refresh, setRefresh] = React.useState(0);
-  const [tab, setTab] = React.useState("reading"),
-    [picked, setPicked] = React.useState<Picked>(),
-    [replacement, setReplacement] = React.useState(""),
-    [reason, setReason] = React.useState(""),
-    [comment, setComment] = React.useState("");
-  const [intent, setIntent] = React.useState("content"),
-    [mode, setMode] = React.useState(""),
-    [linked, setLinked] = React.useState(""),
-    [direction, setDirection] = React.useState("");
-  const [selected, setSelected] = React.useState<string[]>([]),
-    [preview, setPreview] = React.useState<Reply["preview"]>(),
-    [comparison, setComparison] = React.useState<Reply["comparison"]>(),
-    [compareAt, setCompareAt] = React.useState(0);
-  const [newName, setNewName] = React.useState("New draft.docx"),
-    [newBrief, setNewBrief] = React.useState(""),
-    [readingGoal, setReadingGoal] = React.useState(""),
-    [readingEvidence, setReadingEvidence] = React.useState("");
-  const [exportVariant, setExportVariant] = React.useState<"clean" | "tracked" | "bilingual">("tracked"),
-    [exportFormat, setExportFormat] = React.useState<"docx" | "pdf">("docx"),
-    [includeReasons, setIncludeReasons] = React.useState(true);
-  const [returnDeliveryId, setReturnDeliveryId] = React.useState(""), [returnMode, setReturnMode] = React.useState(""),
-    [returnedComparison, setReturnedComparison] = React.useState<Reply["returnComparison"]>(),
-    [returnMappings, setReturnMappings] = React.useState<{ sourceIndex: number; blockId: string }[]>([]),
-    [selectedReturns, setSelectedReturns] = React.useState<string[]>([]);
-  const [pdfFonts, setPdfFonts] = React.useState<OfficeFontSettings>(),
-    [fontAutomatic, setFontAutomatic] = React.useState(true),
-    [fontFolders, setFontFolders] = React.useState("");
-  const [importFiles, setImportFiles] = React.useState<File[]>([]), [primaryIndex, setPrimaryIndex] = React.useState(0),
-    [resourcePaths, setResourcePaths] = React.useState<Record<number, string>>({}),
-    [resourceIncluded, setResourceIncluded] = React.useState<Record<number, boolean>>({});
-  const controller = React.useRef<AbortController | undefined>(undefined),
-    body = React.useRef<HTMLDivElement>(null);
-  const paper = view?.paper;
-  const fontDraftDirectories = fontAutomatic ? null : fontFolders.split(/\r?\n/).filter(path => !!path.trim());
-  React.useEffect(() => {
-    const stream = new AbortController();
-    setConnected(false);
-    setError("");
-    void (async () => {
+type FeedbackTarget = PaperView["feedback"][number]["target"];
+type CommentDraft = { id: string; target: FeedbackTarget; replyTo?: string };
+type CommentFlush = () => Promise<void>;
+const candidateSourceKey = (selection: z.infer<typeof candidateSourceSelectionSchema>) => `${selection.candidateId}:${selection.operationIndex}:${selection.paragraphIndex}`;
+const candidateTranslationKey = (selection: z.infer<typeof candidateTranslationSelectionSchema>) => `${selection.candidateId}:${selection.translationIndex}`;
+function pickedTarget(picked: Picked): FeedbackTarget {
+  switch (picked.kind) {
+    case "source": return { kind: "source", selections: [picked.value] };
+    case "translation": return { kind: "translation", selection: picked.value };
+    case "candidate_source": return { kind: "candidate_source", selection: picked.value };
+    case "candidate_translation": return { kind: "candidate_translation", selection: picked.value };
+  }
+}
+
+function MarkedText({ text, from, to, ranges = [] }: { text: string; from?: number; to?: number; ranges?: { from: number; to: number }[] }) {
+  const start = Math.max(0, from ?? 0), end = Math.min(text.length, to ?? 0);
+  const marks = [...ranges, ...(start < end ? [{ from: start, to: end }] : [])]
+    .map(range => ({ from: Math.max(0, range.from), to: Math.min(text.length, range.to) })).filter(range => range.from < range.to);
+  const boundaries = [...new Set([0, text.length, ...marks.flatMap(range => [range.from, range.to])])].sort((a, b) => a - b);
+  return <>{boundaries.slice(0, -1).map((left, index) => {
+    const right = boundaries[index + 1], content = text.slice(left, right);
+    return marks.some(range => range.from < right && range.to > left)
+      ? <mark key={left}>{content}</mark> : <React.Fragment key={left}>{content}</React.Fragment>;
+  })}</>;
+}
+
+function CommentEditor({ draft, record, locked, call, sessionId, t, register, cache, remove, submitted }: {
+  draft: CommentDraft; record?: PaperView["feedback"][number]; locked: boolean;
+  call: Props["call"]; sessionId: SessionId; t: Props["t"];
+  register: (id: string, flush: CommentFlush) => () => void;
+  cache: Map<string, string>; remove: (id: string, version: number) => Promise<void>; submitted: boolean;
+}) {
+  const [text, setText] = React.useState(cache.get(draft.id) ?? record?.comment ?? "");
+  const [saving, setSaving] = React.useState(false), [error, setError] = React.useState("");
+  const latest = React.useRef(text), saved = React.useRef(record?.comment ?? ""), version = React.useRef(record?.version ?? 0);
+  const active = React.useRef(true), pending = React.useRef<Promise<void> | undefined>(undefined);
+  const controller = React.useRef<AbortController | undefined>(undefined), currentRecord = React.useRef(record);
+  const retry = React.useRef<{ content: string; expectedVersion: number } | undefined>(undefined);
+  currentRecord.current = record;
+  const flush = React.useCallback((): Promise<void> => {
+    if (pending.current) return pending.current;
+    if (!retry.current && (latest.current === saved.current || !version.current && !latest.current.trim())) return Promise.resolve();
+    const work = (async () => {
+      setSaving(true); setError("");
       try {
-        for await (const state of observe(sessionId, stream.signal)) {
-          if (stream.signal.aborted) break;
-          setView(state);
-          setConnected(true);
+        while (active.current && (retry.current || latest.current !== saved.current)) {
+          const attempt = retry.current ?? { content: latest.current, expectedVersion: version.current };
+          const { content } = attempt;
+          if (!content.trim()) throw new Error(t("emptyComment"));
+          retry.current = attempt;
+          const request = new AbortController(); controller.current = request;
+          const response = await call(sessionId, { action: "save_feedback", ...draft, expectedVersion: attempt.expectedVersion, comment: content }, request.signal);
+          const stored = response.paper?.feedback.find(item => item.id === draft.id);
+          if (!stored) throw new Error(t("changed"));
+          saved.current = content; version.current = stored.version;
+          retry.current = undefined;
+          if (cache.get(draft.id) === content) cache.delete(draft.id);
         }
-        if (!stream.signal.aborted) setConnected(false);
-      } catch (e) {
-        if (!stream.signal.aborted) {
-          setConnected(false);
-          setError(e instanceof Error ? e.message : String(e));
-        }
+      } catch (failure) {
+        if (active.current) setError(failure instanceof Error ? failure.message : String(failure));
+        throw failure;
+      } finally { if (active.current) setSaving(false); }
+    })();
+    pending.current = work;
+    void work.finally(() => { if (pending.current === work) pending.current = undefined; }).catch(() => {});
+    return work;
+  }, [draft.id, sessionId, call, register]);
+  React.useEffect(() => {
+    active.current = true;
+    const unregister = register(draft.id, flush);
+    if (cache.has(draft.id)) void flush().catch(() => {});
+    return () => { active.current = false; unregister(); controller.current?.abort(); };
+  }, [draft.id, flush, register]);
+  React.useEffect(() => {
+    if (!saving && !retry.current && record && latest.current === saved.current && record.version > version.current) {
+      saved.current = record.comment; version.current = record.version; latest.current = record.comment; setText(record.comment);
+    }
+  }, [record?.version, saving]);
+  if (locked) return <div className="pw-comment-text"><p>{text}</p><small>{t(latest.current !== saved.current ? "notSaved" : submitted ? "submittedComment" : "saved")}</small></div>;
+  return <div className="pw-comment-editor" data-comment-id={draft.id}>
+    <textarea aria-label={t("comment")} placeholder={t(draft.replyTo ? "replyPlaceholder" : "comment")}
+      value={text} onChange={event => {
+        const value = event.target.value; latest.current = value; cache.set(draft.id, value); setText(value);
+        void flush().catch(() => {});
+      }} onBlur={() => void flush().catch(() => {})} />
+    <div className="pw-actions"><small role="status">{t(saving ? "saving" : error || latest.current !== saved.current || retry.current ? "notSaved" : "saved")}</small>
+      <Button size="sm" variant="outline" disabled={saving} onClick={() => void remove(draft.id, version.current)}>{t("deleteComment")}</Button>
+      {error && <><Button size="sm" variant="outline" onClick={() => void flush().catch(() => {})}>{t("retrySave")}</Button>
+        {currentRecord.current && <Button size="sm" variant="outline" onClick={() => {
+          const stored = currentRecord.current!; saved.current = stored.comment; latest.current = stored.comment; version.current = stored.version;
+          retry.current = undefined; cache.delete(draft.id); setText(stored.comment); setError("");
+        }}>{t("reloadComment")}</Button>}</>}
+    </div>{error && <p role="alert" className="pw-error">{error}</p>}
+  </div>;
+}
+
+function Workbench({ sessionId, call, observe, t }: Props) {
+  const [view, setView] = React.useState<View>(), [error, setError] = React.useState("");
+  const [busy, setBusy] = React.useState(false), [connection, setConnection] = React.useState<"loading" | "live" | "offline">("loading"), [refresh, setRefresh] = React.useState(0);
+  const [connectionError, setConnectionError] = React.useState("");
+  const [operationWarnings, setOperationWarnings] = React.useState<string[]>([]);
+  const [operationCommentWarningIds, setOperationCommentWarningIds] = React.useState<string[]>([]);
+  const [tab, setTab] = React.useState<WorkbenchTab>("reading"), [picked, setPicked] = React.useState<Picked>();
+  const [drafts, setDrafts] = React.useState<CommentDraft[]>([]), [submitting, setSubmitting] = React.useState(false);
+  const [selected, setSelected] = React.useState<string[]>([]), [preview, setPreview] = React.useState<Reply["preview"]>();
+  const [comparison, setComparison] = React.useState<Reply["comparison"]>(), [correction, setCorrection] = React.useState<string>();
+  const [variant, setVariant] = React.useState<"clean" | "tracked" | "bilingual">("tracked"), [format, setFormat] = React.useState<"docx" | "pdf">("docx");
+  const [pdfFonts, setPdfFonts] = React.useState<OfficeFontSettings>(), [fontFolders, setFontFolders] = React.useState("");
+  const controller = React.useRef<AbortController | undefined>(undefined), body = React.useRef<HTMLDivElement>(null);
+  const tabScroll = React.useRef<HTMLDivElement>(null);
+  const saves = React.useRef(new Map<string, CommentFlush>()), cache = React.useRef(new Map<string, string>());
+  const submission = React.useRef<{ requestId: string; feedbackIds: string[]; direction: string; feedbackVersions?: { id: string; version: number }[] } | undefined>(undefined);
+  const submittingController = React.useRef<AbortController | undefined>(undefined);
+  const paper = view?.paper;
+  const panelId = React.useId();
+  const pendingKey = paper?.candidates.filter(candidate => candidate.status === "pending").map(candidate => candidate.id).join("\n");
+  const register = React.useCallback((key: string, flush: CommentFlush) => {
+    saves.current.set(key, flush);
+    return () => { if (saves.current.get(key) === flush) saves.current.delete(key); };
+  }, []);
+  React.useLayoutEffect(() => {
+    const container = tabScroll.current;
+    if (!container) return;
+    const revealTab = () => {
+      const activeTab = container.querySelector<HTMLElement>('[role="tab"]:focus')
+        ?? container.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (!activeTab) return;
+      const left = container.getBoundingClientRect().left + container.clientLeft, right = left + container.clientWidth;
+      const bounds = activeTab.getBoundingClientRect();
+      if (bounds.left < left) container.scrollLeft += bounds.left - left;
+      else if (bounds.right > right) container.scrollLeft += bounds.right - right;
+    };
+    revealTab();
+    const resize = new ResizeObserver(revealTab);
+    resize.observe(container);
+    if (container.firstElementChild) resize.observe(container.firstElementChild);
+    container.addEventListener("focusin", revealTab);
+    return () => { resize.disconnect(); container.removeEventListener("focusin", revealTab); };
+  }, [paper?.id, tab]);
+  React.useEffect(() => {
+    setView(undefined);
+    setOperationWarnings([]);
+    setOperationCommentWarningIds([]);
+    setPicked(undefined); setDrafts([]); setSelected([]); setPreview(undefined); setComparison(undefined); cache.current.clear(); submission.current = undefined;
+    return () => { controller.current?.abort(); submittingController.current?.abort(); };
+  }, [sessionId]);
+  React.useEffect(() => {
+    const stream = new AbortController(); setConnection("loading"); setConnectionError("");
+    void (async () => {
+      try { for await (const state of observe(sessionId, stream.signal)) {
+        if (stream.signal.aborted) return;
+        setView(state); setConnection("live");
       }
+        if (!stream.signal.aborted) setConnection("offline");
+      } catch (failure) { if (!stream.signal.aborted) { setConnection("offline"); setConnectionError(failure instanceof Error ? failure.message : String(failure)); } }
     })();
     return () => stream.abort();
   }, [sessionId, observe, refresh]);
-  React.useEffect(() => {
-    setView(undefined);
-    setPicked(undefined);
-    setSelected([]);
-    setPreview(undefined);
-    setComparison(undefined);
-    setReadingGoal("");
-    setReadingEvidence("");
-    setReturnedComparison(undefined); setReturnMappings([]); setSelectedReturns([]); setReturnDeliveryId("");
-    setPdfFonts(undefined); setFontFolders(""); setFontAutomatic(true);
-    setImportFiles([]); setResourcePaths({}); setResourceIncluded({});
-    return () => controller.current?.abort();
-  }, [sessionId]);
-  const previous = React.useRef<string | undefined>(undefined);
+  const prior = React.useRef<string | undefined>(undefined);
   React.useEffect(() => {
     const version = paper ? `${paper.id}:${paper.revision}` : undefined;
-    if (previous.current && previous.current !== version) {
-      setPicked(undefined);
-      setPreview(undefined);
-      setComparison(undefined);
-      setReturnedComparison(undefined); setSelectedReturns([]);
-    }
-    previous.current = version;
+    if (prior.current && prior.current !== version) { setPicked(undefined); setPreview(undefined); setComparison(undefined); }
+    prior.current = version;
   }, [paper?.id, paper?.revision]);
-
-  async function run(request: object): Promise<Reply | undefined> {
-    const active = new AbortController();
-    controller.current?.abort();
-    controller.current = active;
-    setBusy(true);
-    setError("");
+  React.useEffect(() => {
+    const current = new Set(pendingKey?.split("\n") ?? []);
+    setSelected(ids => ids.filter(candidateId => current.has(candidateId)));
+    setPicked(value => value && (value.kind === "candidate_source" || value.kind === "candidate_translation") && !current.has(value.value.candidateId) ? undefined : value);
+    setPreview(undefined);
+  }, [paper?.id, pendingKey]);
+  async function run(request: object, outerSignal?: AbortSignal) {
+    const active = new AbortController(); controller.current?.abort(); controller.current = active; setBusy(true); setError(""); setOperationWarnings([]); setOperationCommentWarningIds([]);
     try {
-      const response = await call(sessionId, request, active.signal);
+      const response = await call(sessionId, request, outerSignal ? AbortSignal.any([active.signal, outerSignal]) : active.signal);
       if (active.signal.aborted) return;
       if (response.base64) download(response.base64, response.name!);
+      if (response.warnings) setOperationWarnings(response.warnings);
+      if (response.commentWarningIds) setOperationCommentWarningIds(response.commentWarningIds);
       if (response.preview) setPreview(response.preview);
       if (response.comparison) setComparison(response.comparison);
-      if (response.returnComparison) {
-        setReturnedComparison(response.returnComparison);
-        setReturnMappings(response.returnComparison.mappings);
-        setSelectedReturns([]);
-      }
-      if (response.pdfFonts) {
-        setPdfFonts(response.pdfFonts);
-        setFontAutomatic(response.pdfFonts.directories === null);
-        setFontFolders((response.pdfFonts.directories ?? response.pdfFonts.systemDirectories).join("\n"));
-      }
+      if (response.pdfFonts) { setPdfFonts(response.pdfFonts); setFontFolders((response.pdfFonts.directories ?? response.pdfFonts.systemDirectories).join("\n")); }
       return response;
-    } catch (e) {
-      if (!active.signal.aborted)
-        setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (controller.current === active) setBusy(false);
-    }
+    } catch (failure) { if (!active.signal.aborted) setError(failure instanceof Error ? failure.message : String(failure)); }
+    finally { if (controller.current === active) setBusy(false); }
   }
-  async function requestReading(candidateIds: string[] | "all", replaces?: string) {
-    if (!paper) return;
-    const earlier = paper.readings.find(reading => reading.id === replaces);
-    await run({ action: "read_independently", requestId: crypto.randomUUID(), candidateIds,
-      goal: readingGoal.trim() || earlier?.goal || paper.brief || "Assess the supplied paper's argument, feedback intent, evidence and bilingual meaning.",
-      evidence: readingEvidence.trim() ? readingEvidence : earlier?.evidence ?? "", ...(replaces ? { replaces } : {}) });
-    setTab("readings");
-  }
-  function capture(event: React.SyntheticEvent<HTMLDivElement>) {
-    const selectedText = window.getSelection();
-    if (!selectedText || !paper || !selectedText.rangeCount) return;
-    const range = selectedText.getRangeAt(0),
-      start =
-        range.startContainer.nodeType === Node.ELEMENT_NODE
-          ? (range.startContainer as Element)
-          : range.startContainer.parentElement;
-    const end =
-      range.endContainer.nodeType === Node.ELEMENT_NODE
-        ? (range.endContainer as Element)
-        : range.endContainer.parentElement;
-    const element = start?.closest("[data-paper-block],[data-translation]");
-    if (!element || !event.currentTarget.contains(element)) return;
-    if (element !== end?.closest("[data-paper-block],[data-translation]")) {
-      setError(t("exactRange"));
-      return;
-    }
-    const prefix = document.createRange();
-    prefix.selectNodeContents(element);
-    prefix.setEnd(range.startContainer, range.startOffset);
-    const from = prefix.toString().length,
-      quote = range.toString();
-    const blockId = element.getAttribute("data-paper-block");
+  function capture(event: React.SyntheticEvent<HTMLElement>) {
+    if (event.target instanceof Element && event.target.closest("textarea,input,button,summary")) return;
+    const selection = window.getSelection();
+    if (!selection || !paper || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0), start = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer as Element : range.startContainer.parentElement;
+    const end = range.endContainer.nodeType === Node.ELEMENT_NODE ? range.endContainer as Element : range.endContainer.parentElement;
+    const selector = "[data-paper-block],[data-translation],[data-candidate-source],[data-candidate-translation]";
+    const element = start?.closest(selector);
+    if (!element || !event.currentTarget.contains(element) || !range.toString()) return;
+    if (element !== end?.closest(selector)) { setError(t("exactRange")); return; }
+    const prefix = document.createRange(); prefix.selectNodeContents(element); prefix.setEnd(range.startContainer, range.startOffset);
+    const from = prefix.toString().length, quote = range.toString(), blockId = element.getAttribute("data-paper-block");
     if (blockId) {
-      const block = paper.blocks.find((b) => b.id === blockId);
-      if (
-        !block?.editable ||
-        block.text.slice(from, from + quote.length) !== quote
-      ) {
-        setError(t("exactRange"));
-        return;
-      }
-      setPicked({
-        kind: "source",
-        value: { ...block.selection, from, to: from + quote.length, quote },
-      });
+      const block = paper.blocks.find(item => item.id === blockId);
+      if (!block?.editable || block.text.slice(from, from + quote.length) !== quote) { setError(t("exactRange")); return; }
+      setPicked({ kind: "source", value: { ...block.selection, from, to: from + quote.length, quote } });
+    } else if (element.hasAttribute("data-translation")) {
+      const translation = paper.translations.find(item => item.id === element.getAttribute("data-translation"));
+      if (!translation || translation.state !== "current" || translation.text.slice(from, from + quote.length) !== quote) { setError(t("changed")); return; }
+      setPicked({ kind: "translation", value: { translationId: translation.id, version: translation.version, from, to: from + quote.length, quote } });
+    } else if (element.hasAttribute("data-candidate-source")) {
+      const block = paper.candidates.flatMap(candidate => candidate.content?.sourceBlocks ?? []).find(item => candidateSourceKey(item.selection) === element.getAttribute("data-candidate-source"));
+      if (!block || block.text.slice(from, from + quote.length) !== quote) { setError(t("changed")); return; }
+      setPicked({ kind: "candidate_source", value: { ...block.selection, from, to: from + quote.length, quote } });
     } else {
-      const translation = paper.translations.find(
-        (tr) => tr.id === element.getAttribute("data-translation"),
-      );
-      if (
-        !translation ||
-        translation.state !== "current" ||
-        translation.text.slice(from, from + quote.length) !== quote
-      ) {
-        setError(t("changed"));
-        return;
-      }
-      setPicked({
-        kind: "translation",
-        value: {
-          translationId: translation.id,
-          version: translation.version,
-          from,
-          to: from + quote.length,
-          quote,
-        },
-      });
+      const translation = paper.candidates.flatMap(candidate => candidate.content?.translations ?? []).find(item => candidateTranslationKey(item.selection) === element.getAttribute("data-candidate-translation"));
+      if (!translation || translation.text.slice(from, from + quote.length) !== quote) { setError(t("changed")); return; }
+      setPicked({ kind: "candidate_translation", value: { ...translation.selection, from, to: from + quote.length, quote } });
     }
-    setReplacement(quote);
-    setError("");
+    setCorrection(undefined);
   }
-  async function upload(file: File) {
-    if (file.size > 16 * 1024 * 1024) {
-      setError("DOCX exceeds 16 MiB.");
-      return;
-    }
-    await run({
-      action: "import",
-      name: file.name,
-      format: "docx",
-      base64: await fileBase64(file),
-      ...(mode ? { revisionMode: mode } : {}),
+  function locate(ids: string[], kind: "source" | "candidate" = "source") {
+    setTab(kind === "source" ? "reading" : "proposals"); requestAnimationFrame(() => {
+      const element = [...(body.current?.querySelectorAll<HTMLElement>(kind === "source" ? "[data-source-card]" : "[data-candidate]") ?? [])]
+        .find(element => ids.includes(kind === "source" ? element.dataset.sourceCard! : element.dataset.candidate!));
+      if (element instanceof HTMLDetailsElement) element.open = true;
+      element?.scrollIntoView({ block: "center", behavior: "smooth" }); element?.focus();
     });
   }
-  function stageFiles(files: File[]) {
-    if (files.length === 1 && /\.docx$/i.test(files[0].name)) { void upload(files[0]); return; }
-    const primary = files.findIndex(file => /\.(md|markdown)$/i.test(file.name));
-    if (primary < 0) { setError("Choose one DOCX or a Markdown source with its resource files."); return; }
-    setImportFiles(files); setPrimaryIndex(primary); setResourcePaths({});
-    setResourceIncluded(Object.fromEntries(files.map((file, index) => [index, !file.webkitRelativePath || !/\.json$/i.test(file.name)])));
+  function anchorBlock(target: FeedbackTarget) {
+    if (target.kind === "source") return target.selections[0]?.blockId;
+    if (target.kind !== "translation") return undefined;
+    const translation = paper?.translations.find(item => item.id === target.selection.translationId);
+    return (translation?.mappedSources[0] ?? translation?.sources[0])?.blockId;
   }
-  async function uploadMarkdown() {
-    const primary = importFiles[primaryIndex];
-    if (!primary) return;
-    const resources = importFiles.map((file, index) => ({ file, index })).filter(({ file, index }) => index !== primaryIndex
-      && resourceIncluded[index] !== false && /\.(png|jpe?g|gif|svg|webp|bmp|tiff?|bib|csl|json)$/i.test(file.name));
-    if (primary.size > 4 * 1024 * 1024 || resources.length > 256 || resources.reduce((sum, item) => sum + item.file.size, 0) > 16 * 1024 * 1024) {
-      setError("Markdown is limited to 4 MiB, with at most 256 resource files totaling 16 MiB."); return;
-    }
-    if (await run({ action: "import", format: "markdown", name: primary.name, base64: await fileBase64(primary),
-      resources: await Promise.all(resources.map(async ({ file, index }) => ({ path: resourcePaths[index] ?? relativeResource(primary, file), base64: await fileBase64(file) }))) }))
-      setImportFiles([]);
-  }
-  async function uploadReturned(file: File) {
-    if (!paper) return;
-    if (file.size > 16 * 1024 * 1024) { setError("DOCX exceeds 16 MiB."); return; }
-    const eligible = paper.documentDeliveries.filter(delivery => delivery.format === "docx" && delivery.variant !== "bilingual");
-    const deliveryId = eligible.find(delivery => delivery.id === returnDeliveryId)?.id ?? eligible.at(-1)?.id;
-    if (!deliveryId) { setError(t("noDelivery")); return; }
-    await run({ action: "import_return", requestId: crypto.randomUUID(), deliveryId, name: file.name,
-      base64: await fileBase64(file), ...(returnMode ? { revisionMode: returnMode } : {}) });
-  }
-  function locate(ids: string[]) {
-    setTab("reading");
+  function locateFeedback(id: string) {
+    const item = paper?.feedback.find(item => item.id === id);
+    if (!item) return;
+    if (item.sources.length) locate(item.sources.map(source => source.blockId));
+    else if (item.target.kind === "candidate_source" || item.target.kind === "candidate_translation") locate([item.target.selection.candidateId], "candidate");
+    else { const block = anchorBlock(item.target); if (block) locate([block]); }
     requestAnimationFrame(() => {
-      const element = [
-        ...(body.current?.querySelectorAll<HTMLElement>("[data-source-card]") ??
-          []),
-      ].find((el) => ids.includes(el.dataset.sourceCard!));
-      element?.scrollIntoView({ behavior: "smooth", block: "center" });
-      element?.focus();
+      const element = [...(body.current?.querySelectorAll<HTMLElement>("[data-feedback-id]") ?? [])].find(element => element.dataset.feedbackId === id);
+      for (let parent = element?.parentElement; parent; parent = parent.parentElement) if (parent instanceof HTMLDetailsElement) parent.open = true;
+      element?.scrollIntoView({ block: "center", behavior: "smooth" }); element?.focus();
     });
   }
-  const pending = paper?.candidates.filter((c) => c.status === "pending") ?? [];
-  const draft =
-    paper?.feedback.filter(
-      (f) => !paper.batches.some((batch) => batch.feedbackIds.includes(f.id)),
-    ) ?? [];
-  const translationPicked =
-    picked?.kind === "translation"
-      ? paper?.translations.find((tr) => tr.id === picked.value.translationId)
-      : undefined;
-  const selectedSource =
-    picked?.kind === "source"
-      ? paper?.blocks.find((block) => block.id === picked.value.blockId)
-      : undefined;
-  const nextBlock =
-    selectedSource && paper?.blocks[paper.blocks.indexOf(selectedSource) + 1];
-  async function saveProposal(kind: "replace" | "split" | "merge") {
-    if (picked?.kind !== "source" || !paper) return;
-    const operation =
-      kind === "replace"
-        ? { kind, selection: picked.value, replacement }
-        : kind === "split"
-          ? { kind, selection: picked.value }
-          : {
-              kind,
-              selection: selectedSource!.selection,
-              next: nextBlock!.selection,
-              separator: " ",
-            };
-    if (
-      await run({
-        action: "propose",
-        requestId: crypto.randomUUID(),
-        operations: [operation],
-        reason,
-      })
-    ) {
-      setPicked(undefined);
-      setReason("");
-      setTab("proposals");
-    }
+  function warningLinks(ids: string[] = []) {
+    return <div className="pw-actions">{ids.map(id => {
+      const item = paper?.feedback.find(item => item.id === id);
+      if (!item) return null;
+      const quote = item.target.kind === "source" ? item.target.selections.map(source => source.quote).join(" … ") : item.target.selection.quote;
+      return <Button size="sm" variant="outline" key={id} onClick={() => locateFeedback(id)}>{t("locate")} · {quote.slice(0, 60)}{quote.length > 60 ? "…" : ""}</Button>;
+    })}</div>;
   }
-  function requestTranslation(sources: Selection[]) {
-    return run({
-      action: "request_translation",
-      requestId: crypto.randomUUID(),
-      sources,
-      replaces:
-        paper?.translations
-          .filter(
-            (tr) =>
-              !tr.replacedBy &&
-              tr.sources.every((source) =>
-                sources.some(
-                  (s) =>
-                    s.blockId === source.blockId &&
-                    s.from <= source.from &&
-                    s.to >= source.to,
-                ),
-              ),
-          )
-          .map((tr) => tr.id) ?? [],
+  function addComment(target: FeedbackTarget, replyTo?: string) {
+    const draftId = crypto.randomUUID();
+    setDrafts(items => [...items, { id: draftId, target, ...(replyTo ? { replyTo } : {}) }]);
+    setPicked(undefined);
+    requestAnimationFrame(() => {
+      const editor = [...(body.current?.querySelectorAll<HTMLElement>("[data-comment-id]") ?? [])].find(element => element.dataset.commentId === draftId);
+      editor?.scrollIntoView({ block: "center", behavior: "smooth" }); editor?.querySelector("textarea")?.focus();
     });
   }
-  return (
-    <section className="paper-workbench" aria-label={t("title")}>
-      <style>{`.paper-workbench{height:100%;display:flex;flex-direction:column;box-sizing:border-box;color:inherit;font:14px/1.6 inherit;--pw-line:color-mix(in srgb,currentColor 15%,transparent);--pw-soft:color-mix(in srgb,currentColor 4%,transparent)}.paper-workbench *{box-sizing:border-box}.paper-workbench button,.paper-workbench select,.paper-workbench textarea{font:inherit;color:inherit;border:1px solid var(--pw-line);border-radius:7px;background:transparent;padding:6px 10px;max-width:100%}.paper-workbench button{cursor:pointer}.paper-workbench button:disabled{opacity:.45;cursor:default}.paper-workbench button:focus-visible,.paper-workbench textarea:focus-visible,.paper-workbench select:focus-visible,.paper-workbench article:focus-visible{outline:2px solid #688bb8;outline-offset:2px}.paper-workbench .pw-head{padding:14px 16px 8px;border-bottom:1px solid var(--pw-line)}.paper-workbench .pw-scroll{overflow:auto;flex:1;padding:8px 16px 24px}.paper-workbench .pw-actions{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:10px 0}.paper-workbench .pw-tabs button[aria-selected=true]{background:var(--pw-soft);font-weight:600}.paper-workbench label{display:block;margin:9px 0}.paper-workbench textarea{display:block;width:100%;min-height:76px}.paper-workbench article{border:1px solid var(--pw-line);border-radius:9px;padding:12px;margin:12px 0}.paper-workbench .pw-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.paper-workbench .pw-source{font:16px/1.8 Georgia,'Times New Roman',serif;white-space:pre-wrap}.paper-workbench .pw-chinese,.paper-workbench .pw-diff{white-space:pre-wrap;overflow-wrap:anywhere}.paper-workbench .pw-muted{opacity:.65;font-size:12px}.paper-workbench .pw-error{border:1px solid #ad5858;border-radius:8px;padding:10px;white-space:pre-wrap}.paper-workbench .pw-review{border:1px solid #688bb8;padding:12px;border-radius:9px;background:var(--pw-soft)}.paper-workbench ins{background:#66b88922;text-decoration:underline;text-decoration-thickness:2px}.paper-workbench del{background:#ce686822;text-decoration:line-through}.paper-workbench blockquote{margin:8px 0;padding-left:12px;border-left:3px solid #8296b4;white-space:pre-wrap}.paper-workbench h2{font-size:17px;margin:4px 0}.paper-workbench h3{font-size:14px;margin:10px 0}.paper-workbench .pw-primary{border-color:#688bb8;font-weight:600}.paper-workbench .pw-tag{display:inline-block;border:1px solid var(--pw-line);border-radius:4px;padding:0 5px;font-size:11px;margin-right:5px}.paper-workbench .pw-stale{opacity:.65}.paper-workbench summary{cursor:pointer}`}</style>
-      <header className="pw-head">
-        <h2>{paper?.name ?? view?.reading?.paper.name ?? t("title")}</h2>
-        <div className="pw-actions">
-          <span className="pw-muted" role="status">
-            {view ? (connected ? t("live") : t("offline")) : t("loading")}
-            {paper ? ` · ${t("revision")} ${paper.revision}` : ""}
-          </span>
-          <button disabled={busy} onClick={() => setRefresh((n) => n + 1)}>
-            {t("refresh")}
-          </button>
-          {busy && (
-            <>
-              <span role="status">{t("busy")}</span>
-              <button onClick={() => controller.current?.abort()}>
-                {t("cancel")}
-              </button>
-            </>
-          )}
+  async function removeComment(id: string, version: number) {
+    if (version && !await run({ action: "delete_feedback", id, expectedVersion: version })) return;
+    cache.current.delete(id); setDrafts(items => items.filter(item => item.id !== id));
+  }
+  async function submitRound(batch?: PaperView["batches"][number]) {
+    const active = new AbortController(); submittingController.current?.abort(); submittingController.current = active;
+    setSubmitting(true); setError("");
+    try {
+      await Promise.all([...saves.current.values()].map(flush => flush()));
+      active.signal.throwIfAborted();
+      const current = await call(sessionId, { action: "read" }, active.signal);
+      if (!current.paper || current.paper.id !== paper?.id) throw new Error(t("changed"));
+      const feedbackIds = current.paper.feedback.filter(item => item.state === "current" && !item.resolved
+        && !current.paper!.feedback.find(parent => parent.id === item.replyTo)?.resolved
+        && !current.paper!.batches.some(saved => saved.feedbackIds.includes(item.id))).map(item => item.id);
+      const feedbackVersions = feedbackIds.map(id => ({ id, version: current.paper!.feedback.find(item => item.id === id)!.version }));
+      const input = batch ? { requestId: batch.requestId, feedbackIds: batch.feedbackIds, direction: batch.direction,
+        ...(batch.feedbackVersions ? { feedbackVersions: batch.feedbackVersions } : {}) }
+        : submission.current && JSON.stringify(submission.current.feedbackIds) === JSON.stringify(feedbackIds)
+          && JSON.stringify(submission.current.feedbackVersions) === JSON.stringify(feedbackVersions) ? submission.current
+          : { requestId: crypto.randomUUID(), feedbackIds, feedbackVersions, direction: "" };
+      if (!input.feedbackIds.length) return;
+      submission.current = input;
+      if (await run({ action: "submit_batch", ...input }, active.signal)) { submission.current = undefined; setTab("proposals"); }
+    } catch (failure) { if (!active.signal.aborted) setError(failure instanceof Error ? failure.message : String(failure)); }
+    finally { if (submittingController.current === active) setSubmitting(false); }
+  }
+  const pending = paper?.candidates.filter(candidate => candidate.status === "pending") ?? [];
+  const pendingDraft = !!pending.length && !!paper?.blocks.every(block => !block.text.trim());
+  const round = paper?.feedback.filter(item => item.state === "current" && !item.resolved && !paper.feedback.find(root => root.id === item.replyTo)?.resolved
+    && !paper.batches.some(batch => batch.feedbackIds.includes(item.id))) ?? [];
+  function threads(blockId: string | undefined, candidateId?: string) {
+    if (!paper) return null;
+    const all = [...paper.feedback.map(item => ({ id: item.id, target: item.target, ...(item.replyTo ? { replyTo: item.replyTo } : {}) })), ...drafts.filter(draft => !paper.feedback.some(item => item.id === draft.id))];
+    return all.filter(item => {
+      if (item.replyTo) return false;
+      const record = paper.feedback.find(record => record.id === item.id);
+      if (candidateId) return (item.target.kind === "candidate_source" || item.target.kind === "candidate_translation")
+        && item.target.selection.candidateId === candidateId && (!record?.acceptedAnchor || record.state !== "current");
+      return (record?.sources[0]?.blockId ?? anchorBlock(item.target)) === blockId;
+    }).map(root => {
+      const rootRecord = paper.feedback.find(item => item.id === root.id), entries = [root, ...all.filter(item => item.replyTo === root.id)];
+      return <aside className={`pw-comment ${rootRecord?.resolved ? "pw-resolved" : ""}`} key={root.id}>
+        <div className="pw-actions"><strong>{t(rootRecord?.resolved ? "resolvedComment" : "comment")}</strong>
+          {rootRecord && rootRecord.state !== "current" && <span className="pw-tag">{t(rootRecord.state)}</span>}
+          {rootRecord && <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "resolve_feedback", id: root.id, expectedVersion: rootRecord.version, resolved: !rootRecord.resolved })}>{t(rootRecord.resolved ? "reopenComment" : "resolveComment")}</Button>}
         </div>
-        {paper && (
-          <nav className="pw-actions pw-tabs" aria-label={t("title")}>
-            {["reading", "proposals", "feedback", "readings", "history"].map((key) => (
-              <button
-                key={key}
-                aria-selected={tab === key}
-                onClick={() => setTab(key)}
-              >
-                {t(key)}
-                {key === "proposals"
-                  ? ` ${pending.length}`
-                  : key === "feedback"
-                    ? ` ${draft.length}`
-                    : ""}
-              </button>
-            ))}
-          </nav>
-        )}
-      </header>
-      <div className="pw-scroll" ref={body}>
-        {error && (
-          <p role="alert" className="pw-error">
-            {error}
-          </p>
-        )}
-        {view?.reading && <FrozenReading packet={view.reading} t={t} />}
-        {!paper && view && !view.reading && (
-          <>
-            <h2>{t("empty")}</h2>
-            <p>{t("scope")}</p>
-          </>
-        )}
-        {!view?.reading && <details open={!paper}>
-          <summary>
-            {t("upload")} / {t("link")} / {t("createDraft")}
-          </summary>
-          <label>{t("draftName")}<input aria-label={t("draftName")} value={newName} onChange={e => setNewName(e.target.value)} /></label>
-          <label>{t("brief")}<textarea value={newBrief} onChange={e => setNewBrief(e.target.value)} /></label>
-          <button disabled={busy || !newName.trim()} onClick={() => void (async () => {
-            if (await run({ action: "create", name: newName.trim(), brief: newBrief })) setTab("feedback");
-          })()}>{t("saveDraft")}</button>
-          <label>
-            {t("revisionMode")}
-            <select value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="">{t("requireChoice")}</option>
-              <option value="accept">{t("acceptExisting")}</option>
-              <option value="reject">{t("rejectExisting")}</option>
-            </select>
-          </label>
-          <label>
-            {t("upload")}
-            <input
-              type="file"
-              aria-label={t("upload")}
-              accept=".docx,.md,.markdown,.png,.jpg,.jpeg,.gif,.svg,.webp,.bmp,.tif,.tiff,.bib,.csl,.json"
-              multiple
-              disabled={busy}
-              onChange={(e) => {
-                if (e.target.files?.length) stageFiles(Array.from(e.target.files));
-                e.target.value = "";
-              }}
-            />
-          </label>
-          <label>{t("markdownFolder")}<input type="file" multiple {...{ webkitdirectory: "" }} disabled={busy}
-            onChange={event => { if (event.target.files?.length) stageFiles(Array.from(event.target.files)); event.target.value = ""; }} /></label>
-          {!!importFiles.length && <section>
-            <label>{t("primaryMarkdown")}<select value={primaryIndex} onChange={event => { setPrimaryIndex(Number(event.target.value)); setResourcePaths({}); }}>
-              {importFiles.map((file, index) => /\.(md|markdown)$/i.test(file.name) && <option key={index} value={index}>{file.webkitRelativePath || file.name}</option>)}
-            </select></label>
-            <details><summary>{t("markdownResources")}</summary>
-              {importFiles.map((file, index) => index !== primaryIndex && /\.(png|jpe?g|gif|svg|webp|bmp|tiff?|bib|csl|json)$/i.test(file.name) && <label key={index}>
-                <input type="checkbox" checked={resourceIncluded[index] !== false} onChange={event => setResourceIncluded({ ...resourceIncluded, [index]: event.target.checked })} />{file.name}
-                <input aria-label={file.name} value={resourcePaths[index] ?? relativeResource(importFiles[primaryIndex], file)}
-                  onChange={event => setResourcePaths({ ...resourcePaths, [index]: event.target.value })} />
-              </label>)}
-            </details>
-            <button disabled={busy} onClick={() => void uploadMarkdown()}>{t("importMarkdown")}</button>
-          </section>}
-          {!!view?.available.length && (
-            <div className="pw-actions">
-              <select
-                aria-label={t("link")}
-                value={linked}
-                onChange={(e) => setLinked(e.target.value)}
-              >
-                <option value="">{t("choose")}</option>
-                {view.available.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                disabled={!linked || busy}
-                onClick={() => void run({ action: "link", paperId: linked })}
-              >
-                {t("link")}
-              </button>
-            </div>
-          )}
-        </details>}
-        {paper && (
-          <>
-            {paper.warnings.map((warning, i) => (
-              <p className="pw-muted" key={i}>
-                {warning}
-              </p>
-            ))}
-            {paper.wordExportNeedsRestore && (
-              <p className="pw-error">
-                {t("restoreBeforeExport")}{" "}
-                <button onClick={() => setTab("history")}>
-                  {t("history")}
-                </button>
-              </p>
-            )}
-            {tab === "reading" && (
-              <>
-                <p className="pw-muted">{t("select")}</p>
-                <button
-                  disabled={
-                    busy || paper.blocks.filter((b) => b.editable).length > 100
-                  }
-                  onClick={() =>
-                    void requestTranslation(
-                      paper.blocks
-                        .filter((b) => b.editable)
-                        .map((b) => b.selection),
-                    )
-                  }
-                >
-                  {t("translateAll")}
-                </button>
-                <div onMouseUp={capture} onKeyUp={capture}>
-                  {paper.blocks.map((block) => (
-                    <article
-                      key={block.id}
-                      data-source-card={block.id}
-                      tabIndex={-1}
-                    >
-                      <div className="pw-pair">
-                        <div>
-                          <span className="pw-muted">{t("source")}</span>
-                          <div
-                            className="pw-source"
-                            data-paper-block={block.id}
-                            style={
-                              block.heading ? { fontWeight: 600 } : undefined
-                            }
-                          >
-                            {block.editable
-                              ? block.runs.map((run, i) => (
-                                  <span
-                                    key={i}
-                                    style={{
-                                      fontWeight: run.marks.includes("bold")
-                                        ? 700
-                                        : undefined,
-                                      fontStyle: run.marks.includes("italic")
-                                        ? "italic"
-                                        : undefined,
-                                    }}
-                                  >
-                                    {run.text}
-                                  </span>
-                                ))
-                              : block.text}
-                          </div>
-                          {!block.editable && (
-                            <small>
-                              {t("unsupported")}: {block.reason}
-                            </small>
-                          )}
-                          {block.editable && (
-                            <button
-                              disabled={busy}
-                              onClick={() =>
-                                void requestTranslation([block.selection])
-                              }
-                            >
-                              {t("readyTranslation")}
-                            </button>
-                          )}
-                        </div>
-                        <div>
-                          <span className="pw-muted">{t("translation")}</span>
-                          {paper.translations
-                            .filter(
-                              (tr) =>
-                                tr.state !== "superseded" &&
-                                (tr.state === "current"
-                                  ? tr.mappedSources[0]
-                                  : tr.sources[0]
-                                )?.blockId === block.id,
-                            )
-                            .map((tr) => (
-                              <div
-                                key={tr.id}
-                                className={
-                                  tr.state === "stale" ? "pw-stale" : ""
-                                }
-                              >
-                                <span className="pw-tag">{t(tr.state)}</span>
-                                <div
-                                  className="pw-chinese"
-                                  data-translation={tr.id}
-                                >
-                                  {tr.text}
-                                </div>
-                                <div className="pw-actions">
-                                  <button
-                                    onClick={() =>
-                                      locate(
-                                        (tr.state === "current"
-                                          ? tr.mappedSources
-                                          : tr.sources
-                                        ).map((s) => s.blockId),
-                                      )
-                                    }
-                                  >
-                                    {t("locate")} · {tr.sources.length}
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          {!paper.translations.some(
-                            (tr) =>
-                              tr.state === "current" &&
-                              tr.mappedSources.some(
-                                (s) => s.blockId === block.id,
-                              ),
-                          ) && <p className="pw-muted">{t("noTranslation")}</p>}
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-                {picked && (
-                  <article className="pw-review">
-                    <h3>{t("selected")}</h3>
-                    <blockquote>{picked.value.quote || "│"}</blockquote>
-                    {picked.kind === "translation" && (
-                      <>
-                        <div className="pw-actions">
-                          <button
-                            aria-pressed={intent === "content"}
-                            onClick={() => setIntent("content")}
-                          >
-                            {t("content")}
-                          </button>
-                          <button
-                            aria-pressed={intent === "correction"}
-                            onClick={() => setIntent("correction")}
-                          >
-                            {t("correction")}
-                          </button>
-                        </div>
-                        {intent === "content" && (
-                          <>
-                            <p className="pw-muted">{t("translationScope")}</p>
-                            {translationPicked?.mappedSources.map(
-                              (source, i) => (
-                                <blockquote key={i}>{source.quote}</blockquote>
-                              ),
-                            )}
-                          </>
-                        )}
-                      </>
-                    )}
-                    {(picked.kind === "source" || intent === "content") && (
-                      <>
-                        <label>
-                          {t("comment")}
-                          <textarea
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                          />
-                        </label>
-                        <button
-                          disabled={busy || !comment.trim()}
-                          onClick={() =>
-                            void (async () => {
-                              if (
-                                await run({
-                                  action: "feedback",
-                                  requestId: crypto.randomUUID(),
-                                  target:
-                                    picked.kind === "source"
-                                      ? {
-                                          kind: "source",
-                                          selections: [picked.value],
-                                        }
-                                      : {
-                                          kind: "translation",
-                                          selection: picked.value,
-                                        },
-                                  comment,
-                                })
-                              ) {
-                                setPicked(undefined);
-                                setComment("");
-                              }
-                            })()
-                          }
-                        >
-                          {t("saveFeedback")}
-                        </button>
-                      </>
-                    )}
-                    {(picked.kind === "source" || intent === "correction") && (
-                      <>
-                        <label>
-                          {t("replacement")}
-                          <textarea
-                            value={replacement}
-                            onChange={(e) => setReplacement(e.target.value)}
-                          />
-                        </label>
-                        {picked.kind === "translation" ? (
-                          <button
-                            disabled={
-                              busy || replacement === picked.value.quote
-                            }
-                            onClick={() =>
-                              void (async () => {
-                                if (
-                                  await run({
-                                    action: "correct_translation",
-                                    selection: picked.value,
-                                    replacement,
-                                  })
-                                )
-                                  setPicked(undefined);
-                              })()
-                            }
-                          >
-                            {t("correct")}
-                          </button>
-                        ) : (
-                          <>
-                            <label>
-                              {t("reason")}
-                              <textarea
-                                value={reason}
-                                onChange={(e) => setReason(e.target.value)}
-                              />
-                            </label>
-                            <div className="pw-actions">
-                              <button
-                                disabled={
-                                  busy ||
-                                  !reason.trim() ||
-                                  replacement === picked.value.quote
-                                }
-                                onClick={() => void saveProposal("replace")}
-                              >
-                                {t("propose")}
-                              </button>
-                              {picked.value.from === picked.value.to && (
-                                <button
-                                  disabled={busy || !reason.trim()}
-                                  onClick={() => void saveProposal("split")}
-                                >
-                                  {t("split")}
-                                </button>
-                              )}
-                              {nextBlock?.editable && (
-                                <button
-                                  disabled={busy || !reason.trim()}
-                                  onClick={() => void saveProposal("merge")}
-                                >
-                                  {t("merge")}
-                                </button>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </article>
-                )}
-                <h3>{t("jobs")}</h3>
-                {paper.translationJobs.map((job) => (
-                  <article key={job.id}>
-                    <span className="pw-tag">{t(job.status)}</span>
-                    <span>
-                      {t("revision")} {job.sourceRevision} ·{" "}
-                      {job.sources.length}
-                    </span>
-                    {job.error && <p className="pw-error">{job.error}</p>}
-                    <div className="pw-actions">
-                      {job.status === "pending" && (
-                        <>
-                          <button
-                            disabled={busy || job.delivery === "sent"}
-                            onClick={() =>
-                              void run({
-                                action: "send",
-                                kind: "translation",
-                                id: job.id,
-                              })
-                            }
-                          >
-                            {t(job.delivery === "sent" ? "sent" : "send")}
-                          </button>
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              void run({
-                                action: "cancel_translation",
-                                jobId: job.id,
-                              })
-                            }
-                          >
-                            {t("cancel")}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </>
-            )}
-            {tab === "proposals" && (
-              <>
-                <p className="pw-muted">{t("independent")}</p>
-                <button onClick={() => setTab("readings")}>{t("readings")}</button>
-                <div className="pw-actions">
-                  <button
-                    disabled={busy || !pending.length}
-                    onClick={() =>
-                      void run({ action: "preview", candidateIds: "all" })
-                    }
-                  >
-                    {t("previewAll")}
-                  </button>
-                  <button
-                    disabled={busy || !selected.length}
-                    onClick={() =>
-                      void run({ action: "preview", candidateIds: selected })
-                    }
-                  >
-                    {t("previewSelected")}
-                  </button>
-                  <button
-                    disabled={busy || !selected.length}
-                    onClick={() =>
-                      void run({
-                        action: "decide",
-                        candidateIds: selected,
-                        decision: "rejected",
-                        expectedRevision: paper.revision,
-                      })
-                    }
-                  >
-                    {t("rejectSelected")}
-                  </button>
-                  <button
-                    disabled={busy || !pending.length}
-                    onClick={() =>
-                      void run({
-                        action: "decide",
-                        candidateIds: pending.map((c) => c.id),
-                        decision: "rejected",
-                        expectedRevision: paper.revision,
-                      })
-                    }
-                  >
-                    {t("rejectAll")}
-                  </button>
-                </div>
-                {preview && (
-                  <article className="pw-review">
-                    <h3>{t("preview")}</h3>
-                    <p>{t("copiedScope")}</p>
-                    {preview.candidateIds.map((candidateId) => (
-                      <p key={candidateId}>
-                        {
-                          paper.candidates.find((c) => c.id === candidateId)
-                            ?.reason
-                        }
-                      </p>
-                    ))}
-                    {!!preview.includedDependencies.length && (
-                      <p>
-                        {t("dependencies")}:{" "}
-                        {preview.includedDependencies.length}
-                      </p>
-                    )}
-                    {preview.conflicts.map((conflict) => (
-                      <p className="pw-error" key={conflict.candidateId}>
-                        {t("conflicts")}:{" "}
-                        {
-                          paper.candidates.find(
-                            (c) => c.id === conflict.candidateId,
-                          )?.reason
-                        }{" "}
-                        — {conflict.message}
-                      </p>
-                    ))}
-                    <button
-                      className="pw-primary"
-                      disabled={
-                        busy ||
-                        !preview.candidateIds.length ||
-                        preview.revision !== paper.revision
-                      }
-                      onClick={() =>
-                        void (async () => {
-                          if (
-                            await run({
-                              action: "decide",
-                              candidateIds: preview.candidateIds,
-                              decision: "accepted",
-                              expectedRevision: preview.revision,
-                            })
-                          ) {
-                            setPreview(undefined);
-                            setSelected([]);
-                          }
-                        })()
-                      }
-                    >
-                      {t("acceptScope")} · {preview.candidateIds.length}
-                    </button>
-                  </article>
-                )}
-                {!paper.candidates.length && <p>{t("noChanges")}</p>}
-                {paper.candidates.map((candidate) => (
-                  <article key={candidate.id} data-candidate={candidate.id}>
-                    <div className="pw-actions">
-                      {candidate.status === "pending" && (
-                        <input
-                          type="checkbox"
-                          aria-label={candidate.reason}
-                          checked={selected.includes(candidate.id)}
-                          onChange={(e) =>
-                            setSelected((ids) =>
-                              e.target.checked
-                                ? [...ids, candidate.id]
-                                : ids.filter((id) => id !== candidate.id),
-                            )
-                          }
-                        />
-                      )}
-                      <span className="pw-tag">{t(candidate.status)}</span>
-                      <strong>{candidate.reason}</strong>
-                    </div>
-                    {candidate.operations.map((operation, i) => (
-                      <div key={i}>
-                        <span className="pw-muted">
-                          {operation.kind === "fill_draft"
-                            ? `${t("draftParagraphs")}: ${operation.paragraphs.length}`
-                            : operation.kind === "replace"
-                            ? t("source")
-                            : t("structural")}{" "}
-                          · {t("revision")} {operation.selection.revision}
-                        </span>
-                        <Diff parts={candidate.diffs[i]} />
-                      </div>
-                    ))}
-                    {candidate.translations.map((tr, i) => (
-                      <blockquote key={i}>{tr.paragraphIndexes && <small>{t("draftParagraphs")}: {tr.paragraphIndexes.map(index => index + 1).join(", ")}</small>}<p>{tr.text}</p></blockquote>
-                    ))}
-                    {!!candidate.feedbackIds.length && (
-                      <p className="pw-muted">
-                        {t("linkedFeedback")}:{" "}
-                        {candidate.feedbackIds
-                          .map(
-                            (id) =>
-                              paper.feedback.find((f) => f.id === id)?.comment,
-                          )
-                          .join(" · ")}
-                      </p>
-                    )}
-                    {candidate.conflict && (
-                      <p className="pw-error">{candidate.conflict}</p>
-                    )}
-                    <div className="pw-actions">
-                      <button
-                        disabled={!candidate.currentSelections.length}
-                        onClick={() =>
-                          locate(
-                            candidate.currentSelections.map(
-                              (selection) => selection.blockId,
-                            ),
-                          )
-                        }
-                      >
-                        {t("locate")}
-                      </button>
-                      {candidate.status === "pending" && (
-                        <>
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              void run({
-                                action: "preview",
-                                candidateIds: [candidate.id],
-                              })
-                            }
-                          >
-                            {t("preview")}
-                          </button>
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              void run({
-                                action: "decide",
-                                candidateIds: [candidate.id],
-                                decision: "rejected",
-                                expectedRevision: paper.revision,
-                              })
-                            }
-                          >
-                            {t("reject")}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </>
-            )}
-            {tab === "feedback" && (
-              <>
-                <h3>{t("draft")}</h3>
-                {paper.feedback.map((feedback) => (
-                  <article key={feedback.id}>
-                    <span className="pw-tag">{t(feedback.state)}</span>
-                    <blockquote>
-                      {feedback.target.kind === "source"
-                        ? feedback.target.selections
-                            .map((s) => s.quote)
-                            .join("\n")
-                        : feedback.target.selection.quote}
-                    </blockquote>
-                    <p>{feedback.comment}</p>
-                    <button
-                      onClick={() =>
-                        locate(feedback.sources.map((s) => s.blockId))
-                      }
-                    >
-                      {t("locate")}
-                    </button>
-                  </article>
-                ))}
-                <label>
-                  {t("direction")}
-                  <textarea
-                    value={direction}
-                    onChange={(e) => setDirection(e.target.value)}
-                  />
-                </label>
-                <button
-                  disabled={busy || !draft.some((f) => f.state === "current")}
-                  onClick={() =>
-                    void run({
-                      action: "submit_batch",
-                      requestId: crypto.randomUUID(),
-                      feedbackIds: draft
-                        .filter((f) => f.state === "current")
-                        .map((f) => f.id),
-                      direction,
-                    })
-                  }
-                >
-                  {t("batch")} ·{" "}
-                  {draft.filter((f) => f.state === "current").length}
-                </button>
-                <h3>{t("batches")}</h3>
-                {paper.batches.map((batch) => (
-                  <article key={batch.id}>
-                    <span className="pw-tag">
-                      {t(batch.delivery === "sent" ? "sent" : "ready")}
-                    </span>
-                    <p>{batch.direction}</p>
-                    {batch.feedbackIds.map((id) => (
-                      <p key={id}>
-                        {paper.feedback.find((f) => f.id === id)?.comment}
-                      </p>
-                    ))}
-                    {batch.error && <p className="pw-error">{batch.error}</p>}
-                    <button
-                      disabled={busy || batch.delivery === "sent"}
-                      onClick={() =>
-                        void run({
-                          action: "send",
-                          kind: "batch",
-                          id: batch.id,
-                        })
-                      }
-                    >
-                      {t(batch.delivery === "sent" ? "sent" : "send")}
-                    </button>
-                  </article>
-                ))}
-              </>
-            )}
-            {tab === "readings" && (
-              <>
-                <p className="pw-muted">{t("readingLimit")}</p>
-                <label>{t("readingGoal")}<textarea value={readingGoal} onChange={e => setReadingGoal(e.target.value)} placeholder={paper.brief} /></label>
-                <label>{t("readingEvidence")}<textarea value={readingEvidence} onChange={e => setReadingEvidence(e.target.value)} /></label>
-                <div className="pw-actions">
-                  <button disabled={busy || !pending.length} onClick={() => void requestReading("all")}>{t("readAll")}</button>
-                  <button disabled={busy || !selected.length} onClick={() => void requestReading(selected)}>{t("readSelected")}</button>
-                  <button disabled={busy} onClick={() => void requestReading([])}>{t("readCurrent")}</button>
-                </div>
-                {!paper.readings.length && <p>{t("noReadings")}</p>}
-                {paper.readings.map(reading => <article key={reading.id}>
-                  <div className="pw-actions"><span className="pw-tag">{t(reading.status)}</span><span>{t("revision")} {reading.sourceRevision}</span></div>
-                  <p>{reading.goal}</p>
-                  {reading.candidateIds.length ? <details><summary>{t("readingScope")} · {reading.candidateIds.length}</summary>{reading.candidateIds.map(id => <p key={id}>{paper.candidates.find(candidate => candidate.id === id)?.reason}</p>)}</details> : <p className="pw-muted">{t("bodyOnlyReading")}</p>}
-                  {reading.diagnostic && <p role="alert" className="pw-error">{reading.diagnostic}</p>}
-                  {(reading.status !== "completed" || !reading.output) && <p className="pw-muted">{t("unfinishedReading")}</p>}
-                  {reading.status === "completed" && reading.output && !reading.sourceCombinationMatches && <p className="pw-muted">{t("combinationChanged")}</p>}
-                  {reading.status === "completed" && reading.output && !reading.currentSourceReviewed && <p className="pw-muted">{t("partialReading")}</p>}
-                  {reading.currentSourceReviewed && !reading.currentBodyReviewed && <p className="pw-muted">{t("sourceEvidenceRetained")}</p>}
-                  {!!reading.bilingualChanges.length && <section><p>{t("bilingualChanged")}</p>{reading.bilingualChanges.map(change => <div key={change.key}>
-                    <blockquote>{change.beforeText ?? ""} → {change.afterText ?? ""}</blockquote>
-                    {!!change.sourceBlockIds.length && <button onClick={() => locate(change.sourceBlockIds)}>{t("locate")}</button>}
-                  </div>)}</section>}
-                  {reading.output && <>
-                    <h3>{t("interpretation")}</h3>
-                    <p>{reading.output.interpretation.problem}</p><p>{reading.output.interpretation.mechanism}</p><p>{reading.output.interpretation.feedbackRole}</p>
-                    {reading.findings.map((finding, index) => <section key={index}>
-                      <h3>{finding.issue}</h3>
-                      {finding.locations.map((location, i) => <blockquote key={i}>{location.quote}</blockquote>)}
-                      <p>{finding.impact}</p><p>{finding.evidence}</p><p>{finding.suggestion}</p>
-                      {finding.sources.length > 0 && <button onClick={() => locate(finding.sources.map(s => s.blockId))}>{t("locate")}</button>}
-                      {!finding.sources.length && !!finding.currentCandidateIds.length && <button onClick={() => {
-                        setTab("proposals");
-                        requestAnimationFrame(() => body.current?.querySelector(`[data-candidate="${CSS.escape(finding.currentCandidateIds[0])}"]`)?.scrollIntoView({ block: "center" }));
-                      }}>{t("proposals")}</button>}
-                    </section>)}
-                    {!!reading.output.limits.length && <><h3>{t("evidenceLimits")}</h3>{reading.output.limits.map((limit, i) => <p key={i}>{limit}</p>)}</>}
-                  </>}
-                  <details><summary>{t("readingSource")}</summary><code>{reading.childId}</code></details>
-                  <div className="pw-actions">
-                    {(reading.status === "queued" || reading.status === "running") && <button onClick={() => void run({ action: "cancel_reading", readingId: reading.id })}>{t("cancel")}</button>}
-                    {reading.status !== "queued" && reading.status !== "running" && <button disabled={busy} onClick={() => void requestReading([], reading.id)}>{t("recheck")}</button>}
-                  </div>
-                </article>)}
-              </>
-            )}
-            {tab === "history" && (
-              <>
-                <div className="pw-actions">
-                  <select
-                    aria-label={t("revision")}
-                    value={compareAt}
-                    onChange={(e) => setCompareAt(Number(e.target.value))}
-                  >
-                    {Array.from({ length: paper.revision + 1 }, (_, i) => (
-                      <option key={i} value={i}>
-                        {t("revision")} {i}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      void run({ action: "compare", revision: compareAt })
-                    }
-                  >
-                    {t("compare")}
-                  </button>
-                </div>
-                {comparison && (
-                  <article className="pw-review">
-                    <h3>
-                      {t("revision")} {comparison.revision} →{" "}
-                      {comparison.currentRevision}
-                    </h3>
-                    {!comparison.blocks.length && <p>{t("noDifference")}</p>}
-                    {comparison.blocks.map((block) => (
-                      <div key={block.id}>
-                        <Diff parts={block.diff} />
-                        {block.formatChanged && <p>{t("formatChanged")}</p>}
-                      </div>
-                    ))}
-                    <button
-                      disabled={
-                        busy ||
-                        comparison.revision === paper.revision ||
-                        comparison.currentRevision !== paper.revision
-                      }
-                      onClick={() =>
-                        void run({
-                          action: "restore",
-                          revision: comparison.revision,
-                          expectedRevision: comparison.currentRevision,
-                        })
-                      }
-                    >
-                      {t("restore")}
-                    </button>
-                  </article>
-                )}
-                {paper.decisions.map((decision) => (
-                  <article key={decision.id}>
-                    <span className="pw-tag">{t(decision.decision)}</span>
-                    <span>
-                      {t("revision")} {decision.revision}
-                    </span>
-                    {decision.candidateIds.map((id) => (
-                      <p key={id}>
-                        {paper.candidates.find((c) => c.id === id)?.reason}
-                      </p>
-                    ))}
-                    {decision.decision !== "undone" &&
-                      !paper.decisions.some(
-                        (d) => d.undoOf === decision.id,
-                      ) && (
-                        <button
-                          disabled={busy}
-                          onClick={() =>
-                            void run({
-                              action: "undo",
-                              decisionId: decision.id,
-                              expectedRevision: paper.revision,
-                            })
-                          }
-                        >
-                          {t("undo")}
-                        </button>
-                      )}
-                  </article>
-                ))}
-              </>
-            )}
-            <details>
-              <summary>{t("documents")}</summary>
-              <button disabled={busy} onClick={() => void run({ action: "download_source" })}>{t("originalSource")}</button>
-              {paper.sourceResources.map(resource => <button key={resource.path} disabled={busy}
-                onClick={() => void run({ action: "download_source", resourcePath: resource.path })}>{resource.path}</button>)}
-              <label>{t("comparisonBaseline")}
-                <select aria-label={t("comparisonBaseline")} disabled={busy} value={paper.comparisonRevision}
-                  onChange={event => void run({ action: "set_baseline", revision: Number(event.target.value), expectedRevision: paper.revision })}>
-                  {Array.from({ length: paper.revision + 1 }, (_, revision) => <option key={revision} value={revision}>{t("revision")} {revision}</option>)}
-                </select>
-              </label>
-              <p className="pw-muted">{t("comparisonHelp")}</p>
-              <div className="pw-actions">
-                <select aria-label={t("variant")} value={exportVariant} onChange={event => setExportVariant(event.target.value as typeof exportVariant)}>
-                  <option value="clean">{t("cleanCopy")}</option><option value="tracked">{t("trackedCopy")}</option><option value="bilingual">{t("bilingualCopy")}</option>
-                </select>
-                <select aria-label="Format" value={exportFormat} onChange={event => setExportFormat(event.target.value as typeof exportFormat)}>
-                  <option value="docx">DOCX</option><option value="pdf">PDF</option>
-                </select>
-                <button disabled={busy || paper.wordExportNeedsRestore}
-                  onClick={() => void run({ action: "export", requestId: crypto.randomUUID(), variant: exportVariant, format: exportFormat,
-                    includeReasons, expectedRevision: paper.revision, baselineRevision: paper.comparisonRevision })}>{t("exportFile")}</button>
-              </div>
-              <label><input type="checkbox" checked={includeReasons} onChange={event => setIncludeReasons(event.target.checked)} />{t("includeReasons")}</label>
-              {exportFormat === "pdf" && <>
-                <p className="pw-muted">{t("pdfCopy")}</p>
-                <details><summary>{t("pdfFonts")}</summary>
-                  <button disabled={busy} onClick={() => void run({ action: "pdf_font_settings" })}>{t("readPdfFonts")}</button>
-                  {pdfFonts && <>
-                    {pdfFonts.diagnostic && <p role="alert">{pdfFonts.diagnostic}</p>}
-                    {pdfFonts.canEdit && <>
-                    <p>{t("fontCurrent")}: {pdfFonts.directories === null ? t("fontAutomatic") : pdfFonts.directories.join(", ")}</p>
-                    <p className="pw-muted">{t("fontShared")}</p><p className="pw-muted">{t("fontNotes")}</p>
-                    {!!pdfFonts.fallbacks?.length && <p className="pw-muted">{t("fontFallbacks")}: {pdfFonts.fallbacks.map(group => group.join(" → ")).join("; ")}</p>}
-                    <label><input type="checkbox" disabled={busy || !pdfFonts.canEdit} checked={fontAutomatic} onChange={event => setFontAutomatic(event.target.checked)} />{t("fontAutomatic")}</label>
-                    {!fontAutomatic && <label>{t("fontFolders")}<textarea disabled={busy || !pdfFonts.canEdit} maxLength={128000} value={fontFolders} onChange={event => setFontFolders(event.target.value)} /></label>}
-                    {!!pdfFonts.systemDirectories.length && <button disabled={busy || !pdfFonts.canEdit}
-                      onClick={() => { setFontAutomatic(false); setFontFolders(pdfFonts.systemDirectories.join("\n")); }}>{t("testedFonts")}</button>}
-                    <p className="pw-muted">{t("fontReadAgain")}</p>
-                    <div className="pw-actions">
-                      <button disabled={busy || !pdfFonts.canEdit || !fontAutomatic && !fontFolders.trim() || JSON.stringify(fontDraftDirectories) === JSON.stringify(pdfFonts.directories)}
-                        onClick={() => void run({ action: "configure_pdf_fonts", directories: fontDraftDirectories,
-                          expectedDirectories: pdfFonts.directories, sharedPreviews: true })}>{t("fontApply")}</button>
-                    </div>
-                    </>}
-                    <button disabled={busy} onClick={() => setPdfFonts(undefined)}>{t("fontClose")}</button>
-                  </>}
-                </details>
-              </>}
-              {!!paper.documentDeliveries.length && <h3>{t("deliveryHistory")}</h3>}
-              {paper.documentDeliveries.slice(-5).reverse().map(delivery => <article key={delivery.id}>
-                <p>{delivery.name}</p><p className="pw-muted">{t("revision")} {delivery.baselineRevision} → {delivery.revision} · {Math.ceil(delivery.bytes / 1024)} KiB</p>
-                <button disabled={busy} onClick={() => void run({ action: "download_delivery", deliveryId: delivery.id })}>{t("downloadAgain")}</button>
-                {delivery.warnings.map((warning, index) => <p key={index} className="pw-muted">{warning}</p>)}
-              </article>)}
-              <h3>{t("returnedFiles")}</h3>
-              <label>{t("returnDelivery")}<select value={paper.documentDeliveries.some(delivery => delivery.id === returnDeliveryId) ? returnDeliveryId : paper.documentDeliveries.filter(delivery => delivery.format === "docx" && delivery.variant !== "bilingual").at(-1)?.id ?? ""}
-                onChange={event => setReturnDeliveryId(event.target.value)}>
-                <option value="">{t("choose")}</option>
-                {paper.documentDeliveries.filter(delivery => delivery.format === "docx" && delivery.variant !== "bilingual").map(delivery => <option key={delivery.id} value={delivery.id}>{delivery.name} · {t("revision")} {delivery.revision}</option>)}
-              </select></label>
-              <label>{t("returnProjection")}<select value={returnMode} onChange={event => setReturnMode(event.target.value)}>
-                <option value="">{t("requireChoice")}</option><option value="accept">{t("acceptExisting")}</option><option value="reject">{t("rejectExisting")}</option>
-              </select></label>
-              <label>{t("uploadReturn")}<input type="file" accept=".docx" disabled={busy || !paper.documentDeliveries.some(delivery => delivery.format === "docx" && delivery.variant !== "bilingual")}
-                onChange={event => { if (event.target.files?.[0]) void uploadReturned(event.target.files[0]); event.target.value = ""; }} /></label>
-              {paper.documentReturns.map(returned => <article key={returned.id}>
-                <p>{returned.name}</p><div className="pw-actions">
-                  <button disabled={busy} onClick={() => void run({ action: "compare_return", returnId: returned.id, mappings: [] })}>{t("compareReturn")}</button>
-                  <button disabled={busy} onClick={() => void run({ action: "download_return", returnId: returned.id })}>{t("originalReturn")}</button>
-                </div>
-              </article>)}
-              {returnedComparison && <section className="pw-review">
-                <h3>{t("compareReturn")}</h3>
-                <p>{t("returnVersions")}: {returnedComparison.baselineRevision} / {returnedComparison.deliveredRevision} / {returnedComparison.currentRevision}</p>
-                <p className="pw-muted">{t("textOnlyReturn")}</p>
-                {returnedComparison.warnings.map((warning, index) => <p key={index} className="pw-muted">{warning}</p>)}
-                {!returnedComparison.changes.length && <p>{t("noReturnChanges")}</p>}
-                {returnedComparison.changes.map(change => <article key={change.id}>
-                  <label><input type="checkbox" disabled={change.status !== "ready" || busy} checked={selectedReturns.includes(change.id)}
-                    onChange={event => setSelectedReturns(event.target.checked ? [...selectedReturns, change.id] : selectedReturns.filter(id => id !== change.id))} />{t(`returnStatus_${change.status}`)}</label>
-                  <p><strong>{t("returnBefore")}</strong></p><p><del>{change.before || "∅"}</del></p>
-                  <p><strong>{t("returnAfter")}</strong></p><p><ins>{change.after || "∅"}</ins></p>
-                  {change.diagnostic && <p>{change.diagnostic}</p>}
-                </article>)}
-                <button disabled={busy || !selectedReturns.length || selectedReturns.length > 100 || returnedComparison.currentRevision !== paper.revision}
-                  onClick={() => void run({ action: "propose_return", requestId: crypto.randomUUID(), returnId: returnedComparison.returnId,
-                    mappings: returnedComparison.mappings, changeIds: selectedReturns, expectedRevision: returnedComparison.currentRevision, textOnly: true })}>{t("proposeReturn")}</button>
-                {returnedComparison.formatChanges.map(item => <p key={item.blockId}>{item.diagnostic}</p>)}
-                {returnedComparison.unCompared.map(item => <p key={item.blockId}>{item.diagnostic}</p>)}
-                {returnedComparison.unmapped.map(item => <p key={item.sourceIndex}>{item.diagnostic}: {item.text}</p>)}
-                {returnedComparison.missing.map(item => <p key={item.blockId}>{t("returnBefore")}: {item.text}</p>)}
-                <details><summary>{t("manualAlignment")}</summary>
-                  {returnedComparison.returnedParagraphs.map(paragraph => <label key={paragraph.sourceIndex}>{paragraph.text}
-                    <select value={returnMappings.find(item => item.sourceIndex === paragraph.sourceIndex)?.blockId ?? paragraph.blockId ?? ""}
-                      onChange={event => setReturnMappings([...returnMappings.filter(item => item.sourceIndex !== paragraph.sourceIndex),
-                        ...(event.target.value ? [{ sourceIndex: paragraph.sourceIndex, blockId: event.target.value }] : [])])}>
-                      <option value="">{t("chooseParagraph")}</option>
-                      {returnedComparison.sourceParagraphs.map(source => <option key={source.blockId} value={source.blockId}>{source.text.slice(0, 150)}</option>)}
-                    </select></label>)}
-                  <button disabled={busy} onClick={() => void run({ action: "compare_return", returnId: returnedComparison.returnId, mappings: returnMappings })}>{t("updateReturn")}</button>
-                </details>
-                {!!returnedComparison.comments.length && <h4>{t("returnComments")}</h4>}
-                {returnedComparison.comments.map(comment => <article key={comment.id}><p>{comment.text}</p>{comment.locations.map((location, index) => <blockquote key={index}>{location.quote}</blockquote>)}
-                  {comment.diagnostic && <p>{comment.diagnostic}</p>}
-                  {comment.state === "copied" ? <p>{t("copiedReturnComment")}</p> : <button disabled={busy || comment.state !== "ready" || returnedComparison.currentRevision !== paper.revision}
-                    onClick={() => void (async () => { if (await run({ action: "copy_return_comments", requestId: crypto.randomUUID(), returnId: returnedComparison.returnId,
-                      mappings: returnedComparison.mappings, commentIds: [comment.id], expectedRevision: returnedComparison.currentRevision, textOnly: true }))
-                      await run({ action: "compare_return", returnId: returnedComparison.returnId, mappings: returnedComparison.mappings }); })()}>{t("copyReturnComment")}</button>}
-                </article>)}
-              </section>}
-            </details>
-          </>
-        )}
+        <blockquote onClick={() => {
+          if (rootRecord?.state !== "current") return;
+          const source = rootRecord?.sources[0];
+          const target = rootRecord.effectiveTarget;
+          if (target.kind === "source" && source) setPicked({ kind: "source", value: source });
+          if (target.kind === "translation") setPicked({ kind: "translation", value: target.selection });
+          if (target.kind === "candidate_source") setPicked({ kind: "candidate_source", value: target.selection });
+          if (target.kind === "candidate_translation") setPicked({ kind: "candidate_translation", value: target.selection });
+        }}>{root.target.kind === "source" ? root.target.selections.map(source => source.quote).join(" … ") : root.target.selection.quote}</blockquote>
+        {entries.map(entry => {
+          const record = paper.feedback.find(item => item.id === entry.id);
+          const submitted = record?.submitted ?? false;
+          return <div key={entry.id} data-feedback-id={entry.id} tabIndex={-1}><CommentEditor draft={entry} record={record} locked={!!record && (submitted || !!rootRecord?.resolved) || submitting}
+            call={call} sessionId={sessionId} t={t} register={register} cache={cache.current} remove={removeComment} submitted={submitted} /></div>;
+        })}
+        {!rootRecord?.resolved && rootRecord && <Button size="sm" variant="outline" disabled={submitting} onClick={() => addComment(root.target, root.id)}>{t("replyComment")}</Button>}
+        {rootRecord && rootRecord.state !== "current" && <small>{t(rootRecord.state === "historical" ? "historicalDiscussion" : "changed")}</small>}
+      </aside>;
+    });
+  }
+  function candidateText(candidate: PaperView["candidates"][number]) {
+    const content = candidate.content;
+    if (!content || !paper) return null;
+    const groups: { sourceIndexes: number[]; translation?: (typeof content.translations)[number] }[] = content.translations.map(translation => ({ sourceIndexes: translation.sourceIndexes, translation }));
+    content.sourceBlocks.forEach((_, index) => {
+      if (!groups.some(group => group.sourceIndexes.includes(index))) groups.push({ sourceIndexes: [index] });
+    });
+    groups.sort((a, b) => Math.min(...a.sourceIndexes) - Math.min(...b.sourceIndexes));
+    return <section className="pw-candidate-text">{groups.map((group, groupIndex) => <div className="pw-pair" key={groupIndex}>
+      <div><small>{t("candidateRange")} · {t(`language_${paper.primaryLanguage}`)}</small>
+        {group.sourceIndexes.map(index => {
+          const block = content.sourceBlocks[index], key = candidateSourceKey(block.selection);
+          const selected = picked?.kind === "candidate_source" && candidateSourceKey(picked.value) === key ? picked.value : undefined;
+          const ranges = paper.feedback.flatMap(item => item.state === "current" && !item.resolved && item.target.kind === "candidate_source"
+            && candidateSourceKey(item.target.selection) === key ? [item.target.selection] : []);
+          return <div className="pw-source" data-candidate-source={key} key={key}><MarkedText text={block.text} ranges={ranges} from={selected?.from} to={selected?.to} />
+            {!block.text && <small>{t("emptyProposedText")}</small>}</div>;
+        })}
+      </div><div><small>{t("pairedTranslation")} · {t(`language_${paper.translationLanguage}`)}</small>
+        {group.translation ? (() => {
+          const translation = group.translation!, key = candidateTranslationKey(translation.selection);
+          const selected = picked?.kind === "candidate_translation" && candidateTranslationKey(picked.value) === key ? picked.value : undefined;
+          const ranges = paper.feedback.flatMap(item => item.state === "current" && !item.resolved && item.target.kind === "candidate_translation"
+            && candidateTranslationKey(item.target.selection) === key ? [item.target.selection] : []);
+          return <div className="pw-chinese" data-candidate-translation={key}><MarkedText text={translation.text} ranges={ranges} from={selected?.from} to={selected?.to} /></div>;
+        })() : <p className="pw-muted">{t("noCandidateTranslation")}</p>}
       </div>
-    </section>
-  );
+    </div>)}</section>;
+  }
+  function readingResult(reading: PaperView["readings"][number], compact = false, findings = reading.findings) {
+    const heading = <><span>{t("automaticReading")}</span><span className="pw-tag">{t(reading.status)}</span>
+      {reading.output && <span className="pw-muted">{t("findings")} {findings.length}</span>}</>;
+    const content = <>
+      {reading.diagnostic && <p className="pw-error">{reading.diagnostic}</p>}
+      {reading.output && <>
+        <p className="pw-muted">{t(reading.combinationMatches ? "reviewedCombination" : "historicalCombination")}</p>
+        {!compact && !reading.combinationMatches && <p>{t("combinationChanged")}</p>}
+        {!compact && reading.currentSourceReviewed && !reading.currentBodyReviewed && <p>{t("sourceEvidenceRetained")}</p>}
+        {!!reading.bilingualChanges.length && <details><summary>{t("bilingualChanged")}</summary>{reading.bilingualChanges.map(change => <div key={change.key}>
+          <p><del>{change.beforeText ?? ""}</del> <ins>{change.afterText ?? ""}</ins></p>
+          {!!change.sources.length && <Button size="sm" variant="outline" onClick={() => locate(change.sources.map(source => source.blockId))}>{t("locate")}</Button>}
+        </div>)}</details>}
+        {!compact && <details><summary>{t("interpretation")}</summary><p>{reading.output.interpretation.problem}</p><p>{reading.output.interpretation.mechanism}</p><p>{reading.output.interpretation.feedbackRole}</p></details>}
+        {findings.map((finding, index) => <details className="pw-finding" key={index}>
+          <summary><span className="pw-tag">{t(finding.kind)}</span><span className="pw-finding-title">{finding.issue}</span></summary>
+          {finding.locations.filter(location => location.quote).map((location, index) => <blockquote key={index}>
+            <small>{t(location.version === "candidate" ? "candidateBody" : "baselineBody")}</small><p>{location.quote}</p>
+          </blockquote>)}
+          <dl><dt>{t("impact")}</dt><dd>{finding.impact}</dd><dt>{t("evidence")}</dt><dd>{finding.evidence}</dd>
+            <dt>{t("suggestion")}</dt><dd>{finding.suggestion}</dd></dl>
+          {!!finding.sources.length && <Button size="sm" variant="outline" onClick={() => locate(finding.sources.map(source => source.blockId))}>{t("locate")}</Button>}
+          {!!finding.candidateIds.length && <Button size="sm" variant="outline" onClick={() => locate(finding.candidateIds, "candidate")}>{t("viewCandidate")}</Button>}
+        </details>)}
+        {!compact && <details><summary>{t("evidenceLimits")} · {reading.output.limits.length}</summary><ul>{reading.output.limits.map((limit, index) => <li key={index}>{limit}</li>)}</ul></details>}
+        {compact && <Button size="sm" variant="outline" onClick={() => setTab("readings")}>{t("allReadingDetails")} · {reading.output.limits.length}</Button>}
+      </>}
+      {!compact && <details><summary>{t("readingSource")}</summary><code>{reading.childId}</code></details>}
+      {(["queued", "running"].includes(reading.status)) && <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "cancel_reading", readingId: reading.id })}>{t("cancel")}</Button>}
+      {(["failed", "cancelled", "interrupted"].includes(reading.status)) && <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "retry_reading", requestId: crypto.randomUUID(), readingId: reading.id })}>{t("retryReading")}</Button>}
+    </>;
+    return compact ? <details className="pw-review pw-review-compact" key={reading.id}><summary>{heading}</summary>{content}</details>
+      : <section className="pw-review" key={reading.id}><h3 className="pw-actions">{heading}</h3>{content}</section>;
+  }
+  return <section className="paper-workbench" aria-label={t("title")}>
+    <style>{`
+.paper-workbench{height:100%;min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden;container-type:inline-size;font-family:var(--dsw-font-family,inherit);font-size:14px;line-height:1.65;color:var(--dsw-alias-label-primary,inherit);--pw-line:var(--dsw-alias-border-l2,color-mix(in srgb,currentColor 16%,transparent));--pw-soft:var(--dsw-alias-bg-layer-1,color-mix(in srgb,currentColor 4%,transparent));--pw-muted:var(--dsw-alias-label-secondary,currentColor);--pw-accent:var(--dsw-static-deepseek-500,currentColor)}
+.paper-workbench *{box-sizing:border-box;min-width:0}
+.paper-workbench button{font-family:inherit;white-space:normal;max-width:100%;height:auto;min-height:28px}
+.paper-workbench textarea,.paper-workbench select{font:inherit;color:inherit;background:var(--dsw-alias-bg-base,transparent);border:1px solid var(--pw-line);border-radius:var(--dsw-radius-sm,8px);padding:8px 10px;max-width:100%}
+.paper-workbench textarea{width:100%;min-height:90px;resize:vertical;line-height:1.65}
+.paper-workbench button:focus-visible,.paper-workbench textarea:focus-visible,.paper-workbench [tabindex="-1"]:focus-visible{outline:2px solid var(--pw-accent);outline-offset:3px}
+.paper-workbench h2{font-size:17px;line-height:1.45;margin:0;overflow-wrap:anywhere}
+.paper-workbench h3{font-size:14px;line-height:1.5;margin:12px 0 8px}
+.paper-workbench p{margin:8px 0 12px}
+.paper-workbench small{font-size:12px;color:var(--pw-muted)}
+.paper-workbench summary{cursor:pointer;line-height:1.6;overflow-wrap:anywhere}
+.paper-workbench code{white-space:pre-wrap;overflow-wrap:anywhere}
+.pw-head{flex:none;padding:16px;border-bottom:1px solid var(--pw-line);background:var(--dsw-alias-bg-module-platform,transparent)}
+.pw-scroll{overflow:auto;overscroll-behavior:contain;flex:1;min-height:0;padding:16px}
+.pw-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.pw-connection{justify-content:space-between;margin:4px 0 10px}
+.pw-connection-detail{font-size:12px;color:var(--pw-muted);margin:8px 0}
+.pw-connection-detail p{max-height:10rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.pw-tabs{margin:12px 0;overflow-x:auto}
+.pw-tab-list{min-width:max-content}
+.pw-tabs button{white-space:nowrap}
+.pw-submit-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
+.pw-selection-bar{border-top:1px solid var(--pw-line);padding-top:8px;margin-top:10px}
+.pw-selection-bar>small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.paper-workbench article,.pw-archived{border:1px solid var(--pw-line);border-radius:var(--dsw-radius-lg,12px);padding:16px;margin:0 0 20px;overflow-wrap:anywhere}
+.pw-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:24px}
+.pw-source,.pw-chinese{font-size:16px;line-height:1.85;white-space:pre-wrap;overflow-wrap:anywhere}
+.pw-source{margin:8px 0 16px}
+.pw-muted{color:var(--pw-muted);font-size:12px}
+.pw-error{border:1px solid var(--dsw-static-red-500,currentColor);border-radius:8px;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.pw-comment{border-left:3px solid var(--pw-accent);background:var(--pw-soft);border-radius:0 8px 8px 0;padding:12px;margin:16px 0 0}
+.pw-comment .pw-actions{justify-content:space-between;margin-top:0}
+.pw-comment-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75}
+.pw-resolved{color:var(--pw-muted)}
+.paper-workbench blockquote{border-left:2px solid var(--pw-line);padding-left:12px;margin:12px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.pw-comment blockquote{font-size:13px;max-height:12em;overflow:auto}
+.paper-workbench mark{background:var(--dsw-alias-bg-document-selection,#d9bd624d);color:inherit;border-radius:2px}
+.pw-diff{font-size:15px;line-height:1.85;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0}
+.paper-workbench ins{background:var(--dsw-static-green-500-a12,#66b88922);text-decoration:underline;text-underline-offset:3px;box-decoration-break:clone}
+.paper-workbench del{background:var(--dsw-static-red-400-a12,#ce686822);text-decoration:line-through;box-decoration-break:clone}
+.pw-tag{display:inline-block;font-size:11px;font-weight:500;line-height:1.7;border:1px solid var(--pw-line);border-radius:5px;padding:1px 6px;white-space:nowrap;vertical-align:middle}
+.pw-reason{color:var(--pw-muted);font-size:13px;margin:8px 0 16px}
+.pw-change,.pw-translation{margin:16px 0}
+.pw-candidate-text>.pw-pair{border-top:1px solid var(--pw-line);padding-top:16px;margin-top:16px}
+.pw-translation{border-top:1px solid var(--pw-line);padding-top:8px}
+.pw-unchanged{font-size:13px;color:var(--pw-muted);margin:8px 0;white-space:normal}
+.pw-unchanged>span{white-space:pre-wrap}
+.pw-review{border:1px solid var(--pw-line);border-radius:8px;background:var(--pw-soft);padding:12px;margin:16px 0}
+.pw-review-compact>summary>.pw-tag,.pw-review-compact>summary>.pw-muted{margin-left:8px}
+.pw-review>h3{margin-top:0}
+.pw-finding{border-top:1px solid var(--pw-line);padding:12px 0}
+.pw-finding-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:6px 0 0;line-height:1.7;font-weight:500}
+.pw-finding[open] .pw-finding-title{-webkit-line-clamp:unset}
+.pw-finding dt{font-size:12px;color:var(--pw-muted);font-weight:600;margin-top:12px}
+.pw-finding dd{margin:4px 0 12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.pw-finding blockquote{font-size:13px}
+.pw-review li{margin:8px 0;overflow-wrap:anywhere}
+.pw-archived{color:var(--pw-muted)}
+.pw-archived[open]{color:inherit}
+.pw-notices{font-size:12px;color:var(--pw-muted);margin-bottom:16px}
+@container (max-width:420px){.pw-head,.pw-scroll{padding:12px}.paper-workbench article,.pw-archived{padding:12px}.pw-tabs{max-width:100%}.pw-submit-bar{align-items:flex-start}.pw-source,.pw-chinese{font-size:15px}.pw-actions{gap:6px}}
+`}</style>
+    <header className="pw-head"><h2>{paper?.name ?? view?.reading?.paper.name ?? t("title")}</h2>
+      <div className="pw-actions pw-connection"><small role="status">{t(connection)}</small>
+        {connection === "live" && <Button size="sm" variant="toolbar" onClick={() => setRefresh(value => value + 1)}>{t("refresh")}</Button>}
+        {(busy || submitting) && <Button size="sm" variant="outline" onClick={() => {
+          controller.current?.abort(); submittingController.current?.abort(); setSubmitting(false);
+        }}>{t("cancel")}</Button>}
+      </div>
+      <ConnectionIndicator state={connection === "live" ? undefined : connection === "loading" ? "connecting" : "disconnected"}
+        disconnectedLabel={t("offline")} connectingLabel={t(view ? "reconnecting" : "loading")} recoveredLabel={t("live")}
+        reconnectActionLabel={t("refresh")} restartActionLabel={t("refresh")} onReconnect={() => setRefresh(value => value + 1)} />
+      {connectionError && <details className="pw-connection-detail"><summary>{t("connectionDetails")}</summary><p>{connectionError}</p></details>}
+      {paper && <div className="pw-tabs" ref={tabScroll}><SegmentedTabs size="sm" className="pw-tab-list" label={t("title")} value={tab} onChange={setTab}
+        items={tabs.map(key => ({ value: key, id: `${panelId}-${key}-tab`, panelId: `${panelId}-${key}-panel`,
+          label: <>{t(key)}{key === "proposals" ? ` ${pending.length}` : key === "feedback" ? ` ${paper.feedback.filter(item => !item.replyTo).length}` : ""}</>,
+        })) as [SegmentedTab<WorkbenchTab>, ...SegmentedTab<WorkbenchTab>[]]} /></div>}
+      {!!paper && <div className="pw-submit-bar"><small>{t("readyComments")} · {round.length}</small>
+        <Button size="sm" variant="primary" disabled={busy || submitting || !round.length} onClick={() => void submitRound()}>{t(submitting ? "submittingRound" : "submitRound")}</Button></div>}
+      {picked && <div className="pw-selection-bar"><small>{picked.value.quote}</small><div className="pw-actions">
+        <Button size="sm" variant="outline" disabled={submitting} onClick={() => addComment(pickedTarget(picked))}>{t("addComment")}</Button>
+        <Button size="sm" variant="toolbar" onClick={() => { setPicked(undefined); setCorrection(undefined); }}>{t("clearSelection")}</Button>
+      </div></div>}
+    </header>
+    <div className="pw-scroll" ref={body}>
+      {error && <p className="pw-error" role="alert">{error}</p>}
+      {!!operationWarnings.length && <section className="pw-notices" role="status"><h3>{t("deliveryNotes")}</h3>{operationWarnings.map((warning, index) => <p key={index}>{warning}</p>)}{warningLinks(operationCommentWarningIds)}</section>}
+      {view?.reading && <FrozenReading packet={view.reading} t={t} />}
+      {view && !paper && !view.reading && <><h3>{t("empty")}</h3><p>{t("chatDocumentInput")}</p><p className="pw-muted">{t("scope")}</p></>}
+      {paper && <>
+        {!!paper.warnings.length && <details className="pw-notices"><summary>{t("notices")} · {paper.warnings.length}</summary>{paper.warnings.map((warning, index) => <p className="pw-muted" key={index}>{warning}</p>)}</details>}
+        {paper.wordExportNeedsRestore && <p className="pw-error">{t("restoreBeforeExport")}</p>}
+        <div id={`${panelId}-reading-panel`} role="tabpanel" aria-labelledby={`${panelId}-reading-tab`} hidden={tab !== "reading"} onMouseUp={capture} onKeyUp={capture}>
+          <p className="pw-muted">{t("selectForComment")}</p>
+          {pendingDraft && <article><p>{t("pendingDraft")}</p><Button size="sm" variant="outline" onClick={() => setTab("proposals")}>{t("proposals")} · {pending.length}</Button></article>}
+          {paper.readings.filter(reading => reading.findings.some(finding => !finding.sources.length)).map(reading => <section key={reading.id}>
+            <small className="pw-muted">{t("unlocatedFindings")}</small>{readingResult(reading, true, reading.findings.filter(finding => !finding.sources.length))}
+          </section>)}
+          {(pendingDraft ? [] : paper.blocks).map(block => {
+            const sourceSelection = picked?.kind === "source" && picked.value.blockId === block.id ? picked.value : undefined;
+            const commentRanges = paper.feedback.filter(item => !item.replyTo && !item.resolved && item.state === "current" && item.effectiveTarget.kind === "source")
+              .flatMap(item => item.sources.filter(source => source.blockId === block.id));
+            const selectedTranslation = picked?.kind === "translation" ? paper.translations.find(item => item.id === picked.value.translationId && item.mappedSources.some(source => source.blockId === block.id)) : undefined;
+            const chosen = !!sourceSelection || !!selectedTranslation;
+            let offset = 0;
+            return <article key={block.id} data-source-card={block.id} tabIndex={-1}>
+              <div className="pw-pair"><div><small>{t("source")} · {t(`language_${paper.primaryLanguage}`)}</small>
+                <div className="pw-source" data-paper-block={block.id}>{block.editable ? block.runs.map((run, index) => {
+                  const start = offset; offset += run.text.length;
+                  return <span key={index} style={{ fontWeight: run.marks.includes("bold") ? 700 : undefined, fontStyle: run.marks.includes("italic") ? "italic" : undefined }}><MarkedText text={run.text} from={sourceSelection && sourceSelection.from - start} to={sourceSelection && sourceSelection.to - start}
+                    ranges={commentRanges.map(range => ({ from: range.from - start, to: range.to - start }))} /></span>;
+                }) : block.text}</div>
+                {!block.editable && <small>{t("unsupported")}: {block.reason}</small>}
+              </div><div><small>{t("translation")} · {t(`language_${paper.translationLanguage}`)}</small>
+                {paper.translations.filter(translation => translation.state !== "superseded" && (translation.state === "current" ? translation.mappedSources : translation.sources)[0]?.blockId === block.id).map(translation => <div key={translation.id} className={translation.state === "stale" ? "pw-muted" : ""}>
+                  <small>{t(translation.state)}</small><div className="pw-chinese" data-translation={translation.id}><MarkedText text={translation.text}
+                    ranges={paper.feedback.flatMap(item => !item.replyTo && !item.resolved && item.state === "current" && item.effectiveTarget.kind === "translation"
+                      && item.effectiveTarget.selection.translationId === translation.id && item.effectiveTarget.selection.version === translation.version ? [item.effectiveTarget.selection] : [])}
+                    from={picked?.kind === "translation" && picked.value.translationId === translation.id ? picked.value.from : undefined}
+                    to={picked?.kind === "translation" && picked.value.translationId === translation.id ? picked.value.to : undefined} /></div></div>)}
+                {!paper.translations.some(translation => translation.state === "current" && translation.mappedSources.some(source => source.blockId === block.id)) && <p className="pw-muted">{t("translationInConversation")}</p>}
+              </div></div>
+              {chosen && picked?.kind === "translation" && <div className="pw-actions"><Button size="sm" variant="outline" onClick={() => setCorrection(picked.value.quote)}>{t("correction")}</Button></div>}
+              {chosen && correction !== undefined && picked?.kind === "translation" && <section><textarea aria-label={t("correction")} value={correction} onChange={event => setCorrection(event.target.value)} />
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => void (async () => { if (await run({ action: "correct_translation", selection: picked.value, replacement: correction })) { setCorrection(undefined); setPicked(undefined); } })()}>{t("correct")}</Button></section>}
+              {threads(block.id)}
+              {paper.readings.filter(reading => reading.findings.some(finding => finding.sources.some(source => source.blockId === block.id)))
+                .map(reading => readingResult(reading, true, reading.findings.filter(finding => finding.sources.some(source => source.blockId === block.id))))}
+            </article>;
+          })}
+        </div>
+        {tab === "proposals" && <section id={`${panelId}-proposals-panel`} role="tabpanel" aria-labelledby={`${panelId}-proposals-tab`} onMouseUp={capture} onKeyUp={capture}>
+          <p className="pw-muted">{t("automaticReadingNotice")}</p>
+          <div className="pw-actions"><Button size="sm" variant="outline" disabled={busy || !pending.length} onClick={() => void run({ action: "preview", candidateIds: "all" })}>{t("previewAll")}</Button>
+            <Button size="sm" variant="outline" disabled={busy || !selected.length} onClick={() => void run({ action: "preview", candidateIds: selected })}>{t("previewSelected")}</Button>
+            <Button size="sm" variant="outline" disabled={busy || !selected.length} onClick={() => void run({ action: "decide", candidateIds: selected, decision: "rejected", expectedRevision: paper.revision })}>{t("rejectSelected")}</Button>
+            <Button size="sm" variant="outline" disabled={busy || !pending.length} onClick={() => void run({ action: "decide", candidateIds: pending.map(item => item.id), decision: "rejected", expectedRevision: paper.revision })}>{t("rejectAll")}</Button></div>
+          {preview && <section className="pw-review"><h3>{t("preview")}</h3><p>{t("copiedScope")} · {preview.candidateIds.length}</p>
+            {preview.conflicts.map(item => <p key={item.candidateId}>{item.message}</p>)}
+            {!!preview.includedDependencies.length && <p>{t("dependencies")} · {preview.includedDependencies.length}</p>}
+            <Button size="sm" variant="outline" disabled={busy || !preview.candidateIds.length || preview.revision !== paper.revision} onClick={() => void (async () => { if (await run({ action: "decide", candidateIds: preview.candidateIds, decision: "accepted", expectedRevision: preview.revision })) { setPreview(undefined); setSelected([]); } })()}>{t("acceptScope")}</Button></section>}
+          {!paper.candidates.length && <p>{t("noChanges")}</p>}
+          {[...paper.candidates].reverse().map(candidate => {
+            const content = <><div className="pw-actions">
+            {candidate.status === "pending" && <input type="checkbox" aria-label={candidate.reason} checked={selected.includes(candidate.id)} onChange={event => setSelected(ids => event.target.checked ? [...ids, candidate.id] : ids.filter(id => id !== candidate.id))} />}
+            <span className="pw-tag">{t(candidate.status)}</span><h3>{t("proposal")}</h3></div>
+            <details className="pw-reason"><summary>{t("proposalReason")}</summary><p>{candidate.reason}</p></details>
+            {candidate.writingTurnComparison && <section className="pw-change"><h3>{t("writingTurnDiff")}</h3><Diff parts={candidate.writingTurnComparison.diff} collapseEqual={t("unchangedText")} /></section>}
+            {candidate.writingTurnComparisonIssue && <div className="pw-notices"><p>{t("writingTurnComparisonUnavailable")}</p><details><summary>{t("evidence")}</summary><p>{candidate.writingTurnComparisonIssue}</p></details></div>}
+            {candidate.proposalDiff && <details className="pw-change" open={!candidate.writingTurnComparison}><summary>{t("previousProposalDiff")}</summary><Diff parts={candidate.proposalDiff} collapseEqual={t("unchangedText")} /></details>}
+            {candidate.proposalComparisonIssue && <div className="pw-notices"><p>{t("candidateComparisonUnavailable")}</p><details><summary>{t("evidence")}</summary><p>{candidate.proposalComparisonIssue}</p></details></div>}
+            <details className="pw-change" open={!candidate.proposalDiff && !candidate.content}><summary>{t("acceptedSourceDiff")}</summary>
+              {candidate.diffs.map((parts, index) => <Diff parts={parts} key={index} />)}
+            </details>
+            {candidateText(candidate)}
+            {!candidate.content && !!candidate.translations.length && <section className="pw-translation"><h3>{t("pairedTranslation")} · {t(`language_${paper.translationLanguage}`)}</h3>
+              {candidate.translations.map((translation, index) => <p className="pw-chinese" key={index}>{translation.text}</p>)}
+            </section>}
+            {threads(undefined, candidate.id)}
+            {candidate.conflict && <p className="pw-error">{candidate.conflict}</p>}
+            {candidate.currentSelections.some(source => source.quote) && <Button size="sm" variant="outline" onClick={() => locate(candidate.currentSelections.map(source => source.blockId))}>{t("locate")}</Button>}
+            {candidate.status === "pending" && <div className="pw-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "preview", candidateIds: [candidate.id] })}>{t("preview")}</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "decide", candidateIds: [candidate.id], decision: "rejected", expectedRevision: paper.revision })}>{t("reject")}</Button></div>}
+            {candidate.revisedBy && <Button size="sm" variant="outline" onClick={() => locate([candidate.revisedBy!], "candidate")}>{t("revisedProposal")}</Button>}
+            {paper.readings.filter(reading => reading.candidateIds.includes(candidate.id)).map(reading => readingResult(reading, true,
+              reading.findings.filter(finding => finding.candidateIds.includes(candidate.id)
+                || !finding.candidateIds.length && finding.sources.some(source => candidate.currentSelections.some(selection => selection.blockId === source.blockId))))) }
+            </>;
+            return candidate.status === "superseded"
+              ? <details key={candidate.id} className="pw-archived" data-candidate={candidate.id} tabIndex={-1}><summary>{t("previousProposals")} · {t(candidate.status)}</summary>{content}</details>
+              : <article className="pw-candidate" key={candidate.id} data-candidate={candidate.id} tabIndex={-1}>{content}</article>;
+          })}
+        </section>}
+        {tab === "feedback" && <section id={`${panelId}-feedback-panel`} role="tabpanel" aria-labelledby={`${panelId}-feedback-tab`}>
+          <p>{t("commentsInDocument")}</p><p className="pw-muted">{t("savedDiscussions")} · {paper.feedback.filter(item => !item.replyTo).length} / {t("readyComments")} · {round.length}</p>
+          {paper.feedback.filter(item => !item.replyTo).map(item => <article key={item.id}><blockquote>{item.target.kind === "source" ? item.target.selections.map(source => source.quote).join(" … ") : item.target.selection.quote}</blockquote><p>{item.comment}</p><small>{t(item.resolved ? "resolvedComment" : item.state === "current" ? "comment" : item.state)}</small>
+            {paper.feedback.filter(reply => reply.replyTo === item.id).map(reply => <blockquote key={reply.id}>{reply.comment}</blockquote>)}
+            <Button size="sm" variant="outline" onClick={() => locateFeedback(item.id)}>{t("locate")}</Button></article>)}
+          {paper.batches.filter(batch => batch.delivery !== "sent").map(batch => <article key={batch.id}>{batch.error && <p className="pw-error">{batch.error}</p>}<Button size="sm" variant="outline" disabled={busy || submitting} onClick={() => void submitRound(batch)}>{t("retryRound")}</Button></article>)}
+        </section>}
+        {tab === "readings" && <section id={`${panelId}-readings-panel`} role="tabpanel" aria-labelledby={`${panelId}-readings-tab`}><p className="pw-muted">{t("automaticReadingNotice")}</p>{!paper.readings.length && <p>{t("noReadings")}</p>}{[...paper.readings].reverse().map(reading => readingResult(reading))}</section>}
+        {tab === "history" && <section id={`${panelId}-history-panel`} role="tabpanel" aria-labelledby={`${panelId}-history-tab`}>
+          <div className="pw-actions"><select aria-label={t("exportVariant")} value={variant} onChange={event => setVariant(event.target.value as typeof variant)}>{(["clean", "tracked", "bilingual"] as const).map(item => <option key={item} value={item}>{t(({ clean: "cleanCopy", tracked: "trackedCopy", bilingual: "bilingualCopy" } as const)[item])}</option>)}</select>
+            <select aria-label={t("exportFormat")} value={format} onChange={event => setFormat(event.target.value as typeof format)}><option value="docx">Word</option><option value="pdf">PDF</option></select>
+            <Button size="sm" variant="outline" disabled={busy || paper.wordExportNeedsRestore} onClick={() => void run({ action: "export", requestId: crypto.randomUUID(), variant, format, includeReasons: true, expectedRevision: paper.revision, baselineRevision: paper.comparisonRevision })}>{t("exportFile")}</Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "download_source" })}>{t("originalSource")}</Button></div>
+          {format === "pdf" && <p className="pw-muted">{t("pdfCopy")}</p>}
+          {paper.sourceResources.map(resource => <p key={resource.path}><Button size="sm" variant="outline" onClick={() => void run({ action: "download_source", resourcePath: resource.path })}>{resource.path}</Button></p>)}
+          <p className="pw-muted">{t("returnInConversation")}</p>
+          {paper.documentReturns.map(returned => <article key={returned.id}><strong>{returned.name}</strong>{returned.warnings.map((warning, index) => <p key={index}>{warning}</p>)}<Button size="sm" variant="outline" onClick={() => void run({ action: "download_return", returnId: returned.id })}>{t("originalSource")}</Button></article>)}
+          {paper.documentDeliveries.map(delivery => <article key={delivery.id}><Button size="sm" variant="outline" onClick={() => void run({ action: "download_delivery", deliveryId: delivery.id })}>{delivery.name}</Button>
+            {!!delivery.warnings.length && <details><summary>{t("deliveryNotes")} · {delivery.warnings.length}</summary>{delivery.warnings.map((warning, index) => <p key={index}>{warning}</p>)}{warningLinks(delivery.commentWarningIds)}</details>}
+          </article>)}
+          <article><p>{t("originalSource")} · {t("revision")} 0</p><div className="pw-actions">
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "compare", revision: 0 })}>{t("compareOriginal")}</Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "set_baseline", revision: 0, expectedRevision: paper.revision })}>{t("useComparisonBaseline")}</Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "restore", revision: 0, expectedRevision: paper.revision })}>{t("restore")}</Button>
+          </div></article>
+          {paper.history.map(entry => <article key={entry.revision}><p>{t(entry.kind)} · {t("revision")} {entry.revision}</p>
+            <div className="pw-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "compare", revision: entry.revision })}>{t("compare")}</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "set_baseline", revision: entry.revision, expectedRevision: paper.revision })}>{t("useComparisonBaseline")}</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "restore", revision: entry.revision, expectedRevision: paper.revision })}>{t("restore")}</Button></div></article>)}
+          {paper.decisions.filter(decision => decision.decision !== "undone").map(decision => <p key={decision.id}><Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "undo", decisionId: decision.id, expectedRevision: paper.revision })}>{t("undo")} · {decision.candidateIds.length}</Button></p>)}
+          {comparison?.blocks.map(block => <article key={block.id}><Diff parts={block.diff} /></article>)}
+          <details><summary>{t("pdfFonts")}</summary><Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "pdf_font_settings" })}>{t("refresh")}</Button>
+            <p>{t("fontShared")}</p><p className="pw-muted">{t("fontNotes")}</p>
+            {pdfFonts?.diagnostic && <p className="pw-error">{pdfFonts.diagnostic}</p>}
+            {pdfFonts?.canEdit && <><textarea aria-label={t("fontFolders")} value={fontFolders} onChange={event => setFontFolders(event.target.value)} />
+              <div className="pw-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "configure_pdf_fonts", directories: fontFolders.split(/\r?\n/).filter(path => !!path.trim()), expectedDirectories: pdfFonts.directories, sharedPreviews: true })}>{t("fontApply")}</Button>
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => void run({ action: "configure_pdf_fonts", directories: null, expectedDirectories: pdfFonts.directories, sharedPreviews: true })}>{t("fontAutomatic")}</Button></div>
+              <p className="pw-muted">{t("fontReadAgain")}</p></>}
+          </details>
+        </section>}
+      </>}
+    </div>
+  </section>;
 }
+
 
 export async function apply(ctx: Context) {
   ctx.effect(() => ctx.locale.register("paperWorkbench", { en, zh }));
@@ -1738,6 +1074,35 @@ export async function apply(ctx: Context) {
       ))
         yield state as View;
     }
+    scope.inject(["sidebarRight"], navigation => {
+      navigation.effect(() => {
+        let active: AbortController | undefined;
+        const selected = () => {
+          active?.abort();
+          const sessionId = navigation.sidebarRight.mounted.getSnapshot();
+          if (!sessionId) return;
+          const controller = new AbortController(); active = controller;
+          void (async () => {
+            let initialized = false, previous: string | undefined;
+            try {
+              for await (const state of observe(sessionId, controller.signal)) {
+                const paperId = state.paper?.id;
+                if (initialized && paperId && paperId !== previous) requestAnimationFrame(() => {
+                  if (!controller.signal.aborted && navigation.sidebarRight.mounted.getSnapshot() === sessionId)
+                    navigation.sidebarRight.openTab("paper-workbench");
+                });
+                previous = paperId; initialized = true;
+              }
+            } catch {
+              if (!controller.signal.aborted) console.warn("Paper workbench link observation stopped. Reopen the task to reconnect.");
+            }
+          })();
+        };
+        const unsubscribe = navigation.sidebarRight.mounted.subscribe(selected);
+        selected();
+        return () => { unsubscribe(); active?.abort(); };
+      });
+    });
     scope.effect(() =>
       scope.slots.inject("sidebar.right.pane.tab", () =>
         scope.slots.register(

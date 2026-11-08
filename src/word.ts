@@ -1,6 +1,6 @@
 import { Mark, type Node as PMNode } from "prosemirror-model";
 import { Mapping, Step, Transform } from "prosemirror-transform";
-import { documentAt, documentMapping, mapSelection, needsExplicitRestore, schema, type Paper } from "./model.js";
+import { documentAt, documentMapping, mapSelection, needsExplicitRestore, schema, feedbackLocation, type Paper } from "./model.js";
 import type { Selection } from "./contracts.js";
 
 export type ParagraphSource = { blockId: string; sourceIndex: number | null; heading: string | null };
@@ -204,6 +204,7 @@ export function wordComments(paper: Paper, baselineRevision: number, revision: n
   const comments: { blockIds: string[]; text?: string; nativeId?: string; selections?: { blockId: string; from: number; to: number }[] }[] = includeReasons
     ? reasons.map(reason => ({ blockIds: [reason.blockId], text: reason.text })) : [];
   const native = paper.feedback.filter(item => item.wordCommentId !== undefined || item.returnComment !== undefined);
+  const commentWarningIds: string[] = [];
   let linked: ReturnType<typeof wordReasons>["reasons"] | undefined;
   const order = new Map<string, number>();
   documentAt(scoped, revision).forEach((node, position) => order.set(node.attrs.id, position));
@@ -228,5 +229,24 @@ export function wordComments(paper: Paper, baselineRevision: number, revision: n
       ...(precise ? { selections: selections.sort((a, b) => order.get(a.blockId)! - order.get(b.blockId)! || a.from - b.from).map(({ blockId, from, to }) => ({ blockId, from, to })) } : {}),
     });
   }
-  return { comments, warnings: [...new Set(warnings)] };
+  for (const feedback of paper.feedback) {
+    const target = feedback.target;
+    if (target.kind !== "candidate_source" && target.kind !== "candidate_translation") continue;
+    const location = feedbackLocation(scoped, feedback);
+    if (!feedback.acceptedAnchor || location.state !== "current" || !location.sources.length) {
+      warnings.push(`Candidate comment ${feedback.id} remains at its historical proposal range in the workbench; no current document anchor is asserted.`);
+      commentWarningIds.push(feedback.id);
+      continue;
+    }
+    const translation = target.kind === "candidate_translation";
+    comments.push({ text: translation ? `${target.selection.quote}\n\n${feedback.comment}` : feedback.comment,
+      blockIds: [...new Set(location.sources.map(source => source.blockId))],
+      selections: location.sources.map(({ blockId, from, to }) => ({ blockId, from, to })),
+    });
+    if (translation) {
+      warnings.push(`Candidate translation comment ${feedback.id} is attached to its complete aligned primary-source group; its exact translated quote is retained in the comment.`);
+      commentWarningIds.push(feedback.id);
+    }
+  }
+  return { comments, warnings: [...new Set(warnings)], commentWarningIds };
 }

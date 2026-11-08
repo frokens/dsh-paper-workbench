@@ -9,6 +9,10 @@ export const selectionSchema = z.object({
   quote: z.string(),
 });
 export type Selection = z.infer<typeof selectionSchema>;
+export const paperLanguageSchema = z.enum(["en", "zh"]);
+export type PaperLanguage = z.infer<typeof paperLanguageSchema>;
+export const translationLanguageFor = (primary: PaperLanguage): PaperLanguage => primary === "en" ? "zh" : "en";
+export const languageNameFor = (language: PaperLanguage) => language === "en" ? "English" : "Chinese";
 export const operationSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("replace"),
@@ -76,8 +80,10 @@ export const configurePdfFontsRequest = z.object({ action: z.literal("configure_
 });
 export const createRequest = z.object({
   action: z.literal("create"),
+  requestId: z.string().min(1).max(200),
   name: z.string().min(1).max(250),
   brief: z.string().max(20000),
+  primaryLanguage: paperLanguageSchema.default("en"),
 });
 export const readingRequest = z.object({
   action: z.literal("read_independently"),
@@ -92,14 +98,14 @@ export const readingOutputSchema = z.strictObject({
     problem: z.string(),
     mechanism: z.string(),
     feedbackRole: z.string(),
-  }),
+  }).describe("Use the conversation language of the actual user's directions/comment bodies, independently of manuscript language or English delivery templates. Preserve manuscript quotations in their original language."),
   findings: z.array(z.strictObject({
     kind: z.enum(["concern", "question"]),
     locations: z.array(z.strictObject({
-      version: z.enum(["baseline", "candidate"]),
-      blockId: z.string(),
-      quote: z.string(),
-    })),
+      version: z.enum(["baseline", "candidate"]).describe("Choose the frozen primary-language baselineBlocks or candidateBlocks, respectively. These are manuscript blocks, not translation records."),
+      blockId: z.string().describe("Copy the exact id from the chosen baselineBlocks/candidateBlocks. For a bilingual issue, anchor its corresponding primary-language block; retain the translation quotation in issue or evidence."),
+      quote: z.string().describe("An exact substring of that primary-language block's text, in its original language. Never put a translated quotation under a primary-language block id or invent a projected id."),
+    })).describe("Located primary-language manuscript evidence. Explain a translation issue and quote its translated wording in issue/evidence alongside a valid corresponding primary-language anchor."),
     candidateIds: z.array(z.string()),
     issue: z.string(),
     impact: z.string(),
@@ -109,7 +115,8 @@ export const readingOutputSchema = z.strictObject({
   limits: z.array(z.string()),
 });
 export const candidateTranslationSchema = z.object({
-  operationIndexes: z.array(z.number().int().nonnegative()).min(1).max(100),
+  operationIndexes: z.array(z.number().int().nonnegative()).min(1).max(100)
+    .describe("Translation sources are exactly these operations' resulting ranges, not inferred from the translated text. Choose a scope covering everything translated; the computed diff preserves unchanged replacement content."),
   paragraphIndexes: z.array(z.number().int().nonnegative()).min(1).max(100).optional(),
   text: z.string().min(1).max(100000),
 });
@@ -121,6 +128,8 @@ export const proposeRequest = z.object({
   feedbackIds: z.array(z.string()).max(100).default([]),
   dependsOn: z.array(z.string()).max(100).default([]),
   translations: z.array(candidateTranslationSchema).max(100).default([]),
+  revises: z.array(z.string()).min(1).max(100).optional()
+    .describe("Replace these exact still-pending candidates with this complete proposal, preserving their records and readings. Operations still select the accepted body, never projected paragraph IDs. Include affected dependent candidates together."),
 });
 export const translationSelectionSchema = z.object({
   translationId: z.string(),
@@ -129,15 +138,29 @@ export const translationSelectionSchema = z.object({
   to: z.number().int().nonnegative(),
   quote: z.string(),
 });
-export const feedbackTargetSchema = z.discriminatedUnion("kind", [
-  z.object({
+const sourceFeedbackTarget = z.object({
     kind: z.literal("source"),
     selections: z.array(selectionSchema).min(1).max(100),
-  }),
-  z.object({
+  });
+const translationFeedbackTarget = z.object({
     kind: z.literal("translation"),
     selection: translationSelectionSchema,
-  }),
+  });
+export const acceptedFeedbackTargetSchema = z.discriminatedUnion("kind", [sourceFeedbackTarget, translationFeedbackTarget]);
+const candidateRangeSchema = z.object({
+  candidateId: z.string(),
+  sourceRevision: z.number().int().nonnegative(),
+  from: z.number().int().nonnegative(), to: z.number().int().nonnegative(), quote: z.string(),
+});
+export const candidateSourceSelectionSchema = candidateRangeSchema.extend({
+  operationIndex: z.number().int().nonnegative(), paragraphIndex: z.number().int().nonnegative(),
+});
+export const candidateTranslationSelectionSchema = candidateRangeSchema.extend({ translationIndex: z.number().int().nonnegative() });
+export const feedbackTargetSchema = z.discriminatedUnion("kind", [
+  sourceFeedbackTarget,
+  translationFeedbackTarget,
+  z.object({ kind: z.literal("candidate_source"), selection: candidateSourceSelectionSchema }),
+  z.object({ kind: z.literal("candidate_translation"), selection: candidateTranslationSelectionSchema }),
 ]);
 export const completeTranslationRequest = z.object({
   action: z.literal("complete_translation"),
@@ -152,28 +175,52 @@ export const completeTranslationRequest = z.object({
     .min(1)
     .max(100),
 });
+export const importBytesRequest = z.object({
+  action: z.literal("import"), requestId: z.string().min(1).max(200),
+  name: z.string().min(1).max(250), base64: z.string().max(24_000_000),
+  format: sourceFormatSchema.default("docx"), primaryLanguage: paperLanguageSchema.default("en"),
+  resources: sourceResourcesSchema.default([]), revisionMode: z.enum(["accept", "reject"]).optional(),
+});
+export const importFileRequest = z.object({
+  action: z.literal("import"), requestId: z.string().min(1).max(200),
+  path: z.string().min(1).max(4000).describe("A readable DSH file path from a native attachment, @file, explicit user path, or a file downloaded with ordinary DSH tools. Never supply base64 or a URL here."),
+  name: z.string().min(1).max(250).optional(), format: sourceFormatSchema.optional(),
+  primaryLanguage: paperLanguageSchema.default("en"), revisionMode: z.enum(["accept", "reject"]).optional(),
+  resources: z.array(z.object({ path: sourceResourceSchema.shape.path, sourcePath: z.string().min(1).max(4000) })).max(256).default([]),
+});
+export const importReturnFileRequest = z.object({
+  action: z.literal("import_return"), requestId: z.string().min(1).max(200),
+  path: z.string().min(1).max(4000), name: z.string().min(1).max(250).optional(),
+  deliveryId: z.string().optional().describe("Use the exact embedded delivery when present. Without a unique marker, obtain the user's intended prior delivery in the native conversation; never guess a baseline."),
+  revisionMode: z.enum(["accept", "reject"]).optional(),
+});
+export const linkRequest = z.object({ action: z.literal("link"), paperId: z.string() });
+export const requestTranslationRequest = z.object({
+  action: z.literal("request_translation"), requestId: z.string().min(1).max(200),
+  sources: z.array(selectionSchema).min(1).max(100), replaces: z.array(z.string()).max(100).default([]),
+});
+export const saveFeedbackRequest = z.object({
+  action: z.literal("save_feedback"), id: z.string().uuid(), expectedVersion: z.number().int().nonnegative(),
+  target: feedbackTargetSchema, comment: z.string().min(1).max(10000), replyTo: z.string().optional(),
+});
 export const agentRequest = z.discriminatedUnion("action", [
   readRequest,
   createRequest,
-  readingRequest,
+  importFileRequest,
+  importReturnFileRequest,
+  linkRequest,
   proposeRequest,
+  requestTranslationRequest,
+  z.object({ action: z.literal("cancel_translation"), jobId: z.string() }),
   completeTranslationRequest,
+  compareReturnRequest,
+  proposeReturnRequest,
+  copyReturnCommentsRequest,
 ]);
 export const uiRequest = z.discriminatedUnion("action", [
   readRequest,
-  createRequest,
-  readingRequest,
   z.object({ action: z.literal("cancel_reading"), readingId: z.string() }),
-  proposeRequest,
-  z.object({
-    action: z.literal("import"),
-    name: z.string().min(1).max(250),
-    base64: z.string().max(24_000_000),
-    format: sourceFormatSchema.default("docx"),
-    resources: sourceResourcesSchema.default([]),
-    revisionMode: z.enum(["accept", "reject"]).optional(),
-  }),
-  z.object({ action: z.literal("link"), paperId: z.string() }),
+  z.object({ action: z.literal("retry_reading"), requestId: z.string().min(1).max(200), readingId: z.string() }),
   z.object({
     action: z.literal("preview"),
     candidateIds: z.union([
@@ -201,30 +248,17 @@ export const uiRequest = z.discriminatedUnion("action", [
     action: z.literal("compare"),
     revision: z.number().int().nonnegative(),
   }),
-  z.object({
-    action: z.literal("feedback"),
-    requestId: z.string().min(1).max(200),
-    target: feedbackTargetSchema,
-    comment: z.string().min(1).max(10000),
-  }),
+  saveFeedbackRequest,
+  z.object({ action: z.literal("delete_feedback"), id: z.string(), expectedVersion: z.number().int().positive() }),
+  z.object({ action: z.literal("resolve_feedback"), id: z.string(), expectedVersion: z.number().int().positive(), resolved: z.boolean() }),
   z.object({
     action: z.literal("submit_batch"),
     requestId: z.string().min(1).max(200),
     feedbackIds: z.array(z.string()).min(1).max(100),
+    feedbackVersions: z.array(z.object({ id: z.string(), version: z.number().int().positive() })).max(100).optional()
+      .describe("Required saved versions for a new round. Omit only to retry an existing older batch receipt without changing its original input."),
     direction: z.string().max(10000),
   }),
-  z.object({
-    action: z.literal("request_translation"),
-    requestId: z.string().min(1).max(200),
-    sources: z.array(selectionSchema).min(1).max(100),
-    replaces: z.array(z.string()).max(100).default([]),
-  }),
-  z.object({
-    action: z.literal("send"),
-    kind: z.enum(["batch", "translation"]),
-    id: z.string(),
-  }),
-  z.object({ action: z.literal("cancel_translation"), jobId: z.string() }),
   z.object({
     action: z.literal("correct_translation"),
     selection: translationSelectionSchema,
@@ -232,13 +266,8 @@ export const uiRequest = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("set_baseline"), revision: z.number().int().nonnegative(), expectedRevision: z.number().int().nonnegative() }),
   z.object({ action: z.literal("download_delivery"), deliveryId: z.string() }),
-  z.object({ action: z.literal("import_return"), requestId: z.string().min(1).max(200), deliveryId: z.string(),
-    name: z.string().min(1).max(250), base64: z.string().max(24_000_000), revisionMode: z.enum(["accept", "reject"]).optional() }),
   z.object({ action: z.literal("download_return"), returnId: z.string() }),
   z.object({ action: z.literal("download_source"), resourcePath: z.string().optional() }),
-  compareReturnRequest,
-  proposeReturnRequest,
-  copyReturnCommentsRequest,
   z.object({ action: z.literal("pdf_font_settings") }),
   configurePdfFontsRequest,
   documentExportRequest,

@@ -286,7 +286,7 @@ test("a bilingual DOCX inserts one current Chinese group after its complete Engl
   paper = completeTranslation(paper, { action: "complete_translation", jobId: paper.translationJobs[0].id,
     groups: [{ sourceIndexes: [0, 1], text: "规划者选择操作，执行者执行该操作。" }] });
   const output = engine({ action: "export", base64: paper.sourceBase64, tracked: false,
-    ...wordProjection(paper), bilingual: bilingualProjection(paper).groups });
+    ...wordProjection(paper), bilingual: bilingualProjection(paper).groups, translationLanguage: "zh" });
   const result = engine({ action: "inspect", base64: output.base64 });
   assert.deepEqual(result.blocks.map((block: { text: string }) => block.text), ["The Planner selects an action.", "The Worker executes the action.", "规划者选择操作，执行者执行该操作。"]);
   assert.equal(result.hasRevisions, false);

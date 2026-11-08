@@ -4,10 +4,31 @@ D's code and representative installed paths received bounded independent
 [six-direction acceptance at 8b82844](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
 Candidate packages have been installed and upgraded in an exterior disposable
 profile; configured PDF delivery, cancellation and same-profile restart have
-representative actual evidence. Actual Microsoft Word round trips, Desktop,
-the complete ordinary-task entry matrix, browser interaction with the font form,
-public Release installation and final UI acceptance remain open. This accepts a
+representative actual evidence. Later E checks added six actual Word accept/reject
+results and bounded Mac installation/sidebar/model observations, described below.
+Actual mentor return/comments and Word layout/defined styles remain unverified
+extension capabilities. Alpha2's representative native DOCX file loop and automatic
+reading received [bounded independent acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046).
+The complete ordinary-task entry matrix, font-form interaction and final UI remain open. This accepts a
 bounded code batch under the acceptance rules, not the complete D exit or A–E product.
+
+## Current required Word file scope
+
+The user narrowed this round to native main-conversation DOCX attachment/path input,
+the same backend, human confirmation of desired edits, and a real downloaded DOCX.
+Acceptance compares the actual original/output text and comments: original comment
+text and anchors remain locatable, actual changes have new comments or visible
+change explanations, the input original is preserved, and optional output properties
+are checked. A redistributable input/output pair with a short comparison is required;
+offline SDK/XML fixtures alone do not prove the native main-conversation path.
+
+Existing `w:ins` / `w:del`, clean/tracked/bilingual/PDF export and return owners are
+retained. No backend is added or removed for this scope change. Microsoft Word desktop
+automation, actual client accept/reject, SaveAs PDF, named styles/layout fidelity and
+complex E/R/P return/strict client round trips are extension checks. Their old missing
+evidence does not block this minimum file loop, and arbitrary layout fidelity is not
+promised. The representative loop below is accepted from actual files and native
+receipts, not from this documentation change alone.
 
 The current Word projection consumes the primary ProseMirror document and actual
 step/mirror history. Text and paragraph-mark revisions share one SDK export path;
@@ -84,6 +105,11 @@ offline first-install support. The plugin's own license has not
 been changed; an external-process boundary is not a legal compliance conclusion.
 
 PDF uses DSH's existing OfficeToPdf authorization/admission/read/converter lifecycle.
+Its own export and representative-page text, bilingual fonts, objects and pagination
+remain an independent acceptance exit. Existing applicable evidence below is reused;
+the Word scope change removes neither that capability nor its default-font limits.
+This PDF exit is separate from Word SaveAs PDF and adds no prerequisite to the
+current DOCX sample.
 The immutable export is generated only after shared admission. The caller cleans its
 owned result, including Info/XMP and optional generated annotation title/date fields;
 comment content, references and Widget field names retain their functional roles.
@@ -103,14 +129,14 @@ outside that block stay with their existing owner. Closing the draft form does n
 write; applying an unchanged choice does not reload. Paper actions join normal
 shutdown, while the global editor owns the admitted configuration action across a
 dependent Paper reload, avoiding a self-wait. Actual installed reload, PDF delivery,
-cancellation and same-profile graceful exit/restart have representative alpha.2
+cancellation and same-profile graceful exit/restart have representative D/0.4.0-alpha.2
 evidence: the cancelled request did not create a receipt, a new one-page bilingual
 reason PDF retained its missing-font warning, and the saved PDF was byte-identical
 after restart. Its optional Info/XMP and generated annotation properties were
 checked; the actual page was opened. This evidence covers the configured path and
 does not repair the default font-discovery failure.
 
-The alpha.2 source passed the complete 94 owner/SDK checks. The subsequent comment
+The D/0.4.0-alpha.2 source passed the complete 94 owner/SDK checks. The subsequent comment
 provenance correction and font failure-state presentation passed the 16 affected
 return/font checks and type checking, including unchanged-return and accepted-new-word
 source loss despite identical current text, grouped boundary edits, unrelated
@@ -120,9 +146,132 @@ inverse history, nonzero B, complete native formats, comments and source evidenc
 Managed-process intake covers retained Markdown/resources and joined cancellation.
 These checks are distinct from actual Word, installed Host/model and user acceptance.
 
-The frozen alpha.5 package remains bound to the reviewed code head 8b82844. The
+The frozen D/0.4.0-alpha.5 package remains bound to the reviewed code head 8b82844. The
 subsequent acceptance-status documentation does not regenerate that package or
 claim new SDK, model, PDF or installation execution. E continues the remaining
-functional and distribution work; the actual Word requirement stays open in D's
-complete exit and final acceptance. Final visual refinement follows functional
+functional and distribution work; D's original evidence alone did not close the
+current DOCX file requirement. The later E file evidence below does; strict Word
+client round trips remain extensions under the user's revised scope.
+Final visual refinement follows functional
 acceptance.
+
+## Current E prerelease consumers
+
+The [alpha1 test prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1)
+is fixed to implementation `46957f2`; later source/documentation does not replace its
+bytes. Its primary-language choice is retained through requests, pending candidates,
+frozen reading material and the existing export owner. English remains the default
+primary; explicitly choosing Chinese produces English projections. A translation
+wording correction changes only the projection, not confirmed primary text.
+
+Current source removes all document and mentor-return intake forms from the sidebar.
+The ordinary main Agent imports native attachment/@file/path references through
+DSH's bounded file service; links use the ordinary investigation/download tools
+first. `import_return` reads the actual embedded delivery marker, requires a unique
+matching primary-language DOCX receipt and asks in the conversation when the
+delivery or existing-revision choice is unresolved. It reuses the existing return
+record/comparison/proposal/comment owners. Human alignment remains explicit through
+that conversation; neither the Agent nor the automatic reader accepts a return.
+The historical [0.5.0-alpha.2 prerelease](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
+contains this entry, autosaved comments and system reading. Its archive is fixed to
+`bad9ddf`, independently [package-reviewed](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)
+and [downloaded/installed](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503).
+All 40 files and four live Skill paths matched; ten existing ordinary tasks, data
+and model defaults were preserved. A separate configured Web host was upgraded
+in the same process and retained its old Papers/bindings, with new installed-Host
+import logs. Neither route establishes a completely cold install or visible alpha2
+UI. Packaging-time status prose in the frozen archive is superseded by these
+Release/PR facts, not by regenerating the package or moving either tag.
+
+Version 0.5.0-alpha.3 adds pending-candidate comments to the existing feedback and
+delivery owners. Proven actual acceptance anchors reach the shared DOCX/PDF comment
+projection; translated comments retain their exact quote at the complete aligned
+primary group. Historical comments retain locatable delivery warnings. The source
+at `aa2c94a` received [independent engineering review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5814877675),
+including one new actual SDK DOCX fixture with exact second-duplicate ranges and
+blank optional properties. That fixture is not a native download, Word-client or
+PDF-converter check. Alpha3 distribution and native observations require their own
+exact package/version receipts; the older file and client evidence below retain
+their original identities.
+
+An actual alpha2 native path import completed current paragraph translations in
+the same turn. A controlled DOCX candidate adds only `observed `, with complete
+paired Chinese scope; one system fresh reader loaded the installed Skill and exact
+frozen material and saved a real structured result (one question, five limits).
+The question concerns the unprovided observation context, not a request to widen
+the controlled edit. Its limits remain; the reader is not a quality pass.
+After independent assessment, one explicitly authorized human decision accepted
+that exact candidate at revision 0→1. The existing export owner generated a tracked
+DOCX with actual reason comments, downloaded twice from one immutable receipt.
+The [independent file check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)
+verified the 1,752-byte original and 2,380-byte download: only `observed ` is added;
+the original comment text/heading range and a new actual-reason/result-sentence
+comment are valid, relationships and final optional properties checked, and repeat
+downloads identical. Input bytes, other paragraphs/translations and old Paper/
+binding rows are preserved. No additional model, reader, Word or PDF action occurred
+in this human/export phase. This closes the representative minimum file loop,
+not Word desktop/layout or full product acceptance.
+The earlier Markdown reader stopped after system sleep, a stream-idle timeout and
+observer cancellation without output. That original environment stop is not a
+demonstrated plugin performance timeout. Alpha1 and unsaved Word-return originals
+remain unchanged, and full visible interaction is still open.
+
+An installed alpha1 controlled path exercised Chinese primary text, English
+candidate projections, projection correction, content feedback and explicit human
+acceptance. Clean, tracked and bilingual DOCX plus a configured-font bilingual PDF
+were rendered and inspected; original input and immutable delivery retries matched.
+Those are SDK/Host/export observations, not Microsoft Word client actions.
+
+The [independent public-install check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6701853484)
+used the anonymously downloaded public attachment through native remove/install.
+All 40 installed files and four Skill paths matched; nine ordinary tasks, stored
+data, model defaults and the existing UI target were preserved. Cached dependencies
+were present. No model call, visible installer interaction, Word or Desktop action
+is inferred from that check. The current [support matrix](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/dsh-integration.md#4-支持矩阵)
+retains the remaining delivery and frontend gates. The later
+[Mac native observation](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
+verified the official plugin-page installation, an existing non-paper sidebar and
+a new draft/import/translation/candidate/fresh-reader path using the old forms and
+manual trigger. Its actual reader identified a translation-source coverage problem;
+the candidate stays pending and the original audit remains unchanged. This is not
+evidence for the current main-conversation input, autosave/one-submit or automatic
+trigger, nor for native accept/reject, restart or closed-sidebar auto-opening.
+
+## Retained actual Word results and extension limits
+
+The [independently checked Word16.105 window](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)
+produced six real accepted/rejected DOCX files from the teacher, paragraph
+split/merge and empty-to-three fixtures. Saved bytes matched their native action
+receipts. All six have the expected text/paragraph boundaries and no remaining
+revisions. The teacher and empty-to-three read-back format projections match.
+In the structure case, direct font families, color, size, indentation, line spacing,
+keepNext and bold survive; Word moves paragraph-after spacing and language to its
+defaults. Raw XML inequality alone is not format loss.
+
+The structure input has no styles.xml: its CustomBody name is an undefined
+reference. This fixture therefore provides no evidence for retaining or losing
+a real named style. Its original input and expected arrays remain unchanged.
+A separate one-style input with an actual style definition is prepared for the
+optional extension check; SDK/schema validation of that input is not Word acceptance.
+
+The teacher return was edited in Word memory, but its comment action failed and
+the return was not saved. A later native comment call lost its connection and
+Word's process exited. The exact cause is unresolved; this is not a confirmed
+plugin defect or a completed mentor-return test. This implementation task sent no
+reopen or recovery event and did not repeat the successful six files. A later
+read-only check found a new Word process; its cause and interactive health remain
+unknown. The native saved bytes and failed stages remain preserved.
+Application-filled raw properties stay with the audit originals; metadata-clean
+delivery derivatives remain a separate concern.
+
+The two Word-native layout PDFs were not executed after the stop. Word layout,
+real defined-style retention and the actual E/R/P return/comment path remain open
+extensions. These facts and the six successful files are retained unchanged; no
+Word rerun or further AppleScript adjustment is part of the narrowed file acceptance.
+The existing comments/return owner remains available for a genuinely saved return.
+The last Word document-connection inventory was empty. Neither that result nor
+the native window-control error establishes a system-permission fault or a
+verified repair. A future strict client extension needs an actually usable client
+and saved output. The current minimum instead checks actual DOCX input/download
+files, text/comment differences, anchors, preserved originals and optional metadata;
+it does not claim the client-control issue is resolved.
