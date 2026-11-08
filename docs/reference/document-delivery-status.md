@@ -227,7 +227,7 @@ used the anonymously downloaded public attachment through native remove/install.
 All 40 installed files and four Skill paths matched; nine ordinary tasks, stored
 data, model defaults and the existing UI target were preserved. Cached dependencies
 were present. No model call, visible installer interaction, Word or Desktop action
-is inferred from that check. The current [support matrix](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.4/docs/reference/dsh-integration.md#4-支持矩阵)
+is inferred from that check. The current [support matrix](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/dsh-integration.md#4-支持矩阵)
 retains the remaining delivery and frontend gates. The later
 [Mac native observation](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
 verified the official plugin-page installation, an existing non-paper sidebar and

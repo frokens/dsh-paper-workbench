@@ -1,18 +1,36 @@
-# 0.5.0-alpha.4 test bundle installation
+# 0.5.0-alpha.5 test bundle installation
 
 A–C and D's code/representative installed paths have received bounded independent
 acceptance; see the [D review](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
-The complete D/E exits remain open. This guide describes **0.5.0-alpha.4**, which
-adds mechanical reading-location feedback before the real structured tool concludes,
-complete writing-turn proposal differences and scrollable native sidebar tabs.
-Schema, prompt and Skill distinguish primary-language anchors, translated evidence
-and the user's conversation language. Functional source `7bc5670` received
-[bounded independent engineering review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815408904).
-Its 24 focused checks, type check and build do not establish alpha4 installation,
-UI/theme/keyboard behavior or fresh-reading recovery. Exact-package observations
-are recorded separately in that PR; inspect their stated version and scope.
+The complete D/E exits remain open. This guide describes **0.5.0-alpha.5**, based
+on functional source `d7ab643`, which received
+[bounded independent source review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815715468).
+It keeps alpha4's mechanical reading-location feedback, complete writing-turn
+proposal differences and scrollable native sidebar tabs, and adds focused/selected
+tab visibility after keyboard movement or resizing and explicit existing fields
+at batch creation. The native tab primitive and its single selection state remain.
+At package-build time this is a private candidate, not publicly distributed or
+installed; the corrected UI has not yet been checked in the actual host. The one
+batch-request regression, type check and build do not close that UI boundary.
+This guide and packaged status documents are build-time snapshots. Later exact
+archive, installation, UI and publication facts belong in the corresponding
+Release and independent Review in [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5),
+without repacking this archive or moving historical tags.
 Distribution is limited to versions and attachments actually listed in
 [Releases](https://github.com/frokens/dsh-paper-workbench/releases).
+
+The public alpha4 archive's same-process installation and actual UI received
+[zero-model review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815592027).
+One explicit same-manuscript fresh recovery then delivered valid Chinese output,
+retaining one concern and four evidence limits under
+[bounded review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815679820).
+The manuscript remains unaccepted. The observer's strict raw preservation failure
+and the separate schema-level preservation finding remain recorded; alpha5 does
+not repair that historical store or rewrite its evidence.
+Alpha4's earlier `7bc5670` source and 24 focused checks received
+[bounded engineering review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815408904).
+Its schema, prompt and Skill distinguish primary-language anchors, translated
+evidence and the user's conversation language; those version-specific receipts remain.
 
 The historical alpha3 Web path received
 [bounded review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815273201)
@@ -21,7 +39,7 @@ one automatic fresh reader. That reader's translated quote did not match its
 primary-language block; the Host retained its raw terminal output and failed the
 Reading. This was not successful result delivery. The actual narrow-tab overlap
 and last-step-only proposal comparison also remain recorded. Alpha4's source
-corrections do not rewrite that failure or establish a new installed result.
+corrections do not rewrite that failure; the later alpha4 recovery is a separate result.
 
 The historical public test prerelease
 [0.5.0-alpha.2](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
@@ -52,7 +70,7 @@ has bounded real evidence, including ordinary-task translation and fresh reading
 That window used the old forms/manual trigger. The later official Mac alpha2 upgrade
 and reopened task/sidebar have [bounded evidence](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711574419),
 as does one alpha2 from-zero draft and automatic fresh reading. Their original quality
-findings remain; these records do not certify alpha3 or the complete ordinary-task matrix. Native Web
+findings remain; these records do not certify alpha5 or the complete ordinary-task matrix. Native Web
 DOCX path import/translation, local edit, automatic fresh-reader structured output,
 explicit human decision and actual tracked download received
 [bounded independent acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)
@@ -65,7 +83,7 @@ downloaded anonymously, installed through DSH's native API, matched all 40 packa
 files and four live Skill paths, and read ten ordinary tasks without changing
 their data, model defaults or the existing UI target. The dependency cache already
 existed. This is API installation evidence, not a visible-UI or completely cold
-installation test. See the [current support matrix](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.4/docs/reference/dsh-integration.md#4-支持矩阵)
+installation test. See the [current support matrix](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/dsh-integration.md#4-支持矩阵)
 for Word, Desktop, task-entry and font limits.
 
 DSH's installer obtains the exact public dependency `pandoc-wasm@1.1.0` and its
@@ -80,11 +98,11 @@ links. The plugin's own MIT license is unchanged.
 
 ## Formal entry
 
-Choose the exact version listed in Releases. Historical alpha1/alpha2/alpha3 archives
-and tags retain their original bytes and evidence; alpha4 is a separate archive.
+Choose the exact version listed in Releases. Historical alpha1/alpha2/alpha3/alpha4
+archives and tags retain their original bytes and evidence; alpha5 is a separate archive.
 
-1. When `v0.5.0-alpha.4` is listed in [Releases](https://github.com/frokens/dsh-paper-workbench/releases),
-   download `dsh-paper-workbench-0.5.0-alpha.4.tgz` and its same-name `.sha256` file.
+1. When `v0.5.0-alpha.5` is listed in [Releases](https://github.com/frokens/dsh-paper-workbench/releases),
+   download `dsh-paper-workbench-0.5.0-alpha.5.tgz` and its same-name `.sha256` file.
    Verify that attachment's SHA256. A version absent from Releases is not an
    available public distribution. Alpha2's 32,939,556 bytes and
    `154a57dd06594054612179e72d027c5933051549c39e337a9e94bcaa48a99d44`
@@ -93,7 +111,7 @@ and tags retain their original bytes and evidence; alpha4 is a separate archive.
 3. Enter the downloaded tarball's local file path and choose **Install**.
 4. Read the result. If DSH requests a restart, restart that same host/profile.
 5. The native sidebar is available in ordinary tasks without replacing the main
-   Agent. Frozen alpha1 retains its historical workflow. In alpha4,
+   Agent. Frozen alpha1 retains its historical workflow. In this candidate,
    document input belongs to the original main conversation: attach a
    file, mention @file, supply a path/link, or request a new draft. The ordinary
    Agent calls the shared backend and the associated document opens in the sidebar.
@@ -109,8 +127,8 @@ restart that profile. This failure does not replace an already linked paper.
 
 ## Documents and delivery
 
-This section describes alpha3's implemented workflow. Engineering and native-runtime
-evidence are separate; the older archives retain their original interaction.
+This section describes the implemented workflow retained from alpha3. Engineering
+and native-runtime evidence are separate; the older archives retain their original interaction.
 
 State a different primary language in the main conversation when needed. English
 is the default and projects Chinese; an explicit Chinese primary projects English.
@@ -193,7 +211,8 @@ before sharing.
 ## Data, updates and removal
 
 DSH storage retains paper aggregates, originals, feedback, decisions and delivery/
-return receipts after removal. Alpha2–alpha4 storage format 4 reads formats 1–3 in place
+return receipts after removal. Alpha2–alpha4 and this candidate use storage format 4,
+which reads formats 1–3 in place
 (the frozen alpha1 uses format 3);
 older candidates may not reopen newer records. Test upgrades on disposable data.
 

@@ -194,8 +194,14 @@ one Right move into the independent-reading tab left almost the whole label
 clipped. The current source follow-up keeps the same primitive and sole tab state;
 its wrapper reveals the focused/selected tab by adjusting only its own horizontal
 scroll position after selection/focus and viewport/list resizing. Its resize and
-focus listeners are disposed with the wrapper effect. This later correction is
-not yet packaged, installed or checked in the actual host.
+focus listeners are disposed with the wrapper effect. Source `d7ab643` received
+[bounded independent review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815715468)
+and is the functional baseline of 0.5.0-alpha.5. At package-build time alpha5 is
+a private candidate, not yet public, installed or checked in the actual host;
+the keyboard visibility finding remains open for that exact candidate. These
+status documents are build-time snapshots. Later exact-package evidence belongs
+in the corresponding Release and independent Review, without rebuilding the archive
+only to change its reported status.
 
 The public alpha4 package then ran one explicit UI recovery of the same failed
 reading for the same final pending proposal, without another writing submission.
@@ -226,7 +232,8 @@ reader result are separately bounded evidence. The current source cleanup makes
 `createBatch` write its existing batch fields explicitly, with one regression using
 the real UI request schema through creation, storage round-trip, original versions
 and idempotent retry. It adds no compatibility
-field or store repair and is not yet part of an installed package.
+field or store repair. It is included in the alpha5 private candidate and, at
+package-build time, is not yet part of an installed package.
 
 The old and recovered frozen material are separate projections, with two generated
 block IDs, three translation IDs and their references accounting for nine

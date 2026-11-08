@@ -8,7 +8,7 @@ complex Word return/layout checks remain extensions. The current minimum file lo
 has separate bounded evidence; complete Desktop workflow remains open. Later Word/Mac and
 published alpha2 evidence is recorded in the
 [current delivery status](document-delivery-status.md#current-e-prerelease-consumers)
-and [support matrix](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.4/docs/reference/dsh-integration.md#4-支持矩阵).
+and [support matrix](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/dsh-integration.md#4-支持矩阵).
 
 ## Implemented ownership
 
