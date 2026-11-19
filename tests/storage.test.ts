@@ -1150,7 +1150,6 @@ test("automatic reader directions exclude injected context before truncating rea
     ["agent-instructions", "skill-catalog", "runtime-context", "time-context"].forEach((source, index) => host.directionSources.set(index, source));
     const later = "Retain the user's latest constraint as part of this same turn.";
     host.directions.push(later);
-    host.directionSources.set(host.directions.length - 1, "user-question-reply");
     host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
     await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
     const reading = storedPaper(host).readings[0];
@@ -1163,8 +1162,10 @@ test("automatic reader directions exclude injected context before truncating rea
 test("automatic reading uses frozen batch directions without repeating the forwarded batch template", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-auto-batch-source-")), host = await open(root);
   try {
-    await seedWriting(host);
+    await seed(host);
     const selection = (await host.invoke({ action: "read" })).paper.blocks[0].selection;
+    const other = randomUUID();
+    await host.invoke({ action: "save_feedback", id: other, expectedVersion: 0, target: { kind: "source", selections: [selection] }, comment: "A separate earlier comment." });
     const ids = [randomUUID(), randomUUID()];
     for (const id of ids) await host.invoke({ action: "save_feedback", id, expectedVersion: 0,
       target: { kind: "source", selections: [selection] }, comment: "x".repeat(9900) });
@@ -1172,6 +1173,8 @@ test("automatic reading uses frozen batch directions without repeating the forwa
     await host.invoke({ action: "submit_batch", requestId: randomUUID(), feedbackIds: ids,
       feedbackVersions: ids.map(id => ({ id, version: 1 })), direction });
     const forwarded = host.calls.at(-1) as { requestId: string; content: { text: string }[] };
+    await host.invoke({ action: "propose", requestId: randomUUID(), reason: "The writer associates only the earlier comment.", feedbackIds: [other],
+      operations: [{ kind: "replace", selection, replacement: "Keep the confirmed sentence exactly." }] });
     assert.ok(forwarded.content[0].text.length > 19500);
     const later = "The later direct constraint must reach the reader.";
     host.directions.splice(0, host.directions.length, forwarded.content[0].text, later);
@@ -1182,6 +1185,36 @@ test("automatic reading uses frozen batch directions without repeating the forwa
     assert.equal(reading.goal, `Actual user directions in this native writing turn:\n${later}`);
     assert.equal(reading.material.directions?.[0].direction, direction);
     assert.deepEqual(reading.material.directions?.[0].feedbackIds, ids);
+    assert.ok(ids.every(id => reading.material.feedback.some(feedback => feedback.id === id)));
+    await host.invoke({ action: "decide", candidateIds: reading.candidateIds, decision: "rejected", expectedRevision: 0 });
+    const secondDocument = { ...fixture(), id: randomUUID(), name: "second.docx" };
+    await host.domain.table("papers").put(secondDocument.id, secondDocument);
+    const second = await host.invoke({ action: "link", paperId: secondDocument.id });
+    await host.invoke({ action: "propose", requestId: randomUUID(), reason: "Write the explicitly selected second manuscript.",
+      operations: [{ kind: "replace", selection: second.paper.blocks[0].selection, replacement: "The second manuscript preserves its own constraint." }] });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const secondPaper = host.domain.table("papers").get(second.paper.id)! as Paper;
+    assert.equal(secondPaper.readings[0].goal, `Actual user directions in this native writing turn:\n${later}`);
+    assert.equal(secondPaper.readings[0].material.directions?.length, 0);
+    assert.equal(storedPaper(host).readings[0].material.directions?.[0].direction, direction);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("automatic reading preserves human clarification answers ahead of long generated question detail", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-question-answer-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    const callId = randomUUID(), answer = "Keep the exact condition: explicit user approval.", later = "Also retain all measured numbers.";
+    host.directions.splice(0, host.directions.length, JSON.stringify({ kind: "answer_to_pending_question", tool: "ask_user_question", callId,
+      questions: [{ id: "condition", question: "Which condition should be kept?", detail: "Generated explanation. ".repeat(1200) }],
+      answers: [{ id: "condition", selected: ["Preserve"], custom: answer }] }), later);
+    host.messageSources.set(0, { kind: "user-question-reply", callId, outcome: "answered" });
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const goal = storedPaper(host).readings[0].goal;
+    assert.ok(goal.includes(answer)); assert.ok(goal.includes(later)); assert.ok(goal.includes(callId));
+    assert.ok(goal.includes('"id":"condition"')); assert.ok(goal.includes('"selected":["Preserve"]'));
+    assert.ok(!goal.includes("Generated explanation")); assert.ok(!goal.includes("text truncated"));
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 

@@ -16,7 +16,7 @@ export function readingBlocks(document: z.infer<ReturnType<typeof z.json>>) {
   return blocks;
 }
 
-export function prepareReading(paper: Paper, request: z.infer<typeof readingRequest>, sessionId: string, automatic?: Reading["automatic"]) {
+export function prepareReading(paper: Paper, request: z.infer<typeof readingRequest>, sessionId: string, automatic?: Reading["automatic"], deliveredBatchIds: readonly string[] = []) {
   const previous = paper.readings.find(r => r.requestId === request.requestId);
   if (previous) {
     if (previous.sessionId !== sessionId || previous.goal !== request.goal || previous.evidence !== request.evidence
@@ -36,7 +36,9 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
   }
   const candidates = paper.candidates.filter(c => projection.candidateIds.includes(c.id));
   const feedbackIds = new Set(candidates.flatMap(c => c.feedbackIds));
-  const directions = paper.batches.filter(batch => !feedbackIds.size || batch.feedbackIds.some(id => feedbackIds.has(id)))
+  if (deliveredBatchIds.some(id => !paper.batches.some(batch => batch.id === id && batch.sessionId === sessionId)))
+    throw new Error("A delivered feedback batch does not belong to this paper and session.");
+  const directions = paper.batches.filter(batch => deliveredBatchIds.includes(batch.id) || !feedbackIds.size || batch.feedbackIds.some(id => feedbackIds.has(id)))
     .map(batch => ({ batchId: batch.id, revision: batch.revision, feedbackIds: [...batch.feedbackIds], direction: batch.direction }));
   const materialFeedbackIds = new Set([...feedbackIds, ...directions.flatMap(direction => direction.feedbackIds)]);
   const reading: Reading = {
