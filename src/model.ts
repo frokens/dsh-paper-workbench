@@ -1247,7 +1247,7 @@ export function createBatch(
 }
 export function requestTranslation(
   paper: Paper,
-  request: { requestId: string; sources: Selection[]; replaces: string[] },
+  request: { requestId: string; sources: Selection[]; replaces: Paper["translationJobs"][number]["replaces"] },
   sessionId: string,
 ): Paper {
   const previous = paper.translationJobs.find(
@@ -1257,7 +1257,7 @@ export function requestTranslation(
     if (
       JSON.stringify({
         sources: previous.sources,
-        replaces: previous.replaces.map((t) => t.id),
+        replaces: previous.replaces,
         sessionId: previous.sessionId,
       }) !==
       JSON.stringify({
@@ -1276,15 +1276,17 @@ export function requestTranslation(
       );
     mapSelection(paper, source);
   });
-  if (new Set(request.replaces).size !== request.replaces.length)
+  if (new Set(request.replaces.map(ref => ref.id)).size !== request.replaces.length)
     throw new Error("A translation can be replaced only once in one job.");
-  const replaces = request.replaces.map((id) => {
+  const replaces = request.replaces.map((ref) => {
     const translation = paper.translations.find(
-      (t) => t.id === id && !t.replacedBy,
+      (t) => t.id === ref.id && !t.replacedBy,
     );
     if (!translation)
       throw new Error("The translation to refresh no longer exists.");
-    return { id, version: translation.version };
+    if (translation.version !== ref.version)
+      throw new Error("The translation changed before refresh. Read its current text and version before requesting a correction.");
+    return { id: ref.id, version: ref.version };
   });
   const overlap = (sources: Selection[]) =>
     sources.some((a) =>

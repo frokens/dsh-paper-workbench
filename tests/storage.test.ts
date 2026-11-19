@@ -872,7 +872,7 @@ test("agent refresh corrects an existing translation without changing source or 
     const prepared = await invoke({ action: "request_translation", requestId: "original", sources: [initial.paper.blocks[0].selection], replaces: [] });
     const original = await invoke({ action: "complete_translation", jobId: prepared.paper.translationJobs.at(-1)!.id, groups: [{ sourceIndexes: [0], text: "错误的译文。" }] });
     const translation = original.paper.translations.find(item => item.state === "current")!;
-    const refreshing = await invoke({ action: "request_translation", requestId: "correction", sources: translation.mappedSources, replaces: [translation.id] });
+    const refreshing = await invoke({ action: "request_translation", requestId: "correction", sources: translation.mappedSources, replaces: [{ id: translation.id, version: translation.version }] });
     const jobId = refreshing.paper.translationJobs.at(-1)!.id;
     const corrected = await invoke({ action: "complete_translation", jobId, groups: [{ sourceIndexes: [0], text: "保留已确认的句子。" }] });
     assert.deepEqual(corrected.paper.blocks, initial.paper.blocks);

@@ -1,6 +1,6 @@
 # Test bundle installation
 
-The current development candidate is **0.5.0-alpha.8**. It aligns the existing
+The current development candidate is **0.5.0-alpha.9**. It aligns the existing
 translation-refresh tools with the writing Skills and adds decision-scoped
 reading guidance and matching sidebar text. It does not add a new document
 owner or give an agent acceptance authority. At packaging time, installation

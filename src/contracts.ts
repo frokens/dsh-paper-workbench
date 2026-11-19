@@ -198,7 +198,8 @@ export const linkRequest = z.object({ action: z.literal("link"), paperId: z.stri
 export const requestTranslationRequest = z.object({
   action: z.literal("request_translation"), requestId: z.string().min(1).max(200),
   sources: z.array(selectionSchema).min(1).max(100).describe("Current source selections; for translation-only refresh copy the existing translation's mappedSources."),
-  replaces: z.array(z.string()).max(100).default([]).describe("Existing translation IDs to refresh under the user's explicit instruction. Complete the returned new job; do not change primary text or reuse an old completed job."),
+  replaces: z.array(z.object({ id: z.string(), version: z.number().int().positive() })).max(100).default([])
+    .describe("Copy the id and version actually read for every existing translation to refresh. A concurrent correction rejects the stale request. Complete the returned new job; do not change primary text or reuse an old completed job."),
 });
 export const saveFeedbackRequest = z.object({
   action: z.literal("save_feedback"), id: z.string().uuid(), expectedVersion: z.number().int().nonnegative(),
