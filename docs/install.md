@@ -1,10 +1,13 @@
 # Test bundle installation
 
-The current development candidate is **0.5.0-alpha.10**. It aligns the existing
+The current development candidate is **0.5.0-alpha.11**. It aligns the existing
 translation-refresh tools with the writing Skills and adds decision-scoped
 reading guidance and matching sidebar text. Automatic reading directions now
-include only direct user messages, using DSH message provenance to exclude
-injected engineering rules, catalogs and runtime context before truncation.
+retain direct user messages and clarification replies, and bind native goal
+continuations to the objective's triggering ID and revision in durable history.
+DSH message provenance excludes injected engineering rules, catalogs, runtime
+context and this plugin's repeated batch templates before truncation; frozen
+batch directions and feedback remain available separately.
 The completed alpha9 model results remain tied to alpha9; this follow-up's
 provenance filtering has not received a new semantic model comparison.
 It does not add a new document

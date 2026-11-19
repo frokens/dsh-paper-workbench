@@ -18,6 +18,7 @@ import {
 } from "@deepseek-ai/dsh-typert-protocol";
 import type {} from "@deepseek-ai/dsh-typert-registry";
 import type { Agent } from "@deepseek-ai/dsh-agent";
+import { decodeGoalChange } from "@deepseek-ai/dsh-goal";
 import type {} from "@deepseek-ai/dsh-fs";
 import type {} from "@deepseek-ai/dsh-working-directory";
 import type {} from "@deepseek-ai/dsh-session-query";
@@ -254,8 +255,25 @@ export class PaperWorkbench extends TypertRemoteService {
     const observation = await this.ctx.sessionQuery.observeSession(agent.id, { signal, projectionMode: "none" });
     let goal: string;
     try {
-      const messages = observation.events.filter(event => event.seq >= turnStartSeq && event.type === "user/message" && event.data.source.kind === "user")
-        .flatMap(event => event.type === "user/message" ? event.data.content.filter(part => part.type === "text").map(part => part.text) : []);
+      const batchRequests = new Set(targets.flatMap(([, stored]) => "history" in stored
+        ? stored.batches.filter(batch => batch.sessionId === agent.id).map(batch => `paper-workbench:batch:${batch.id}`) : []));
+      const objectives = new Map<string, string>(), messages: string[] = [];
+      for (const event of observation.events) {
+        if (event.type === "goal/change") {
+          const change = decodeGoalChange(event.data);
+          if (change && change.operation !== "clear") objectives.set(`${change.goal.id}:${change.goal.revision}`, change.goal.objective);
+        }
+        if (event.type !== "user/message" || event.seq < turnStartSeq) continue;
+        const source = event.data.source;
+        if ((source.kind === "user" && !("rpcId" in source && batchRequests.has(String(source.rpcId))))
+          || source.kind === "user-question-reply") {
+          messages.push(...event.data.content.filter(part => part.type === "text").map(part => part.text));
+        } else if (source.kind === "goal") {
+          const objective = objectives.get(`${source.goalId}:${source.revision}`);
+          messages.push(`Native goal objective (revision ${source.revision}, continuation ${source.round}):\n${objective
+            ?? "The matching goal snapshot is unavailable in the observed session history; do not infer its objective from the continuation template."}`);
+        }
+      }
       const text = messages.join("\n\n");
       goal = `Actual user directions in this native writing turn${text.length > 19500 ? " (text truncated; submitted feedback remains in the frozen packet)" : ""}:\n${text.slice(0, 19500)}`;
     } finally { observation[Symbol.dispose](); }

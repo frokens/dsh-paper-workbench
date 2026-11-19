@@ -57,11 +57,12 @@ async function open(root: string) {
   const boundary = { openTurnStartSeq: 0, lastTurn: 1 };
   const directions = ["Preserve the confirmed source and propose the requested local clarification."];
   const directionSources = new Map<number, string>();
+  const messageSources = new Map<number, object>(), earlierEvents: object[] = [];
   const parent = { id: "task", session: { id: "task" } } as unknown as Agent;
   ctx.provide("agents", { turnBoundaryOf: () => boundary });
   ctx.provide("workingDirectory", { ensure: async (_agent: Agent, signal?: AbortSignal) => { signal?.throwIfAborted(); return root; } });
   ctx.provide("sessionQuery", { observeSession: async () => ({
-    events: directions.map((text, index) => ({ seq: boundary.openTurnStartSeq + index, type: "user/message", data: { source: { kind: directionSources.get(index) ?? "user" }, content: [{ type: "text", text }] } })),
+    events: [...earlierEvents, ...directions.map((text, index) => ({ seq: boundary.openTurnStartSeq + index, type: "user/message", data: { source: messageSources.get(index) ?? { kind: directionSources.get(index) ?? "user" }, content: [{ type: "text", text }] } }))],
     [Symbol.dispose]() {},
   }) });
   new Storage(ctx);
@@ -116,7 +117,7 @@ async function open(root: string) {
     ctx,
     domain,
     service,
-    parent, boundary, directions, directionSources,
+    parent, boundary, directions, directionSources, messageSources, earlierEvents,
     invoke,
     calls,
     setFailure(value: boolean) {
@@ -1149,12 +1150,65 @@ test("automatic reader directions exclude injected context before truncating rea
     ["agent-instructions", "skill-catalog", "runtime-context", "time-context"].forEach((source, index) => host.directionSources.set(index, source));
     const later = "Retain the user's latest constraint as part of this same turn.";
     host.directions.push(later);
+    host.directionSources.set(host.directions.length - 1, "user-question-reply");
     host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
     await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
     const reading = storedPaper(host).readings[0];
     assert.equal(reading.goal, `Actual user directions in this native writing turn:\n${real}\n\n${later}`);
     assert.equal(reading.automatic?.turnStartSeq, 0);
     assert.equal(storedPaper(host).revision, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("automatic reading uses frozen batch directions without repeating the forwarded batch template", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-batch-source-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    const selection = (await host.invoke({ action: "read" })).paper.blocks[0].selection;
+    const ids = [randomUUID(), randomUUID()];
+    for (const id of ids) await host.invoke({ action: "save_feedback", id, expectedVersion: 0,
+      target: { kind: "source", selections: [selection] }, comment: "x".repeat(9900) });
+    const direction = "Retain the confirmed condition while addressing the selected feedback.";
+    await host.invoke({ action: "submit_batch", requestId: randomUUID(), feedbackIds: ids,
+      feedbackVersions: ids.map(id => ({ id, version: 1 })), direction });
+    const forwarded = host.calls.at(-1) as { requestId: string; content: { text: string }[] };
+    assert.ok(forwarded.content[0].text.length > 19500);
+    const later = "The later direct constraint must reach the reader.";
+    host.directions.splice(0, host.directions.length, forwarded.content[0].text, later);
+    host.messageSources.set(0, { kind: "user", rpcId: forwarded.requestId });
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const reading = storedPaper(host).readings[0];
+    assert.equal(reading.goal, `Actual user directions in this native writing turn:\n${later}`);
+    assert.equal(reading.material.directions?.[0].direction, direction);
+    assert.deepEqual(reading.material.directions?.[0].feedbackIds, ids);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("automatic reading binds the native goal objective to its triggering revision and reports missing evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-goal-source-")), host = await open(root);
+  try {
+    host.boundary.openTurnStartSeq = 100;
+    await seedWriting(host);
+    const goalId = randomUUID(), objective = "Preserve the statement that the result remains unverified.";
+    const change = (revision: number, objective: string) => ({ kind: "goal/change", version: 1, operation: revision === 1 ? "create" : "edit",
+      goal: { id: goalId, revision, objective, phase: "active", maxGoalRounds: 5 }, roundsStarted: 0, createdAt: 1, updatedAt: revision });
+    host.earlierEvents.push({ seq: 1, type: "goal/change", data: change(1, objective) },
+      { seq: 2, type: "goal/change", data: change(2, "A newer objective must not replace the triggering revision.") });
+    host.directions.splice(0, host.directions.length, "Generated continuation template, not a new human direction.");
+    host.messageSources.set(0, { kind: "goal", goalId, revision: 1, round: 1 });
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
+    const signal = new AbortController().signal;
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    const reading = storedPaper(host).readings[0];
+    assert.ok(reading.goal.includes(objective));
+    assert.ok(reading.goal.includes("revision 1, continuation 1"));
+    assert.ok(!reading.goal.includes("newer objective"));
+    assert.ok(!reading.goal.includes("Generated continuation template"));
+    host.messageSources.set(0, { kind: "goal", goalId, revision: 99, round: 2 });
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    assert.match(storedPaper(host).readings[1].goal, /matching goal snapshot is unavailable/);
+    assert.equal(storedPaper(host).readings[1].replaces, reading.id);
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 
