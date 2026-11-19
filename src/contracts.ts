@@ -108,8 +108,8 @@ export const readingOutputSchema = z.strictObject({
     })).describe("Located primary-language manuscript evidence. Explain a translation issue and quote its translated wording in issue/evidence alongside a valid corresponding primary-language anchor."),
     candidateIds: z.array(z.string()),
     issue: z.string(),
-    impact: z.string(),
-    evidence: z.string(),
+    impact: z.string().describe("State whether this is a candidate-introduced error affecting the requested revision, an unchanged context issue, or a non-blocking suggestion. Explain the concrete consequence; a question or stylistic preference is not automatically a reason to withhold acceptance."),
+    evidence: z.string().describe("Quote and compare the supplied baseline, candidate and relevant facts or directions. Distinguish unsupported measured results from an explicitly authorized future plan. Check the complete actual diff before alleging a mismatch; do not rely on a hand-copied reconstruction."),
     suggestion: z.string(),
   })),
   limits: z.array(z.string()),
@@ -197,7 +197,8 @@ export const importReturnFileRequest = z.object({
 export const linkRequest = z.object({ action: z.literal("link"), paperId: z.string() });
 export const requestTranslationRequest = z.object({
   action: z.literal("request_translation"), requestId: z.string().min(1).max(200),
-  sources: z.array(selectionSchema).min(1).max(100), replaces: z.array(z.string()).max(100).default([]),
+  sources: z.array(selectionSchema).min(1).max(100).describe("Current source selections; for translation-only refresh copy the existing translation's mappedSources."),
+  replaces: z.array(z.string()).max(100).default([]).describe("Existing translation IDs to refresh under the user's explicit instruction. Complete the returned new job; do not change primary text or reuse an old completed job."),
 });
 export const saveFeedbackRequest = z.object({
   action: z.literal("save_feedback"), id: z.string().uuid(), expectedVersion: z.number().int().nonnegative(),

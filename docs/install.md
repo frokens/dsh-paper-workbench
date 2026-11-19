@@ -1,4 +1,14 @@
-# 0.5.0-alpha.5 test bundle installation
+# Test bundle installation
+
+The current development candidate is **0.5.0-alpha.8**. It aligns the existing
+translation-refresh tools with the writing Skills and adds decision-scoped
+reading guidance and matching sidebar text. It does not add a new document
+owner or give an agent acceptance authority. At packaging time, installation
+and agent evaluation of this candidate are pending; the historical evidence
+below remains bound to its original versions. Use the formal plugin manager
+with the exact candidate archive, retaining the previous archive for rollback.
+
+## Historical alpha5 evidence
 
 A–C and D's code/representative installed paths have received bounded independent
 acceptance; see the [D review](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).

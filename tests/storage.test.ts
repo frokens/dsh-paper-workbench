@@ -862,6 +862,30 @@ test("the ordinary Agent prepares and completes translations in its existing tur
   }
 });
 
+test("agent refresh corrects an existing translation without changing source or accepting candidates", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-translation-refresh-")), host = await open(root);
+  try {
+    await seed(host);
+    const signal = new AbortController().signal;
+    const invoke = (request: object) => host.service.handle(request, "task", false, signal) as ReturnType<typeof host.invoke>;
+    const initial = await invoke({ action: "read" });
+    const prepared = await invoke({ action: "request_translation", requestId: "original", sources: [initial.paper.blocks[0].selection], replaces: [] });
+    const original = await invoke({ action: "complete_translation", jobId: prepared.paper.translationJobs.at(-1)!.id, groups: [{ sourceIndexes: [0], text: "错误的译文。" }] });
+    const translation = original.paper.translations.find(item => item.state === "current")!;
+    const refreshing = await invoke({ action: "request_translation", requestId: "correction", sources: translation.mappedSources, replaces: [translation.id] });
+    const jobId = refreshing.paper.translationJobs.at(-1)!.id;
+    const corrected = await invoke({ action: "complete_translation", jobId, groups: [{ sourceIndexes: [0], text: "保留已确认的句子。" }] });
+    assert.deepEqual(corrected.paper.blocks, initial.paper.blocks);
+    assert.equal(corrected.paper.revision, initial.paper.revision);
+    assert.equal(corrected.paper.candidates.length, 0);
+    assert.equal(corrected.paper.translations.find(item => item.id === translation.id)!.state, "superseded");
+    assert.deepEqual(corrected.paper.translations.filter(item => item.state === "current").map(item => item.text), ["保留已确认的句子。"]);
+    assert.deepEqual(await invoke({ action: "complete_translation", jobId, groups: [{ sourceIndexes: [0], text: "保留已确认的句子。" }] }), corrected);
+    await assert.rejects(invoke({ action: "complete_translation", jobId, groups: [{ sourceIndexes: [0], text: "另一结果。" }] }), /cannot be reused/);
+    assert.equal(host.calls.length, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
 test("shared font configuration refuses active paper writes and its owning configuration action can finish across Paper close", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-font-reload-")), host = await open(root);
   try {
