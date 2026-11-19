@@ -1,6 +1,6 @@
 # Test bundle installation
 
-The current development candidate is **0.5.0-alpha.12**. It aligns the existing
+The current development candidate is **0.5.0-alpha.13**. It aligns the existing
 translation-refresh tools with the writing Skills and adds decision-scoped
 reading guidance and matching sidebar text. Automatic reading directions now
 retain direct user messages and clarification replies, and bind native goal
@@ -12,6 +12,7 @@ batches the writer did not associate with its candidates. Batch templates from
 another manuscript in the same turn do not displace direct directions. Native
 clarification answers retain human selections and custom text before bounded
 question context, excluding generated supporting detail from the goal budget.
+Explicit retries retain the original frozen batch scope, including after restart.
 The completed alpha9 model results remain tied to alpha9; this follow-up's
 provenance filtering has not received a new semantic model comparison.
 It does not add a new document

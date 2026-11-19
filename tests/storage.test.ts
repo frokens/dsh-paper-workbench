@@ -1292,9 +1292,20 @@ test("unprojectable automatic combinations record failure without manufacturing 
 });
 
 test("failed automatic readers require a scoped explicit retry without user-supplied goal or evidence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "paper-auto-retry-")), host = await open(root);
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-retry-"));
+  let host = await open(root);
   try {
-    await seedWriting(host);
+    await seed(host);
+    const selection = (await host.invoke({ action: "read" })).paper.blocks[0].selection;
+    const other = randomUUID(), actual = randomUUID();
+    for (const [id, comment] of [[other, "An earlier separate comment."], [actual, "The actual submitted feedback."]])
+      await host.invoke({ action: "save_feedback", id, expectedVersion: 0, target: { kind: "source", selections: [selection] }, comment });
+    await host.invoke({ action: "submit_batch", requestId: randomUUID(), feedbackIds: [actual], feedbackVersions: [{ id: actual, version: 1 }], direction: "Retain the user's actual batch constraint." });
+    const forwarded = host.calls.at(-1) as { requestId: string; content: { text: string }[] };
+    host.directions.splice(0, host.directions.length, forwarded.content[0].text);
+    host.messageSources.set(0, { kind: "user", rpcId: forwarded.requestId });
+    await host.invoke({ action: "propose", requestId: randomUUID(), reason: "The writer references another comment.", feedbackIds: [other],
+      operations: [{ kind: "replace", selection, replacement: "Keep the confirmed sentence exactly." }] });
     let starts = 0;
     host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
       starts++;
@@ -1303,11 +1314,19 @@ test("failed automatic readers require a scoped explicit retry without user-supp
     } });
     await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
     const failed = storedPaper(host).readings[0]; assert.equal(failed.status, "failed");
+    assert.equal(failed.material.directions?.length, 1);
+    assert.ok(failed.material.feedback.some(feedback => feedback.id === actual));
     await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal); assert.equal(starts, 1);
+    await host.close(); host = await open(root);
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts++; return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} };
+    } });
     await host.invoke({ action: "retry_reading", requestId: "scoped-retry", readingId: failed.id });
     await waitForReading(host, "completed");
     const retried = storedPaper(host).readings[1];
     assert.equal(retried.goal, failed.goal); assert.equal(retried.evidence, failed.evidence); assert.equal(retried.replaces, failed.id);
+    assert.deepEqual(retried.material.directions, failed.material.directions);
+    assert.deepEqual(retried.material.feedback, failed.material.feedback);
     assert.equal(starts, 2); assert.equal(storedPaper(host).candidates[0].status, "pending");
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });

@@ -743,7 +743,8 @@ export class PaperWorkbench extends TypertRemoteService {
         const current = this.requireCurrent(stored), previous = current.readings.find(reading => reading.id === request.readingId);
         if (!previous || !["failed", "cancelled", "interrupted"].includes(previous.status)) throw new Error("Only a stopped or failed reading needs an explicit retry.");
         const prepared = prepareReading(current, readingRequest.parse({ action: "read_independently", requestId: request.requestId,
-          candidateIds: previous.requestedCandidateIds, goal: previous.goal, evidence: previous.evidence, replaces: previous.id }), sessionId, previous.automatic);
+          candidateIds: previous.requestedCandidateIds, goal: previous.goal, evidence: previous.evidence, replaces: previous.id }), sessionId, previous.automatic,
+          (previous.material.directions ?? []).map(direction => direction.batchId));
         id = prepared.reading.id;
         return prepared.paper;
       });

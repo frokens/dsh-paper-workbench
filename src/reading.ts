@@ -36,8 +36,8 @@ export function prepareReading(paper: Paper, request: z.infer<typeof readingRequ
   }
   const candidates = paper.candidates.filter(c => projection.candidateIds.includes(c.id));
   const feedbackIds = new Set(candidates.flatMap(c => c.feedbackIds));
-  if (deliveredBatchIds.some(id => !paper.batches.some(batch => batch.id === id && batch.sessionId === sessionId)))
-    throw new Error("A delivered feedback batch does not belong to this paper and session.");
+  if (deliveredBatchIds.some(id => !paper.batches.some(batch => batch.id === id)))
+    throw new Error("A frozen feedback batch does not belong to this paper.");
   const directions = paper.batches.filter(batch => deliveredBatchIds.includes(batch.id) || !feedbackIds.size || batch.feedbackIds.some(id => feedbackIds.has(id)))
     .map(batch => ({ batchId: batch.id, revision: batch.revision, feedbackIds: [...batch.feedbackIds], direction: batch.direction }));
   const materialFeedbackIds = new Set([...feedbackIds, ...directions.flatMap(direction => direction.feedbackIds)]);
