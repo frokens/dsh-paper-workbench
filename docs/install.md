@@ -1,8 +1,13 @@
 # Test bundle installation
 
-The current development candidate is **0.5.0-alpha.9**. It aligns the existing
+The current development candidate is **0.5.0-alpha.10**. It aligns the existing
 translation-refresh tools with the writing Skills and adds decision-scoped
-reading guidance and matching sidebar text. It does not add a new document
+reading guidance and matching sidebar text. Automatic reading directions now
+include only direct user messages, using DSH message provenance to exclude
+injected engineering rules, catalogs and runtime context before truncation.
+The completed alpha9 model results remain tied to alpha9; this follow-up's
+provenance filtering has not received a new semantic model comparison.
+It does not add a new document
 owner or give an agent acceptance authority. At packaging time, installation
 and agent evaluation of this candidate are pending; the historical evidence
 below remains bound to its original versions. Use the formal plugin manager

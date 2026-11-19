@@ -254,7 +254,7 @@ export class PaperWorkbench extends TypertRemoteService {
     const observation = await this.ctx.sessionQuery.observeSession(agent.id, { signal, projectionMode: "none" });
     let goal: string;
     try {
-      const messages = observation.events.filter(event => event.seq >= turnStartSeq && event.type === "user/message")
+      const messages = observation.events.filter(event => event.seq >= turnStartSeq && event.type === "user/message" && event.data.source.kind === "user")
         .flatMap(event => event.type === "user/message" ? event.data.content.filter(part => part.type === "text").map(part => part.text) : []);
       const text = messages.join("\n\n");
       goal = `Actual user directions in this native writing turn${text.length > 19500 ? " (text truncated; submitted feedback remains in the frozen packet)" : ""}:\n${text.slice(0, 19500)}`;

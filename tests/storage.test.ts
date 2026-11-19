@@ -56,11 +56,12 @@ async function open(root: string) {
   new LocalFileSystem(ctx, { cwd: root, diffBasisMaxBytes: 10 * 1024 * 1024 });
   const boundary = { openTurnStartSeq: 0, lastTurn: 1 };
   const directions = ["Preserve the confirmed source and propose the requested local clarification."];
+  const directionSources = new Map<number, string>();
   const parent = { id: "task", session: { id: "task" } } as unknown as Agent;
   ctx.provide("agents", { turnBoundaryOf: () => boundary });
   ctx.provide("workingDirectory", { ensure: async (_agent: Agent, signal?: AbortSignal) => { signal?.throwIfAborted(); return root; } });
   ctx.provide("sessionQuery", { observeSession: async () => ({
-    events: directions.map((text, index) => ({ seq: boundary.openTurnStartSeq + index, type: "user/message", data: { content: [{ type: "text", text }] } })),
+    events: directions.map((text, index) => ({ seq: boundary.openTurnStartSeq + index, type: "user/message", data: { source: { kind: directionSources.get(index) ?? "user" }, content: [{ type: "text", text }] } })),
     [Symbol.dispose]() {},
   }) });
   new Storage(ctx);
@@ -115,7 +116,7 @@ async function open(root: string) {
     ctx,
     domain,
     service,
-    parent, boundary, directions,
+    parent, boundary, directions, directionSources,
     invoke,
     calls,
     setFailure(value: boolean) {
@@ -1136,6 +1137,24 @@ test("new user directions in the same native writing turn create one replacement
     await host.service.completeWritingTurn(host.parent, 2, signal);
     assert.equal(starts, 2, "A later turn with no paper candidate cannot start a reader.");
     assert.equal(storedPaper(host).revision, 0); assert.equal(storedPaper(host).decisions.length, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("automatic reader directions exclude injected context before truncating real user input", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-message-source-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    const real = host.directions[0];
+    host.directions.unshift("Workspace engineering rules. ".repeat(1000), "Available writing skills.", "Runtime notice.", "Current time.");
+    ["agent-instructions", "skill-catalog", "runtime-context", "time-context"].forEach((source, index) => host.directionSources.set(index, source));
+    const later = "Retain the user's latest constraint as part of this same turn.";
+    host.directions.push(later);
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const reading = storedPaper(host).readings[0];
+    assert.equal(reading.goal, `Actual user directions in this native writing turn:\n${real}\n\n${later}`);
+    assert.equal(reading.automatic?.turnStartSeq, 0);
+    assert.equal(storedPaper(host).revision, 0);
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 
