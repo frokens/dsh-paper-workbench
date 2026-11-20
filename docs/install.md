@@ -5,7 +5,7 @@
 插件面向 macOS Apple silicon 和 DSH `0.2.2-rc.1`，要求 Node.js 24.9 或更高版本。分发包包含 Host/Client 程序、自包含 DOCX 引擎、运行指引及许可文件，使用分发包无需安装 .NET SDK。
 
 1. 从 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 下载插件压缩包及其校验文件，核对 SHA-256。
-2. 打开 DSH 的 **Plugins**，选择添加本地插件包并选中 `.tgz` 文件。
+2. 打开 DSH 的 **Plugins → Add plugin**，在输入框填写下载的 `.tgz` 文件的完整本地路径，然后选择 **Install**。
 3. 按安装结果提示完成操作；需要重启时，重启当前 DSH。
 4. 打开一个普通任务，在右侧栏中选择 Paper Workbench。
 
