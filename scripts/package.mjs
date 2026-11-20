@@ -22,6 +22,6 @@ const target = `.local/packages/${manifest.name}-${manifest.version}.tgz`;
 try { await access(target); throw new Error(`Refusing to replace existing candidate ${target}; select a new package version.`); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
 const [packed] = JSON.parse(execFileSync('npm', ['pack', '--json', '--pack-destination', '.local/packages'], { encoding: 'utf8' }));
-for (const required of ['dist/host.js', 'dist/client.js', 'dist/markdown.mjs', 'runtime/osx-arm64/paper-docx', 'skills/local-revision/SKILL.md', 'locale/zh.json', 'resources/icon.svg', 'resources/licenses/pandoc-3.10-COPYING.md', 'docs/reference/document-delivery-status.md'])
+for (const required of ['dist/host.js', 'dist/client.js', 'dist/markdown.mjs', 'runtime/osx-arm64/paper-docx', 'skills/local-revision/SKILL.md', 'locale/zh.json', 'resources/icon.svg', 'resources/licenses/pandoc-3.10-COPYING.md', 'docs/install.md'])
   if (!packed.files.some(f => f.path === required)) throw new Error(`Package omitted ${required}`);
 console.log(JSON.stringify({ filename: packed.filename, size: packed.size, files: packed.files.length }, null, 2));

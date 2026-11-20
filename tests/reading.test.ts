@@ -179,7 +179,7 @@ test("replacing a translation at the same source revision requires a bilingual r
   paper = completeTranslation(paper, { action: "complete_translation", jobId: paper.translationJobs[0].id, groups: [{ sourceIndexes: [0], text: "该结果尚未经验证。" }] });
   const prepared = prepareReading(paper, { ...request, candidateIds: [] }, "task");
   paper = completed(prepared);
-  paper = requestTranslation(paper, { requestId: "new", sources: [paperView(paper).blocks[2].selection], replaces: [paper.translations[0].id] }, "task");
+  paper = requestTranslation(paper, { requestId: "new", sources: [paperView(paper).blocks[2].selection], replaces: [{ id: paper.translations[0].id, version: paper.translations[0].version }] }, "task");
   paper = completeTranslation(paper, { action: "complete_translation", jobId: paper.translationJobs[1].id, groups: [{ sourceIndexes: [0], text: "该结果已经验证。" }] });
   const view = readingViews(paper)[0];
   assert.equal(paper.revision, 0);

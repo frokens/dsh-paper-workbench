@@ -56,11 +56,13 @@ async function open(root: string) {
   new LocalFileSystem(ctx, { cwd: root, diffBasisMaxBytes: 10 * 1024 * 1024 });
   const boundary = { openTurnStartSeq: 0, lastTurn: 1 };
   const directions = ["Preserve the confirmed source and propose the requested local clarification."];
+  const directionSources = new Map<number, string>();
+  const messageSources = new Map<number, object>(), earlierEvents: object[] = [];
   const parent = { id: "task", session: { id: "task" } } as unknown as Agent;
   ctx.provide("agents", { turnBoundaryOf: () => boundary });
   ctx.provide("workingDirectory", { ensure: async (_agent: Agent, signal?: AbortSignal) => { signal?.throwIfAborted(); return root; } });
   ctx.provide("sessionQuery", { observeSession: async () => ({
-    events: directions.map((text, index) => ({ seq: boundary.openTurnStartSeq + index, type: "user/message", data: { content: [{ type: "text", text }] } })),
+    events: [...earlierEvents, ...directions.map((text, index) => ({ seq: boundary.openTurnStartSeq + index, type: "user/message", data: { source: messageSources.get(index) ?? { kind: directionSources.get(index) ?? "user" }, content: [{ type: "text", text }] } }))],
     [Symbol.dispose]() {},
   }) });
   new Storage(ctx);
@@ -115,7 +117,7 @@ async function open(root: string) {
     ctx,
     domain,
     service,
-    parent, boundary, directions,
+    parent, boundary, directions, directionSources, messageSources, earlierEvents,
     invoke,
     calls,
     setFailure(value: boolean) {
@@ -862,6 +864,30 @@ test("the ordinary Agent prepares and completes translations in its existing tur
   }
 });
 
+test("agent refresh corrects an existing translation without changing source or accepting candidates", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-translation-refresh-")), host = await open(root);
+  try {
+    await seed(host);
+    const signal = new AbortController().signal;
+    const invoke = (request: object) => host.service.handle(request, "task", false, signal) as ReturnType<typeof host.invoke>;
+    const initial = await invoke({ action: "read" });
+    const prepared = await invoke({ action: "request_translation", requestId: "original", sources: [initial.paper.blocks[0].selection], replaces: [] });
+    const original = await invoke({ action: "complete_translation", jobId: prepared.paper.translationJobs.at(-1)!.id, groups: [{ sourceIndexes: [0], text: "错误的译文。" }] });
+    const translation = original.paper.translations.find(item => item.state === "current")!;
+    const refreshing = await invoke({ action: "request_translation", requestId: "correction", sources: translation.mappedSources, replaces: [{ id: translation.id, version: translation.version }] });
+    const jobId = refreshing.paper.translationJobs.at(-1)!.id;
+    const corrected = await invoke({ action: "complete_translation", jobId, groups: [{ sourceIndexes: [0], text: "保留已确认的句子。" }] });
+    assert.deepEqual(corrected.paper.blocks, initial.paper.blocks);
+    assert.equal(corrected.paper.revision, initial.paper.revision);
+    assert.equal(corrected.paper.candidates.length, 0);
+    assert.equal(corrected.paper.translations.find(item => item.id === translation.id)!.state, "superseded");
+    assert.deepEqual(corrected.paper.translations.filter(item => item.state === "current").map(item => item.text), ["保留已确认的句子。"]);
+    assert.deepEqual(await invoke({ action: "complete_translation", jobId, groups: [{ sourceIndexes: [0], text: "保留已确认的句子。" }] }), corrected);
+    await assert.rejects(invoke({ action: "complete_translation", jobId, groups: [{ sourceIndexes: [0], text: "另一结果。" }] }), /cannot be reused/);
+    assert.equal(host.calls.length, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
 test("shared font configuration refuses active paper writes and its owning configuration action can finish across Paper close", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-font-reload-")), host = await open(root);
   try {
@@ -1115,6 +1141,110 @@ test("new user directions in the same native writing turn create one replacement
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });
 
+test("automatic reader directions exclude injected context before truncating real user input", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-message-source-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    const real = host.directions[0];
+    host.directions.unshift("Workspace engineering rules. ".repeat(1000), "Available writing skills.", "Runtime notice.", "Current time.");
+    ["agent-instructions", "skill-catalog", "runtime-context", "time-context"].forEach((source, index) => host.directionSources.set(index, source));
+    const later = "Retain the user's latest constraint as part of this same turn.";
+    host.directions.push(later);
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const reading = storedPaper(host).readings[0];
+    assert.equal(reading.goal, `Actual user directions in this native writing turn:\n${real}\n\n${later}`);
+    assert.equal(reading.automatic?.turnStartSeq, 0);
+    assert.equal(storedPaper(host).revision, 0);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("automatic reading uses frozen batch directions without repeating the forwarded batch template", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-batch-source-")), host = await open(root);
+  try {
+    await seed(host);
+    const selection = (await host.invoke({ action: "read" })).paper.blocks[0].selection;
+    const other = randomUUID();
+    await host.invoke({ action: "save_feedback", id: other, expectedVersion: 0, target: { kind: "source", selections: [selection] }, comment: "A separate earlier comment." });
+    const ids = [randomUUID(), randomUUID()];
+    for (const id of ids) await host.invoke({ action: "save_feedback", id, expectedVersion: 0,
+      target: { kind: "source", selections: [selection] }, comment: "x".repeat(9900) });
+    const direction = "Retain the confirmed condition while addressing the selected feedback.";
+    await host.invoke({ action: "submit_batch", requestId: randomUUID(), feedbackIds: ids,
+      feedbackVersions: ids.map(id => ({ id, version: 1 })), direction });
+    const forwarded = host.calls.at(-1) as { requestId: string; content: { text: string }[] };
+    await host.invoke({ action: "propose", requestId: randomUUID(), reason: "The writer associates only the earlier comment.", feedbackIds: [other],
+      operations: [{ kind: "replace", selection, replacement: "Keep the confirmed sentence exactly." }] });
+    assert.ok(forwarded.content[0].text.length > 19500);
+    const later = "The later direct constraint must reach the reader.";
+    host.directions.splice(0, host.directions.length, forwarded.content[0].text, later);
+    host.messageSources.set(0, { kind: "user", rpcId: forwarded.requestId });
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const reading = storedPaper(host).readings[0];
+    assert.equal(reading.goal, `Actual user directions in this native writing turn:\n${later}`);
+    assert.equal(reading.material.directions?.[0].direction, direction);
+    assert.deepEqual(reading.material.directions?.[0].feedbackIds, ids);
+    assert.ok(ids.every(id => reading.material.feedback.some(feedback => feedback.id === id)));
+    await host.invoke({ action: "decide", candidateIds: reading.candidateIds, decision: "rejected", expectedRevision: 0 });
+    const secondDocument = { ...fixture(), id: randomUUID(), name: "second.docx" };
+    await host.domain.table("papers").put(secondDocument.id, secondDocument);
+    const second = await host.invoke({ action: "link", paperId: secondDocument.id });
+    await host.invoke({ action: "propose", requestId: randomUUID(), reason: "Write the explicitly selected second manuscript.",
+      operations: [{ kind: "replace", selection: second.paper.blocks[0].selection, replacement: "The second manuscript preserves its own constraint." }] });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const secondPaper = host.domain.table("papers").get(second.paper.id)! as Paper;
+    assert.equal(secondPaper.readings[0].goal, `Actual user directions in this native writing turn:\n${later}`);
+    assert.equal(secondPaper.readings[0].material.directions?.length, 0);
+    assert.equal(storedPaper(host).readings[0].material.directions?.[0].direction, direction);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("automatic reading preserves human clarification answers ahead of long generated question detail", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-question-answer-")), host = await open(root);
+  try {
+    await seedWriting(host);
+    const callId = randomUUID(), answer = "Keep the exact condition: explicit user approval.", later = "Also retain all measured numbers.";
+    host.directions.splice(0, host.directions.length, JSON.stringify({ kind: "answer_to_pending_question", tool: "ask_user_question", callId,
+      questions: [{ id: "condition", question: "Which condition should be kept?", detail: "Generated explanation. ".repeat(1200) }],
+      answers: [{ id: "condition", selected: ["Preserve"], custom: answer }] }), later);
+    host.messageSources.set(0, { kind: "user-question-reply", callId, outcome: "answered" });
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
+    await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
+    const goal = storedPaper(host).readings[0].goal;
+    assert.ok(goal.includes(answer)); assert.ok(goal.includes(later)); assert.ok(goal.includes(callId));
+    assert.ok(goal.includes('"id":"condition"')); assert.ok(goal.includes('"selected":["Preserve"]'));
+    assert.ok(!goal.includes("Generated explanation")); assert.ok(!goal.includes("text truncated"));
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
+test("automatic reading binds the native goal objective to its triggering revision and reports missing evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-goal-source-")), host = await open(root);
+  try {
+    host.boundary.openTurnStartSeq = 100;
+    await seedWriting(host);
+    const goalId = randomUUID(), objective = "Preserve the statement that the result remains unverified.";
+    const change = (revision: number, objective: string) => ({ kind: "goal/change", version: 1, operation: revision === 1 ? "create" : "edit",
+      goal: { id: goalId, revision, objective, phase: "active", maxGoalRounds: 5 }, roundsStarted: 0, createdAt: 1, updatedAt: revision });
+    host.earlierEvents.push({ seq: 1, type: "goal/change", data: change(1, objective) },
+      { seq: 2, type: "goal/change", data: change(2, "A newer objective must not replace the triggering revision.") });
+    host.directions.splice(0, host.directions.length, "Generated continuation template, not a new human direction.");
+    host.messageSources.set(0, { kind: "goal", goalId, revision: 1, round: 1 });
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => ({ childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} }) });
+    const signal = new AbortController().signal;
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    const reading = storedPaper(host).readings[0];
+    assert.ok(reading.goal.includes(objective));
+    assert.ok(reading.goal.includes("revision 1, continuation 1"));
+    assert.ok(!reading.goal.includes("newer objective"));
+    assert.ok(!reading.goal.includes("Generated continuation template"));
+    host.messageSources.set(0, { kind: "goal", goalId, revision: 99, round: 2 });
+    await host.service.completeWritingTurn(host.parent, 1, signal);
+    assert.match(storedPaper(host).readings[1].goal, /matching goal snapshot is unavailable/);
+    assert.equal(storedPaper(host).readings[1].replaces, reading.id);
+  } finally { await host.close(); await rm(root, { recursive: true }); }
+});
+
 test("first-draft candidates trigger one automatic reader while unrelated and translation-only turns do not", async () => {
   const root = await mkdtemp(join(tmpdir(), "paper-auto-draft-")), host = await open(root);
   try {
@@ -1162,9 +1292,20 @@ test("unprojectable automatic combinations record failure without manufacturing 
 });
 
 test("failed automatic readers require a scoped explicit retry without user-supplied goal or evidence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "paper-auto-retry-")), host = await open(root);
+  const root = await mkdtemp(join(tmpdir(), "paper-auto-retry-"));
+  let host = await open(root);
   try {
-    await seedWriting(host);
+    await seed(host);
+    const selection = (await host.invoke({ action: "read" })).paper.blocks[0].selection;
+    const other = randomUUID(), actual = randomUUID();
+    for (const [id, comment] of [[other, "An earlier separate comment."], [actual, "The actual submitted feedback."]])
+      await host.invoke({ action: "save_feedback", id, expectedVersion: 0, target: { kind: "source", selections: [selection] }, comment });
+    await host.invoke({ action: "submit_batch", requestId: randomUUID(), feedbackIds: [actual], feedbackVersions: [{ id: actual, version: 1 }], direction: "Retain the user's actual batch constraint." });
+    const forwarded = host.calls.at(-1) as { requestId: string; content: { text: string }[] };
+    host.directions.splice(0, host.directions.length, forwarded.content[0].text);
+    host.messageSources.set(0, { kind: "user", rpcId: forwarded.requestId });
+    await host.invoke({ action: "propose", requestId: randomUUID(), reason: "The writer references another comment.", feedbackIds: [other],
+      operations: [{ kind: "replace", selection, replacement: "Keep the confirmed sentence exactly." }] });
     let starts = 0;
     host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
       starts++;
@@ -1173,11 +1314,19 @@ test("failed automatic readers require a scoped explicit retry without user-supp
     } });
     await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal);
     const failed = storedPaper(host).readings[0]; assert.equal(failed.status, "failed");
+    assert.equal(failed.material.directions?.length, 1);
+    assert.ok(failed.material.feedback.some(feedback => feedback.id === actual));
     await host.service.completeWritingTurn(host.parent, 1, new AbortController().signal); assert.equal(starts, 1);
+    await host.close(); host = await open(root);
+    host.ctx.provide("subagents", { startActivation: async (spec: SubagentActivationSpec) => {
+      starts++; return { childId: spec.childId, result: Promise.resolve(readingResult), dispose: async () => {} };
+    } });
     await host.invoke({ action: "retry_reading", requestId: "scoped-retry", readingId: failed.id });
     await waitForReading(host, "completed");
     const retried = storedPaper(host).readings[1];
     assert.equal(retried.goal, failed.goal); assert.equal(retried.evidence, failed.evidence); assert.equal(retried.replaces, failed.id);
+    assert.deepEqual(retried.material.directions, failed.material.directions);
+    assert.deepEqual(retried.material.feedback, failed.material.feedback);
     assert.equal(starts, 2); assert.equal(storedPaper(host).candidates[0].status, "pending");
   } finally { await host.close(); await rm(root, { recursive: true }); }
 });

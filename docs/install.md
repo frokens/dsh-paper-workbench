@@ -1,265 +1,44 @@
-# 0.5.0-alpha.5 test bundle installation
+# 安装与使用
 
-A–C and D's code/representative installed paths have received bounded independent
-acceptance; see the [D review](https://github.com/frokens/dsh-paper-workbench/pull/4#pullrequestreview-5809051398).
-The complete D/E exits remain open. This guide describes **0.5.0-alpha.5**, based
-on functional source `d7ab643`, which received
-[bounded independent source review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815715468).
-It keeps alpha4's mechanical reading-location feedback, complete writing-turn
-proposal differences and scrollable native sidebar tabs, and adds focused/selected
-tab visibility after keyboard movement or resizing and explicit existing fields
-at batch creation. The native tab primitive and its single selection state remain.
-At package-build time this is a private candidate, not publicly distributed or
-installed; the corrected UI has not yet been checked in the actual host. The one
-batch-request regression, type check and build do not close that UI boundary.
-This guide and packaged status documents are build-time snapshots. Later exact
-archive, installation, UI and publication facts belong in the corresponding
-Release and independent Review in [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5),
-without repacking this archive or moving historical tags.
-Distribution is limited to versions and attachments actually listed in
-[Releases](https://github.com/frokens/dsh-paper-workbench/releases).
+## 环境与安装
 
-The public alpha4 archive's same-process installation and actual UI received
-[zero-model review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815592027).
-One explicit same-manuscript fresh recovery then delivered valid Chinese output,
-retaining one concern and four evidence limits under
-[bounded review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815679820).
-The manuscript remains unaccepted. The observer's strict raw preservation failure
-and the separate schema-level preservation finding remain recorded; alpha5 does
-not repair that historical store or rewrite its evidence.
-Alpha4's earlier `7bc5670` source and 24 focused checks received
-[bounded engineering review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815408904).
-Its schema, prompt and Skill distinguish primary-language anchors, translated
-evidence and the user's conversation language; those version-specific receipts remain.
+插件面向 macOS Apple silicon 和 DSH `0.2.2-rc.1`，要求 Node.js 24.9 或更高版本。分发包包含 Host/Client 程序、自包含 DOCX 引擎、运行指引及许可文件，使用分发包无需安装 .NET SDK。
 
-The historical alpha3 Web path received
-[bounded review](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815273201)
-for installation, four pending bilingual comments, one submitted writing turn and
-one automatic fresh reader. That reader's translated quote did not match its
-primary-language block; the Host retained its raw terminal output and failed the
-Reading. This was not successful result delivery. The actual narrow-tab overlap
-and last-step-only proposal comparison also remain recorded. Alpha4's source
-corrections do not rewrite that failure; the later alpha4 recovery is a separate result.
+1. 从 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 下载插件压缩包及其校验文件，核对 SHA-256。
+2. 打开 DSH 的 **Plugins → Add plugin**，在输入框填写下载的 `.tgz` 文件的绝对路径，然后选择 **Install**。
+3. 按安装结果提示完成操作；需要重启时，重启当前 DSH。
+4. 打开一个普通任务，在右侧栏中选择 Paper Workbench。
 
-The historical public test prerelease
-[0.5.0-alpha.2](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
-is fixed to source `bad9ddf4e22b3873b2d565da9de3ea6c159698fb`. It received an
-[independent package check](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)
-and has actually been downloaded and installed. Its frozen predecessor alpha1,
-fixed to implementation `46957f2`, remains unchanged.
+首次安装需要访问公共 npm 源以取得 `pandoc-wasm` 依赖，其中已包含 Pandoc 运行时。源码构建方法见[项目首页](../README.md#从源码构建)。
 
-The **0.5.0-alpha.2 prerelease** introduced main-conversation
-file input, autosaved comments/one submission and automatic completed-turn reading,
-including the comment reconnect/version and frozen-goal repairs reviewed at
-[`26a020c`](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163).
-Publication and API installation do not establish the complete native interaction.
-The package's status documents are its packaging-time snapshot; later release and
-runtime facts are recorded here, in the Release and in the same PR without repacking.
+## 导入与起草
 
-## Package and dependency
+在 DSH 主对话中上传 DOCX、提供本地文件路径，或说明新稿的内容与要求。智能体将文档关联到当前任务，右侧工作台展示对应内容。批注与修订操作在工作台中完成，补充材料和写作方向可继续通过主对话提供。
 
-The tarball contains built Host/Client JavaScript, the self-contained DOCX engine,
-four research/writing Skills, display resources and required license notices.
-No source checkout, compilation, private registry or .NET SDK is required.
+默认使用英文正文和中文译文。需要中文作为主语言时，在主对话中明确说明。译文按正文范围及版本保存；正文变化后，相关译文需要更新。只纠正译文时，应明确说明保留正文。
 
-The declared combination is **macOS Apple silicon, Node.js 24.9 or later, DSH
-0.2.2-rc.1 Web**. The package restricts its OS and CPU accordingly. The official
-Mac application's own existing host/profile is the desktop acceptance route.
-Its [alpha1 native installation/sidebar check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
-has bounded real evidence, including ordinary-task translation and fresh reading.
-That window used the old forms/manual trigger. The later official Mac alpha2 upgrade
-and reopened task/sidebar have [bounded evidence](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711574419),
-as does one alpha2 from-zero draft and automatic fresh reading. Their original quality
-findings remain; these records do not certify alpha5 or the complete ordinary-task matrix. Native Web
-DOCX path import/translation, local edit, automatic fresh-reader structured output,
-explicit human decision and actual tracked download received
-[bounded independent acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)
-for one controlled case. Its question/limits remain; this is not paper-quality acceptance.
-The preceding Markdown reader was cancelled after system sleep and returned no
-structured result. Other platform combinations remain unverified.
+Markdown 导入需要同时提供引用的图片、参考文献和可选 CSL 文件。缺失资源或转换警告会阻止导入，补齐后可重试。原始 HTML/TeX 内容以文字保留。
 
-The [independent alpha2 public-attachment check](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503)
-downloaded anonymously, installed through DSH's native API, matched all 40 package
-files and four live Skill paths, and read ten ordinary tasks without changing
-their data, model defaults or the existing UI target. The dependency cache already
-existed. This is API installation evidence, not a visible-UI or completely cold
-installation test. See the [current support matrix](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/dsh-integration.md#4-支持矩阵)
-for Word, Desktop, task-entry and font limits.
+## 批注、候选与审读
 
-DSH's installer obtains the exact public dependency `pandoc-wasm@1.1.0` and its
-WASI shim. The published dependency already includes Pandoc 3.10; no separate Pandoc
-command, compiler or installation-time downloader is needed. First installation
-needs a public npm registry. A plugin tarball alone does not guarantee offline first
-installation. Later Markdown conversion uses the installed runtime and supplied
-resources without downloading images, bibliography files or converters.
+选择正文、译文或待定候选中的文字并填写意见，批注会自动保存。将一组意见提交后，主对话中的智能体读取相关位置及要求，形成候选修改。
 
-See [third-party notices](../THIRD_PARTY_NOTICES.md) for licenses and version/source
-links. The plugin's own MIT license is unchanged.
+候选展示原文、新文、实际差异和修改理由。需要继续调整时，可以直接批注待定候选；用户按改动或必要依赖组接受、拒绝。接受后更新正文，拒绝和继续修订均保留原有记录。
 
-## Formal entry
+写作轮次完成后，系统为该轮候选组合启动独立审读。读者通过新会话读取冻结材料，检查用户要求、文字表述、论证及双语对应，返回带位置的意见。审读意见供用户判断；接受和拒绝由用户操作。审读失败或中断时，可从工作台重试。
 
-Choose the exact version listed in Releases. Historical alpha1/alpha2/alpha3/alpha4
-archives and tags retain their original bytes and evidence; alpha5 is a separate archive.
+## 导出与返稿
 
-1. When `v0.5.0-alpha.5` is listed in [Releases](https://github.com/frokens/dsh-paper-workbench/releases),
-   download `dsh-paper-workbench-0.5.0-alpha.5.tgz` and its same-name `.sha256` file.
-   Verify that attachment's SHA256. A version absent from Releases is not an
-   available public distribution. Alpha2's 32,939,556 bytes and
-   `154a57dd06594054612179e72d027c5933051549c39e337a9e94bcaa48a99d44`
-   identify only the frozen alpha2 archive.
-2. In DSH, open **Plugins**, then **Add plugin**.
-3. Enter the downloaded tarball's local file path and choose **Install**.
-4. Read the result. If DSH requests a restart, restart that same host/profile.
-5. The native sidebar is available in ordinary tasks without replacing the main
-   Agent. Frozen alpha1 retains its historical workflow. In this candidate,
-   document input belongs to the original main conversation: attach a
-   file, mention @file, supply a path/link, or request a new draft. The ordinary
-   Agent calls the shared backend and the associated document opens in the sidebar.
+在 **History** 中选择比较基准和输出格式，下载清稿、修订稿或双语 DOCX/PDF。双语导出要求相关段落具有完整、有效的译文。已导出文件保存在交付记录中，可以再次下载。
 
-Use DSH's own installation/removal actions; do not edit its package manifest or
-plugin patch by hand. An installed package or enabled selection alone does not prove
-that Host, Client and tools loaded. Restart, upgrade and removal need separate checks.
+DOCX 中的一般文字段落支持修订；表格、公式、域、图片和注释等复杂对象以只读结构保留。导入含已有修订的文档时，需要明确选择接受或拒绝这些修订的投影。复杂对象、页眉页脚等处的既有修订应先在 Word 中处理。导出后应结合原稿核对文字、批注与版式。
 
-If a dependency download fails, inspect DSH's installation details, restore network
-access and retry. Do not enable arbitrary build scripts or install another Pandoc.
-If the installed Markdown runtime is missing, reinstall through **Plugins** and
-restart that profile. This failure does not replace an already linked paper.
+收到返稿时，在主对话中提供返回的主语言 DOCX。系统结合交付标记、返回文档和当前正文比较文字变化。无法唯一对齐的段落需要澄清；无冲突的文字变化可形成待定候选。格式变化、移动和未匹配段落保留在返稿中供核对。
 
-## Documents and delivery
+PDF 导出使用 DSH 共享 Office 服务及字体设置。遇到字体缺失或转换停滞时，可在 **History** 中展开 **PDF font settings**，刷新以读取当前配置，在文本框中每行填写一个字体目录的绝对路径，再应用设置。该设置同时影响 DSH 的其他 Office 预览；应用后配置才会保存。
 
-This section describes the implemented workflow retained from alpha3. Engineering
-and native-runtime evidence are separate; the older archives retain their original interaction.
+## 数据与文件范围
 
-State a different primary language in the main conversation when needed. English
-is the default and projects Chinese; an explicit Chinese primary projects English.
-The Agent supplies that choice; no name/language/goal form is required. The choice
-belongs to that Paper and is retained when
-linking it from another ordinary task. It does not follow the interface language,
-and linking does not change it. Existing records retain the earlier English default.
-The source and translation headings display the selected pair. Translation jobs,
-candidate projections and frozen independent-reading material use the same choice.
+文档、原始文件、反馈、决定和交付记录由 DSH 存储服务保存。更新或移除插件使用 DSH 自带的插件管理操作；移除插件后数据仍保留，升级前应备份重要文档。
 
-DOCX text paragraphs are editable. Fields, equations, tables, figures, notes and
-other complex objects stay in the source package as read-only blocks. Read the import
-diagnostics and retain the original. Supported existing body revisions require an
-explicit accept/reject projection. Revisions in preserved headers, footers, notes
-or unsupported structures must first be handled in Word.
-
-The required Word file workflow is bounded: attach a DOCX or provide its path in
-the native main conversation, confirm the desired changes, then download the real
-DOCX from the same backend. Compare its text with the preserved original, locate
-the original comments, and inspect new comments/change explanations for the actual
-edits. The acceptance sample must include both actual files and a short text/comment
-comparison, including anchors and optional file properties. File/XML checks do not
-claim Microsoft Word desktop execution or arbitrary layout fidelity.
-
-For Markdown, the ordinary Agent investigates the main file and referenced images,
-bibliography and optional CSL with DSH's file tools, then passes readable file
-references to the same import owner. Links use the existing investigation/download
-capabilities first; the plugin does not add an HTTP, permission or file stack.
-Document bytes stay in the backend instead of travelling through model arguments.
-Native
-tables/math/notes and supplied media pass through the converter; complex Word objects
-remain read only. Raw HTML/TeX is literal. Missing resources or conversion warnings
-stop intake. LaTeX, PDF and OCR import are not complete supported routes.
-
-In **History**, select the comparison baseline. Rejecting all native Word revisions
-restores it; accepting workbench candidates does not erase the teacher's comparison.
-Export clean, tracked or bilingual DOCX/PDF through **History**. Bilingual
-output requires complete current translated paragraph groups. Delivered files are
-immutable receipts that can be downloaded again. Exact source and return originals
-are available separately from metadata-clean derived exports.
-
-The existing return route is an extension of that minimum file workflow. For a
-returned primary-language DOCX, attach it in the main conversation. The
-ordinary Agent uses its file reference and the actual embedded delivery marker.
-Missing/ambiguous baselines or unresolved-revision choices require clarification
-there; the sidebar has no return upload, delivery-ID or manual-mapping form.
-Comparison uses delivered E, returned R and current P. Ambiguous paragraph
-alignment requires the user's content-based clarification rather than a guess. Exact
-conflict-free text changes become pending candidates and preserve unrelated local
-edits. Formatting, moves and unmatched paragraph changes require review in the
-original return; the text-only proposal does not apply them. Supported comment text
-can be copied to feedback only at an exact current range. Rich comments remain in
-the original return.
-
-The plugin's own PDF export and representative-page text, bilingual font and
-pagination checks retain their independent acceptance scope. Reuse the valid
-configured-path evidence; they are not a new prerequisite for this DOCX sample.
-This is separate from the optional Microsoft Word SaveAs PDF extension.
-PDF uses DSH's shared Office provider and font configuration. The plugin neither
-replaces shared font settings nor starts another converter. On the test machine,
-default font discovery reproduced a blocked worker; explicit system-font directory
-configuration converted bounded fixtures. This does not fix or establish default
-scan/cancellation behavior. In **History**, choose PDF and open **PDF font
-settings**. Read the existing folders, review the shared-preview and configuration
-notes, and choose the folders before explicitly applying. **Apply shared font
-settings** saves the listed folders through DSH; **Automatic font discovery**
-explicitly restores the provider's discovery choice.
-Closing without applying keeps the existing settings. Existing fallback preferences
-and other raw settings are retained. Saving may remove comments inside the target
-Office settings block. If a request is cancelled or the connection reloads during
-application, read the current settings again before retrying.
-
-This configuration uses DSH's existing provider and editor. It does not repair the
-default font scan or its graceful exit. Shared changes affect other previews and
-may exclude Office fonts. The configured test profile has actual PDF, cancellation,
-reload and same-profile graceful restart evidence. Default discovery and complete
-product acceptance remain open. Check missing-font warnings and rendered pages
-before sharing.
-
-## Data, updates and removal
-
-DSH storage retains paper aggregates, originals, feedback, decisions and delivery/
-return receipts after removal. Alpha2–alpha4 and this candidate use storage format 4,
-which reads formats 1–3 in place
-(the frozen alpha1 uses format 3);
-older candidates may not reopen newer records. Test upgrades on disposable data.
-
-A historical B restoration may lack its precise Word comparison. The sidebar reports
-this and blocks export. In **History**, explicitly restore the intended revision even
-if its visible body is identical. This records the actual relationship and retains
-the old entry.
-
-Comments and replies autosave at their accepted or pending source/translation location without a model
-request. **Submit this round of comments** saves the batch and dispatches it through
-the current ordinary Agent in one action. Failed delivery retries that same batch
-and native prompt identity. Import prepares paragraph translation jobs for the
-already-running ordinary Agent to complete in that turn, with no second Send.
-
-An unaccepted first draft can be read and annotated in **Changes**. Submitted pending
-comments revise that candidate group without accepting it first. The earlier draft,
-original comment ranges and earlier readings stay available. Only a later proven
-actual acceptance adds current source/translation anchors; an ambiguous historical
-range is retained with an explicit delivery warning and a link back to its discussion.
-The final pending card first shows its cumulative differences from this native
-writing turn's starting proposals, when reconstructable. The direct predecessor
-and accepted-body comparisons remain separately labeled. An unavailable starting
-comparison is explicit; the empty accepted body is not an earlier proposal.
-
-When the complete writing candidate combination reaches DSH's formal turn boundary,
-the Host starts one fresh independent reader automatically. First drafts and
-main-chat revisions use this same path; unrelated answers, translation-only jobs
-and the reader's own turn do not start more paper readers. Findings and limits are
-read only. A stopped/failed reading can retry its saved scope without goal/evidence
-forms. Only the user accepts/rejects; automatic reading is not automatic acceptance.
-Alpha2's package/public-install and representative Web comments/one-submit path have
-[bounded acceptance](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711258312).
-Alpha3's bounded native observations and failed reading remain in their original
-scope. Alpha4's engineering review does not establish its installed UI or recovery;
-use separately versioned native receipts to assess those paths. A mechanical
-location rejection can be corrected by the same reader through the real tool;
-it does not authorize a manuscript edit, suppressed issue or automatic extra reader.
-The controlled DOCX reader's completed output, separate authorized human decision
-and downloaded files retain their exact scope; the reader is not a scientific-quality
-pass. The frozen alpha1 retains its earlier interaction.
-
-Developer fixtures use `npm run fixture:word -- prepare <new-test-directory>` and
-refuse to overwrite files. Their strict client checks require actual Word-created
-accepted/rejected/returned files; SDK settling, schema checks and preview PDFs do
-not establish those actions. Desktop automation, native accept/reject, SaveAs PDF,
-defined-style/layout checks and complex three-way return are extension checks,
-not required gates for the current DOCX file loop. Existing six native Word results
-and failed/unsaved return evidence stay in their original scope; no Word/AppleScript
-retry is needed for the narrowed target. See [D status](reference/document-delivery-status.md)
-for the file workflow and retained extension evidence.
+文件导入支持 DOCX 和 Markdown。LaTeX、PDF 和 OCR 导入不在当前支持范围内。复杂 Word 对象为只读内容，导出不保证任意文档版式完全一致。

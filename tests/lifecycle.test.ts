@@ -126,7 +126,7 @@ test("a multi-paragraph first draft stays one pending group, then persists actua
   assert.deepEqual(paperView(paper).blocks.map(block => block.id), ids);
   assert.deepEqual(paper.translations, accepted.translations, "Body restoration does not rewrite the retained Chinese input.");
   assert.ok(paperView(paper).translations.every(translation => translation.state === "stale"), "The existing exact-range protection requires explicit translation renewal after intervening source changes, even when text is restored.");
-  paper = requestTranslation(paper, { requestId: "restored-zh", sources: paperView(paper).blocks.map(block => block.selection), replaces: paper.translations.map(translation => translation.id) }, "task");
+  paper = requestTranslation(paper, { requestId: "restored-zh", sources: paperView(paper).blocks.map(block => block.selection), replaces: paper.translations.map(({ id, version }) => ({ id, version })) }, "task");
   paper = completeTranslation(paper, { action: "complete_translation", jobId: paper.translationJobs[0].id, groups: [{ sourceIndexes: [0], text: "规划者选择操作。" }, { sourceIndexes: [1, 2], text: "执行者执行该操作。结果仍未经验证。" }] });
   assert.deepEqual(paperView(paper).translations.filter(translation => translation.state === "current").map(translation => translation.mappedSources.map(source => source.blockId)), [[ids[0]], ids.slice(1)]);
   paper = undoDecision(accepted, decisionId, 1);
@@ -399,6 +399,21 @@ test("many-to-many Chinese groups remain a projection, and correction changes on
   assert.equal(paper.translations[0].corrections[0].before, translation.text);
 });
 
+test("a correction before refresh admission rejects the stale translation version", () => {
+  let paper = translated();
+  const old = paperView(paper).translations[0];
+  paper = correctTranslation(paper, { translationId: old.id, version: old.version, from: 0, to: old.text.length, quote: old.text }, "用户已确认的新译文。");
+  const before = JSON.stringify(paper);
+  assert.throws(() => requestTranslation(paper, { requestId: "stale-refresh", sources: old.mappedSources, replaces: [{ id: old.id, version: old.version }] }, "task"), /changed before refresh/);
+  assert.equal(JSON.stringify(paper), before);
+  const current = paperView(paper).translations[0];
+  const request = { requestId: "fresh-refresh", sources: current.mappedSources, replaces: [{ id: current.id, version: current.version }] };
+  paper = requestTranslation(paper, request, "task");
+  assert.equal(requestTranslation(paper, request, "task"), paper);
+  assert.throws(() => requestTranslation(paper, { ...request, replaces: [{ id: old.id, version: old.version }] }, "task"), /identity was already used/);
+  assert.deepEqual(paper.translationJobs.at(-1)!.replaces, request.replaces);
+});
+
 test("late translation, superseded work and cancelled work cannot overwrite current or corrected projections", () => {
   let paper = translated(),
     id = paper.translations[0].id;
@@ -407,7 +422,7 @@ test("late translation, superseded work and cancelled work cannot overwrite curr
     {
       requestId: "refresh",
       sources: [selection(paper), selection(paper, 1)],
-      replaces: [id],
+      replaces: [{ id, version: paper.translations[0].version }],
     },
     "task",
   );

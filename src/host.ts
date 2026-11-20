@@ -18,6 +18,7 @@ import {
 } from "@deepseek-ai/dsh-typert-protocol";
 import type {} from "@deepseek-ai/dsh-typert-registry";
 import type { Agent } from "@deepseek-ai/dsh-agent";
+import { decodeGoalChange } from "@deepseek-ai/dsh-goal";
 import type {} from "@deepseek-ai/dsh-fs";
 import type {} from "@deepseek-ai/dsh-working-directory";
 import type {} from "@deepseek-ai/dsh-session-query";
@@ -252,11 +253,44 @@ export class PaperWorkbench extends TypertRemoteService {
     if (!targets.length) return;
     const signal = AbortSignal.any([callerSignal, this.lifetime.signal]);
     const observation = await this.ctx.sessionQuery.observeSession(agent.id, { signal, projectionMode: "none" });
+    const deliveredBatches = new Map<string, string[]>();
     let goal: string;
     try {
-      const messages = observation.events.filter(event => event.seq >= turnStartSeq && event.type === "user/message")
-        .flatMap(event => event.type === "user/message" ? event.data.content.filter(part => part.type === "text").map(part => part.text) : []);
-      const text = messages.join("\n\n");
+      const batchRequests = new Map<string, { paperId: string; batchId: string }>([...this.papers.entries()].flatMap(([paperId, stored]) => "history" in stored
+        ? stored.batches.filter(batch => batch.sessionId === agent.id).map(batch => [`paper-workbench:batch:${batch.id}`, { paperId, batchId: batch.id }] as const) : []));
+      const objectives = new Map<string, string>(), messages: string[] = [], questionContext: string[] = [];
+      for (const event of observation.events) {
+        if (event.type === "goal/change") {
+          const change = decodeGoalChange(event.data);
+          if (change && change.operation !== "clear") objectives.set(`${change.goal.id}:${change.goal.revision}`, change.goal.objective);
+        }
+        if (event.type !== "user/message" || event.seq < turnStartSeq) continue;
+        const source = event.data.source;
+        const batch = source.kind === "user" && "rpcId" in source ? batchRequests.get(String(source.rpcId)) : undefined;
+        if (batch) {
+          deliveredBatches.set(batch.paperId, [...new Set([...(deliveredBatches.get(batch.paperId) ?? []), batch.batchId])]);
+        } else if (source.kind === "user") {
+          messages.push(...event.data.content.filter(part => part.type === "text").map(part => part.text));
+        } else if (source.kind === "user-question-reply") {
+          const text = event.data.content.find(part => part.type === "text")?.text;
+          let value: unknown;
+          try { value = text === undefined ? undefined : JSON.parse(text); } catch { value = undefined; }
+          const reply = z.object({ kind: z.literal("answer_to_pending_question"), callId: z.string(),
+            answers: z.array(z.object({ id: z.string(), selected: z.array(z.string()), custom: z.string().optional() })),
+            questions: z.array(z.object({ id: z.string(), question: z.string() })).optional(),
+          }).safeParse(value);
+          if (reply.success && reply.data.callId === source.callId) {
+            messages.push(`Human clarification answers (native call ${source.callId}): ${JSON.stringify(reply.data.answers)}`);
+            if (reply.data.questions?.length) questionContext.push(`Bounded question context for native call ${source.callId}: ${JSON.stringify(reply.data.questions.slice(0, 3)
+              .map(question => ({ id: question.id, question: question.question.slice(0, 240), truncated: question.question.length > 240 })))}`);
+          } else messages.push(`Human clarification reply for native call ${source.callId} could not be decoded; its answer is unavailable in this reading packet.`);
+        } else if (source.kind === "goal") {
+          const objective = objectives.get(`${source.goalId}:${source.revision}`);
+          messages.push(`Native goal objective (revision ${source.revision}, continuation ${source.round}):\n${objective
+            ?? "The matching goal snapshot is unavailable in the observed session history; do not infer its objective from the continuation template."}`);
+        }
+      }
+      const text = [...messages, ...questionContext].join("\n\n");
       goal = `Actual user directions in this native writing turn${text.length > 19500 ? " (text truncated; submitted feedback remains in the frozen packet)" : ""}:\n${text.slice(0, 19500)}`;
     } finally { observation[Symbol.dispose](); }
     for (const [paperId] of targets) {
@@ -265,10 +299,12 @@ export class PaperWorkbench extends TypertRemoteService {
         signal.throwIfAborted();
         const current = this.requireCurrent(stored), ids = current.candidates.filter(candidate => isPendingCandidate(current, candidate)
           && candidate.authoring?.sessionId === agent.id && candidate.authoring.turnStartSeq === turnStartSeq).map(candidate => candidate.id);
+        const batchIds = deliveredBatches.get(paperId) ?? [];
         if (!ids.length) return current;
         const prior = current.readings.filter(reading => reading.sessionId === agent.id && reading.automatic?.turnStartSeq === turnStartSeq);
         const same = prior.findLast(reading => reading.sourceRevision === current.revision
           && reading.goal === goal
+          && batchIds.every(id => reading.material.directions?.some(direction => direction.batchId === id))
           && JSON.stringify(reading.requestedCandidateIds) === JSON.stringify(ids)
           && JSON.stringify(reading.material.translations) === JSON.stringify(translationViews(current)));
         if (same) { id = same.id; return current; }
@@ -276,7 +312,7 @@ export class PaperWorkbench extends TypertRemoteService {
           requestId: `auto:${agent.id}:${turnStartSeq}:${prior.length}`, candidateIds: ids, goal,
           evidence: "System-triggered review of this completed writing turn's exact candidates and paired translations. User directions and submitted feedback define intent; writer reasons are not independent evidence. No external evidence is asserted by this trigger. Preserve real questions and limits.",
           ...(prior.length ? { replaces: prior.at(-1)!.id } : {}),
-        }), agent.id, { turn, turnStartSeq });
+        }), agent.id, { turn, turnStartSeq }, batchIds);
         id = prepared.reading.id;
         return prepared.paper;
       });
@@ -707,7 +743,8 @@ export class PaperWorkbench extends TypertRemoteService {
         const current = this.requireCurrent(stored), previous = current.readings.find(reading => reading.id === request.readingId);
         if (!previous || !["failed", "cancelled", "interrupted"].includes(previous.status)) throw new Error("Only a stopped or failed reading needs an explicit retry.");
         const prepared = prepareReading(current, readingRequest.parse({ action: "read_independently", requestId: request.requestId,
-          candidateIds: previous.requestedCandidateIds, goal: previous.goal, evidence: previous.evidence, replaces: previous.id }), sessionId, previous.automatic);
+          candidateIds: previous.requestedCandidateIds, goal: previous.goal, evidence: previous.evidence, replaces: previous.id }), sessionId, previous.automatic,
+          (previous.material.directions ?? []).map(direction => direction.batchId));
         id = prepared.reading.id;
         return prepared.paper;
       });
@@ -947,7 +984,7 @@ export async function apply(ctx: Context) {
         "Use this ordinary task's native conversation for document input and writing. Read the current Paper first. " +
         "Import user attachments/@files/paths using their readable DSH path; investigate and download links with ordinary tools first. Never send binary/base64. DOCX/Markdown are supported, not arbitrary PDF/OCR. " +
         "Use a stable requestId for create/import retries; name/brief come from the user's request or a sensible draft name, never a sidebar form. English primary is default; use zh only for an explicit user choice. Link an existing paper when the user identifies it. " +
-        "After import, complete the prepared paragraph translation jobs in this same turn so the user receives both languages without a separate Send. request_translation also prepares an explicitly requested refresh; complete_translation supplies its aligned groups. " +
+        "After import, complete the prepared paragraph translation jobs in this same turn so the user receives both languages without a separate Send. For an explicit translation-only correction, request_translation with the current translation's mappedSources and replaces:[{id:translation.id,version:translation.version}] prepares a refresh; complete_translation supplies the corrected aligned groups using the new job's sourceIndexes. This leaves primary text unchanged; do not defer an authorized correction to manual copying or reuse a completed job. Check the returned current text before reporting it saved. " +
         "For a mentor return use import_return with the readable path. Its embedded marker identifies the exact delivery; clarify missing/ambiguous baselines or unresolved-revision choices in the native conversation. Compare, propose_return and copy_return_comments reuse the existing return owner; never guess mappings or accept changes. " +
         "Propose exact replace/split/merge groups or fill_draft with separate paragraphs on the exact blank selection. Link actual feedback IDs. Candidate translations cover exactly their selected operations' result ranges (or selected fill_draft paragraphs); they are not widened from the translated text. Choose a scope covering everything translated; computed diffs preserve unchanged parts. " +
         "To revise a pending proposal, use propose with revises naming the exact current pending candidate group and supply its complete replacement operations and translations against accepted-source selections. Do not accept it first or use projected paragraph IDs. Earlier proposals and readings are retained; affected dependencies must be handled explicitly. " +
