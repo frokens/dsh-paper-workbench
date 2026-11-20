@@ -5,7 +5,7 @@
 插件面向 macOS Apple silicon 和 DSH `0.2.2-rc.1`，要求 Node.js 24.9 或更高版本。分发包包含 Host/Client 程序、自包含 DOCX 引擎、运行指引及许可文件，使用分发包无需安装 .NET SDK。
 
 1. 从 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 下载插件压缩包及其校验文件，核对 SHA-256。
-2. 打开 DSH 的 **Plugins → Add plugin**，在输入框填写下载的 `.tgz` 文件的完整本地路径，然后选择 **Install**。
+2. 打开 DSH 的 **Plugins → Add plugin**，在输入框填写下载的 `.tgz` 文件的绝对路径，然后选择 **Install**。
 3. 按安装结果提示完成操作；需要重启时，重启当前 DSH。
 4. 打开一个普通任务，在右侧栏中选择 Paper Workbench。
 
@@ -35,7 +35,7 @@ DOCX 中的一般文字段落支持修订；表格、公式、域、图片和注
 
 收到返稿时，在主对话中提供返回的主语言 DOCX。系统结合交付标记、返回文档和当前正文比较文字变化。无法唯一对齐的段落需要澄清；无冲突的文字变化可形成待定候选。格式变化、移动和未匹配段落保留在返稿中供核对。
 
-PDF 导出使用 DSH 共享 Office 服务及字体设置。遇到字体缺失或转换停滞时，可在 **History → PDF font settings** 中读取当前配置、选择字体目录并应用。该设置同时影响 DSH 的其他 Office 预览；关闭设置窗口而不应用会保留原配置。
+PDF 导出使用 DSH 共享 Office 服务及字体设置。遇到字体缺失或转换停滞时，可在 **History** 中展开 **PDF font settings**，刷新以读取当前配置，在文本框中每行填写一个字体目录的绝对路径，再应用设置。该设置同时影响 DSH 的其他 Office 预览；应用后配置才会保存。
 
 ## 数据与文件范围
 
