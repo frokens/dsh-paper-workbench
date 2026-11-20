@@ -1,139 +1,40 @@
-# Paper Workbench for DeepSeek Harness
+# Paper Workbench
 
-面向科研论文的双语阅读、反馈定位、局部修订、独立审读和 Word 文件交付插件。
+Paper Workbench 是 DSH 的论文写作与修订插件，在主对话与右侧工作台之间组织批注、修改候选、双语核读和独立审读。智能体根据用户反馈提出修改，用户通过实际差异决定接受或拒绝。
 
-复用 DeepSeek Harness（DSH）的通用 Agent、工具、研究能力和插件运行时，在同一个
-普通任务的原生对话中提供可持续迭代的论文侧栏。用户可以从材料开始写作，也可以上传已有论文，
-通过逐段中英对照理解内容，在侧栏批注并逐处决定是否接受修改。
+## 功能
 
-## 当前状态
+- **反馈与修订**：对正文、译文和待定候选选择文字并添加批注，将多条意见一起提交给主对话中的智能体。
+- **差异与决定**：展示程序计算的文字变化和修改理由，支持继续修订候选、按改动或依赖组接受与拒绝。
+- **双语核读**：默认以英文正文配合中文译文，支持明确选择中文主语言；译文关联原文位置及版本，译文纠正和正文修改分别处理。
+- **独立审读**：写作轮次完成后，由新会话读取基准正文、候选组合和用户要求，返回带位置的意见，供用户和写作者继续修订。
+- **文档交接**：导入 DOCX 或 Markdown，导出清稿、修订稿和双语 DOCX/PDF，保留批注、决定与历史记录。
 
-本源码版本为 **0.5.0-alpha.13**，是反馈执行与审读指引的开发候选，尚未公开发布。
-它统一纯译文纠正的工具说明和写作技能：用户明确要求只改译文时，沿已有翻译刷新任务写回，
-再核对实际状态，不要求用户手工搬运建议。独立审读的工具字段说明、提示和技能明确区分
-候选错误、原稿既有问题及可选建议，侧栏同步说明其决定含义；未改变用户接受权限、存储合同或模型能力。
-相关背景、实施和评价安排见[反馈执行与审读优化](docs/plans/feedback-action-evaluation.md)。
-alpha9 实验记录审查发现自动审读目标混入宿主注入上下文；alpha13 按正式消息来源
-保留直接用户方向、澄清答复和准确版本的原生目标，排除环境文本与重复批次模板，
-本轮实际送达的反馈批次按稿件冻结，不依赖写作者是否声称回应；澄清答复先保留人工
-选项和自填内容，再提供有界问题上下文。失败后显式重试承接原冻结批次，包括宿主重启后的重试。
-alpha9 模型结果保持原记录，
-不以来源过滤的程序检查代替新版本的模型效果评价。
-本段是打包时快照，后续安装、工程检查和智能体实验按准确包另行记录，不据说明文字宣称改善已验证。
+## 使用
 
-下列为 alpha5 及更早版本的历史记录。上游 alpha4 的审读定位正式工具失败反馈、同轮候选累计差异和窄栏标签布局修正，
-已在 `7bc5670` 获[独立工程复审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815408904)。
-该次 24 项聚焦检查、类型检查与构建不包含当时 alpha4 的实际安装、界面或审读恢复；这些结果按准确版本和包 SHA
-另在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 记录。
-公开 alpha4 原包固定在 `848889a`，其实际安装/界面与一次同稿审读恢复随后分别获
-[零模型界面复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815592027)和
-[有界恢复复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815679820)。
-alpha5 以 `d7ab643` 为功能基线，纳入窄栏键盘移动后的标签可见性修正与批次创建的显式字段保存，
-已获[有界源码复审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815715468)。
-在本包构建时，alpha5 为尚未公开的私有候选，尚未安装或核验新界面；原键盘裁切问题仍待准确候选包验证。
-本页与包内状态文档保留构建时快照，后续准确安装、界面及发布结果以对应 Release 和独立 Review 为准，
-不为后续结果措辞重新打包、移动 tag 或重写历史包。
-分发以 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 中实际列出的版本及附件为准。
+在 DSH 的插件管理中安装插件包，然后在普通任务的主对话中上传文档、提供文件路径，或说明起草要求。打开右侧 Paper Workbench，阅读正文与译文、添加批注并提交。智能体生成候选后，可查看差异和审读意见，再决定如何修改。
 
-历史 [0.5.0-alpha.2 测试预发布](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.2)
-原包固定源码 `bad9ddf`。其主对话文档入口、Word 式批注、系统自动独立审读及保存/审读目标修正已获
-[有界代码复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811373163)和
-[独立包审](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5811461992)。A–D 的有界代码批次已合入，
-E 在 [PR #5](https://github.com/frokens/dsh-paper-workbench/pull/5) 继续，完整产品尚未接收。
+安装环境、文件格式与具体操作见[安装与使用](docs/install.md)。
 
-alpha2 已[匿名下载并经正式安装接口升级](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6705503503)：
-40 个文件和四项 live Skill 路径对应原包，10 个已有普通任务可读，原数据及默认模型保留。
-已有模型配置的 Web 测试宿主也已同进程升级；原生主消息实际完成路径导入、同轮逐段中英对照和局部候选，
-系统自动 fresh 读者已加载安装包 Skill 与准确材料。旧 Markdown 读者因电脑休眠后的流超时与墙钟取消而无输出；
-后续受控 DOCX 的自动审读、明确人类决定和真实文件下载/对照已获
-[有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)；读者的问题和限度保留，不能扩称整稿质量或完整新交互接收。
-网页端的实际选择批注、自动保存、提交、自动审读及准确人类接收已获
-[有界接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711258312)。
-一次普通空草稿从项目材料起草三段英文及完整逐段中文、正式轮次自动唯一 fresh 审读，
-以及官方 Mac alpha2 升级后恢复原任务/侧栏，也已有
-[独立工程核对](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6711574419)。
-首稿保留四项关注、一个问题及六项证据限制，仍待修改，不能据此接收其论文质量。
-完整普通任务入口与 Mac 点击矩阵仍开放。安装使用现有依赖缓存，未声称全冷安装。
+## 源码结构
 
-历史 alpha3 加入待定候选的中英选区批注、继续修订、侧栏阅读层级和 Skill 语境；首稿无需先接受
-即可提交批注并生成新版。批注保留原候选范围，实际接受时只记录可证明的正文/译文定位；
-不能定位的导出批注保留明确提示和回看入口。本地存储/修订检查和一个新增实际 SDK DOCX
-案例已有工程证据。随后 Web 实际安装、四条候选批注、一次提交/写作与唯一 fresh 启动获
-[有界复核](https://github.com/frokens/dsh-paper-workbench/pull/5#pullrequestreview-5815273201)；
-读者把中文引文挂到英文正文块，结构化工具成功后仍被最终定位校验拒收，原始结果与失败状态保留。
-实际窄栏标签重叠和末次候选仅显示版本号差异也已记录。alpha4 修正这些工程消费者，
-明确双语定位与用户交流语言的职责。原包实际累计差异和一次同稿 fresh 恢复已有上述独立复核：
-读者以中文完成，保留一项版本锚点关注和四项证据限制，稿件仍未接受。原始数据保全比较失败与旧批次
-入口字段正规化的归因均保留，成功范围见[研究/审读状态](docs/reference/research-reading-status.md#alpha3-native-result-and-alpha4-follow-up)。
-原包键盘选择、焦点和面板正确，但一次向右移动后标签仍被裁切；后续源码修正须另作实际界面核验。
-
-历史 [alpha1](https://github.com/frokens/dsh-paper-workbench/releases/tag/v0.5.0-alpha.1) 原包与 tag 保持原件。
-[Mac 原生窗口实证](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6703848563)
-验证其正式插件页安装、普通任务侧栏、翻译、候选和真实新读者。它使用旧表单及手工触发流程，
-不能改记为新交互通过；接受/拒绝、重启恢复和关闭侧栏后的自动展开仍待核验。
-真实普通 Agent 已完成代表翻译、写作和新的独立读者审改路径；中文局部删除获得
-[有界独立接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702094136)，
-该历史候选仍待用户决定，不能扩称整稿质量或中英文同步修订通过。
-
-三组合成案例的六份 Microsoft Word 原生接受/拒绝结果已获[有界接收](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6702749197)，
-覆盖对应文本、段落和直接格式，原失败和未保存返稿继续保留。本轮 Word 必选收敛为主对话上传/路径、
-用户确认改动、下载真实 DOCX，并能对照原稿/下载稿的文本与批注变化；代表文件闭环已按
-[实际输入/下载稿及批注](https://github.com/frokens/dsh-paper-workbench/pull/5#issuecomment-6710057046)完成独立核对。
-桌面 Word 自动化、有效命名样式、真实版面及复杂导师返稿为扩展验证，不阻塞这个最小目标。
-插件自身 PDF 导出与代表页文本、字体和分页核对仍独立验收，复用现有有效证据，不作为这次 Word 样例的新前置。
-Mac 完整点击矩阵、默认字体发现和最终界面仍开放。原生读者发现一项实际候选译文的来源覆盖不足，
-原候选与意见保留待定，不能以中文显示正确代替来源语义核验。
-支持组合及证据边界见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/install.md)、
-[接入矩阵](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/dsh-integration.md)和
-[交付与返稿状态](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/document-delivery-status.md)。下列完整体验仍是目标，不能视为全部交付。
-
-## 目标体验
-
-1. 只在 DSH 原生主对话上传论文、@文件、提供路径/链接或表达从头写作目标；普通 Agent 调用同一后台，自动打开侧栏。
-2. 阅读绑定到同一正文的中英对照，选择内容后在对应批注卡讨论；批注自动保存。
-3. 一键提交本轮批注给当前普通 Agent；主聊天也可补充方向和处理任意其他任务。
-4. 整轮论文候选完成后，系统自动启动新的独立读者；侧栏显示真实差异、问题和证据限度，用户不填写审读配置。
-5. 逐处接受、拒绝或继续讨论，保留历史并恢复中断的工作。
-6. 确认所需修改后下载真实 DOCX，保留/定位原批注，查看实际改动的新批注或修改说明，并与原稿对照；继续复用干净稿、原生修订稿、双语稿和 PDF 导出。严格客户端往返与复杂返稿比较属于扩展能力。
-
-安装后，DSH 原有对话界面和主 Agent 核心架构保持原样。插件侧栏对已有、新建、恢复
-及非论文普通任务均可用，不设“创建论文 Agent”的单独入口，不要求切换角色、preset
-或另开专用会话。普通聊天、项目调查、代码编写、文件操作、命令、检索、MCP 和原有
-工具保持可用；未关联论文时不自动注入论文上下文。批注/修订控件归插件侧栏，不重造
-DSH 对话区或主聊天输入框。
-
-## 文档入口
-
-| 文档 | 职责 |
+| 路径 | 内容 |
 | --- | --- |
-| [产品设计](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/product-design.md) | 用户问题、使用流程、范围及不可破坏的产品行为 |
-| [架构设计](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/architecture.md) | 文档模型、状态、修订、翻译、审读及格式适配 |
-| [DSH 接入与分发](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/dsh-integration.md) | 已核源码扩展点、安装、发布包和真实运行要求 |
-| [验收标准](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/reference/acceptance.md) | 工程、真实 DSH、Word 文件闭环及安装验收 |
-| [实施规划](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/plans/implementation-plan.md) | 依赖顺序、职责批次、出口和剩余目标 |
-| [协作与审查](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/CONTRIBUTING.md) | 分支、Draft PR、独立审查、退修和合并 |
-| [工作规则](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/AGENTS.md) | 人与 Agent 均需遵守的稳定约束 |
+| `src/host.ts`、`src/remote.ts` | DSH 工具、事件、存储与界面请求接入 |
+| `src/model.ts`、`src/records.ts`、`src/contracts.ts` | 文档、反馈、候选、决定及参数约束 |
+| `src/operations.ts` | 结构化编辑、选区映射及差异计算 |
+| `src/reading.ts` | 独立审读材料、输出校验与适用性判断 |
+| `src/client.tsx` | 批注、候选、双语阅读与历史界面 |
+| `src/word.ts`、`src/delivery.ts`、`src/returns.ts` | Word 修订、交付记录与返稿比较 |
+| `document-engine/` | 基于 Open XML SDK 的 DOCX 读写引擎 |
+| `skills/` | 写作、局部修订、双语处理和审读的运行指引 |
+| `tests/` | 文档操作、存储、格式与宿主集成测试 |
 
-## 安装测试包
+状态关系与模块协作见[技术说明](docs/reference/architecture.md)。
 
-候选包包含已构建 Host/Client、文档运行时、Skill 和许可，通过 DSH 正式插件入口安装。
-历史 alpha1/alpha2 的有界安装证据覆盖 DSH `0.2.2-rc.1` Web 和官方 Mac app 自有宿主/profile，
-均为 macOS Apple silicon；alpha3/alpha4 另有上述 Web 证据。它们不证明 alpha5 实际加载、完整桌面流程或其余平台。
-候选安装方式与限制见[安装说明](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/docs/install.md)。
+## 从源码构建
 
-仅在 [Releases](https://github.com/frokens/dsh-paper-workbench/releases) 已列出 `v0.5.0-alpha.5` 时，
-下载 `dsh-paper-workbench-0.5.0-alpha.5.tgz` 和同名 `.sha256` 校验文件；未列出的版本不视为已分发。
-核对该附件的字节校验后，在 DSH 的“插件 → 添加插件”输入下载文件路径并安装；使用者不需要
-克隆或编译源码。历史 alpha2 的 32,939,556 字节 / 40 文件及
-`154a57dd06594054612179e72d027c5933051549c39e337a9e94bcaa48a99d44` 只标识原 alpha2。
-包内状态文档保留打包时的快照；后续发布与实测以 Release 和当前仓库/PR 记录为准，不重打原包或移动 tag。
-本版继续从主对话接收文件引用和写作意图，默认英文配中文，明确要求中文主稿时才反转；
-侧栏批注自动保存、一次提交，写作完成后系统自动审读。接受/拒绝始终由用户决定。
-
-## 源码开发
-
-开发者使用 Node.js 24.9 或更高版本和 .NET SDK 10。依赖由 npm 与 NuGet 锁文件确定。
-文档辅助程序使用 Open XML SDK，自带运行时；普通安装使用者无需 .NET SDK。
+需要 macOS Apple silicon、Node.js 24.9 或更高版本及 .NET 10 SDK。插件面向 DSH `0.2.2-rc.1`。
 
 ```sh
 npm ci
@@ -144,12 +45,8 @@ npm run build
 npm run package
 ```
 
-真实 Host 集成检查单独使用 `npm run test:host`，只连接 `DSH_TEST_URL` 指定的可丢弃
-测试服务，检查普通任务的读取/流式观察和人类操作边界，不发模型请求。不得将它指向正常用户环境。
-它不再通过已移除的侧栏输入接口注入候选；新的主对话导入及自动审读需另做最小真实 Agent 验收。
+打包文件生成于 `.local/packages/`。打包脚本会拒绝覆盖同版本的已有文件；构建新的分发包时，应先设置新的包版本。
 
-## 贡献与许可
+## 许可
 
-请先阅读 [CONTRIBUTING.md](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/CONTRIBUTING.md)。本仓库采用 [MIT License](https://github.com/frokens/dsh-paper-workbench/blob/v0.5.0-alpha.5/LICENSE)。
-不得向公共仓库上传私人稿件、导师返稿、聊天截图、凭据或真实 API 密钥；回归样例
-使用合成文档或已核实可以再分发的材料，并保留第三方许可要求的署名。
+项目采用 [MIT License](LICENSE)。所使用的第三方组件及许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

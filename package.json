@@ -34,11 +34,7 @@
     "THIRD_PARTY_NOTICES.md",
     "README.md",
     "docs/install.md",
-    "docs/plans/feedback-action-evaluation.md",
-    "docs/reference/native-slice-status.md",
-    "docs/reference/bilingual-lifecycle-status.md",
-    "docs/reference/research-reading-status.md",
-    "docs/reference/document-delivery-status.md"
+    "docs/reference/architecture.md"
   ],
   "dsh": {
     "bundle": {
